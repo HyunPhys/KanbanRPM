@@ -1,11 +1,10 @@
 {
-	"id": "obsidian-kanban",
-	"name": "Kanban",
-	"version": "2.0.51",
+	"id": "kanban-rpm",
+	"name": "KanbanRPM",
+	"version": "0.1.0",
 	"minAppVersion": "1.0.0",
-	"description": "Create markdown-backed Kanban boards in Obsidian.",
-	"author": "mgmeyers",
-	"authorUrl": "https://github.com/mgmeyers/obsidian-kanban",
-	"helpUrl": "https://publish.obsidian.md/kanban/Obsidian+Kanban+Plugin",
+	"description": "Kanban-based research project manager for Obsidian.",
+	"author": "Byunghyun Kim, based on obsidian-community/obsidian-kanban concepts",
+	"authorUrl": "https://github.com/obsidian-community/obsidian-kanban",
 	"isDesktopOnly": false
 }

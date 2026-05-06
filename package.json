@@ -1,90 +1,28 @@
 {
-  "name": "obsidian-kanban",
-  "version": "2.0.51",
-  "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+  "name": "kanban-rpm",
+  "version": "0.1.0",
+  "description": "Kanban-based research project manager for Obsidian.",
   "main": "main.js",
   "scripts": {
-    "typecheck": "tsc --noemit",
-    "dev": "node esbuild.config.mjs",
-    "build": "node esbuild.config.mjs production",
-    "lint": "eslint ./src/**/*.{ts,tsx}",
-    "lint:fix": "eslint ./src/**/*.{ts,tsx} --fix",
-    "prettier": "prettier --write \"./src/**/*.{ts,tsx}\"",
-    "clean": "yarn prettier && yarn lint:fix",
-    "rlnotes": "git log $(git describe --tags --abbrev=0)..HEAD --oneline > release-notes.md && git add release-notes.md",
-    "bump": "node version-bump.mjs && git add package.json manifest.json versions.json && yarn rlnotes",
-    "release": "git commit -m $npm_package_version && git tag $npm_package_version && git push && git push --tags"
+    "typecheck": "node scripts/typecheck.mjs",
+    "dev": "node scripts/build.mjs",
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check": "npm run typecheck && npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "kanban",
+    "research-project-management"
+  ],
+  "author": "Byunghyun Kim",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@codemirror/commands": "^6.0.0",
-    "@codemirror/state": "^6.0.0",
-    "@codemirror/view": "^6.0.0",
-    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
-    "@types/box-intersect": "^1.0.0",
-    "@types/mark.js": "^8.11.5",
-    "@types/node": "^14.14.37",
-    "@types/raf-schd": "^4.0.1",
-    "@typescript-eslint/eslint-plugin": "^5.8.1",
-    "@typescript-eslint/parser": "^5.8.1",
-    "builtin-modules": "^3.3.0",
-    "esbuild": "^0.19.11",
-    "esbuild-plugin-less": "^1.3.1",
-    "eslint": "^8.56.0",
-    "eslint-plugin-react": "^7.33.2",
-    "magic-string": "^0.30.10",
-    "obsidian": "^1.5.7-1",
-    "obsidian-dataview": "^0.5.66",
-    "obsidian-plugin-cli": "^0.9.0",
-    "prettier": "^3.1.1",
-    "replace": "^1.2.2",
-    "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.7.2"
   },
-  "dependencies": {
-    "@tanstack/match-sorter-utils": "^8.15.1",
-    "@tanstack/react-table": "^8.11.2",
-    "animated-scroll-to": "^2.2.0",
-    "box-intersect": "^1.0.2",
-    "choices.js": "9.0.1",
-    "classcat": "^5.0.3",
-    "colord": "^2.9.3",
-    "deepmerge": "^4.2.2",
-    "eventemitter3": "^5.0.1",
-    "fast-json-patch": "^3.1.0",
-    "file-selector": "^0.2.4",
-    "immutability-helper": "^3.1.1",
-    "immutable-json-patch": "^1.1.2",
-    "is-plain-object": "^5.0.0",
-    "mark.js": "^8.11.1",
-    "mdast": "^3.0.0",
-    "mdast-util-from-markdown": "^1.0.2",
-    "mdast-util-frontmatter": "^1.0.0",
-    "mdast-util-to-markdown": "^1.2.6",
-    "mdast-util-to-string": "^3.1.0",
-    "micromark-util-character": "^1.1.0",
-    "micromark-util-types": "^1.0.1",
-    "monkey-around": "^2.1.0",
-    "obsidian-daily-notes-interface": "^0.9.4",
-    "preact": "^10.8.2",
-    "react": "npm:@preact/compat",
-    "react-colorful": "^5.6.1",
-    "react-cool-onclickoutside": "^1.6.1",
-    "react-dom": "npm:@preact/compat",
-    "react-fast-compare": "^3.2.2",
-    "rrule": "^2.8.1",
-    "unist-util-visit": "^4.1.0"
-  },
-  "importSort": {
-    ".js, .ts, .tsx": {
-      "style": "module-alias",
-      "options": {
-        "alias": [
-          "src"
-        ]
-      }
-    }
-  }
+  "dependencies": {}
 }
