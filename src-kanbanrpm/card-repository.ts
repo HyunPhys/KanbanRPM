@@ -232,7 +232,7 @@ export class CardRepository {
       : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ✅ ${todayIso}`);
 
     lines[index] = nextLine;
-    const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), this.smallActionTimelineLog(action, todayIso));
+    const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), this.smallActionTimelineLog(action, todayIso, file));
     await this.plugin.app.vault.modify(file, nextContent);
     await this.plugin.refreshViews();
   }
@@ -692,9 +692,9 @@ export class CardRepository {
     return `${content.trimEnd()}\n\n${section}`;
   }
 
-  private smallActionTimelineLog(action: SmallAction, date: string): string {
+  private smallActionTimelineLog(action: SmallAction, date: string, file: TFile): string {
     const heading = action.heading && action.heading !== 'Timeline Log' ? ` (${action.heading})` : '';
-    return `- ${date} completed: ${action.text}${heading}`;
+    return `- ${date} completed: [[${file.basename}]] - ${action.text}${heading}`;
   }
 
   private parseTimelineDate(section: string, label: string): string {

@@ -207,7 +207,7 @@ Supported metadata:
 
 Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
 
-You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `✅ YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log`. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `✅ YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
 
 Small-action settings:
 

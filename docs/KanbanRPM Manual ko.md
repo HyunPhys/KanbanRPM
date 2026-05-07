@@ -209,7 +209,7 @@ KanbanRPM은 Tasks-style emoji metadata를 읽습니다.
 
 board card에는 small action row가 접힌 상태로 표시됩니다. `▶ Small actions`를 누르면 펼쳐지고, `▼ Small actions`를 누르면 다시 접힙니다. 펼쳐진 small action은 원래 문서의 heading별로 묶여 표시됩니다.
 
-card에서 small action을 직접 check/uncheck할 수 있습니다. check하면 원본 Markdown line이 `[ ]`에서 `[x]`로 바뀌고 오늘 날짜의 `✅ YYYY-MM-DD` done date가 추가되며, `### Timeline Log`에 최신순 list item이 추가됩니다. uncheck하면 `[x]`가 `[ ]`로 돌아가고 done date가 제거되지만 Timeline Log entry는 제거하지 않습니다.
+card에서 small action을 직접 check/uncheck할 수 있습니다. check하면 원본 Markdown line이 `[ ]`에서 `[x]`로 바뀌고 오늘 날짜의 `✅ YYYY-MM-DD` done date가 추가되며, `### Timeline Log`에 card document로 돌아가는 Obsidian link가 포함된 최신순 list item이 추가됩니다. uncheck하면 `[x]`가 `[ ]`로 돌아가고 done date가 제거되지만 Timeline Log entry는 제거하지 않습니다.
 
 Small-action settings:
 

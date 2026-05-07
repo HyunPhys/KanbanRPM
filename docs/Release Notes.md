@@ -151,5 +151,5 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Changed Timeline Memo from open-note buttons to inline date-cell textareas with show/hide controls.
 - Made Timeline markers more card-like and less table-like.
 - Added `### Timeline Log` to new living document templates.
-- Checking a small action now prepends a completed entry to `### Timeline Log`; unchecking does not remove log history.
+- Checking a small action now prepends a completed entry with a `[[card]]` link to `### Timeline Log`; unchecking does not remove log history.
 - Deferred deeper `Action index` redesign to a later phase.
