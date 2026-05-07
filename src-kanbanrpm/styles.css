@@ -864,7 +864,7 @@
 }
 
 .kanban-rpm-timeline-grid {
-  padding: 0 0 12px;
+  padding: 0 0 18px;
 }
 
 .kanban-rpm-timeline-header,
@@ -903,10 +903,11 @@
 .kanban-rpm-timeline-day,
 .kanban-rpm-timeline-cell {
   min-height: 42px;
-  padding: 5px;
-  border: 1px solid var(--rpm-border);
-  border-left: 0;
-  background: var(--rpm-panel);
+  padding: 8px;
+  border: 0;
+  border-left: 1px solid var(--rpm-border);
+  border-bottom: 1px solid var(--rpm-border);
+  background: var(--background-primary);
   font-size: 11px;
 }
 
@@ -929,7 +930,7 @@
 }
 
 .kanban-rpm-timeline-cell {
-  min-height: 72px;
+  min-height: 132px;
   border-top: 0;
   position: relative;
 }
@@ -938,7 +939,6 @@
   background: var(--rpm-panel-alt);
 }
 
-.kanban-rpm-timeline-memo-button,
 .kanban-rpm-timeline-add {
   width: 100%;
   padding: 3px 5px;
@@ -948,21 +948,35 @@
   font-size: 10px;
 }
 
+.kanban-rpm-timeline-memo-input {
+  width: 100%;
+  min-height: 78px;
+  resize: vertical;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, var(--rpm-border));
+  border-radius: 7px;
+  background: var(--rpm-panel);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .kanban-rpm-timeline-add {
-  margin-top: 4px;
+  margin-top: 12px;
+  border-radius: 6px;
 }
 
 .kanban-rpm-timeline-marker {
   display: block;
   width: 100%;
-  margin-bottom: 4px;
-  padding: 3px 5px;
+  margin-bottom: 7px;
+  padding: 7px 8px;
   border: 1px solid var(--rpm-border);
-  border-radius: 5px;
-  background: var(--rpm-panel-alt);
+  border-left: 3px solid var(--rpm-border);
+  border-radius: 8px;
+  background: var(--rpm-panel);
   color: var(--rpm-normal);
-  font-size: 10px;
-  line-height: 1.25;
+  font-size: 11px;
+  line-height: 1.3;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -971,18 +985,22 @@
 
 .kanban-rpm-timeline-marker-due {
   border-color: var(--text-error);
+  border-left-color: var(--text-error);
 }
 
 .kanban-rpm-timeline-marker-review {
   border-color: var(--interactive-accent);
+  border-left-color: var(--interactive-accent);
 }
 
 .kanban-rpm-timeline-marker-task {
   border-color: var(--text-warning);
+  border-left-color: var(--text-warning);
 }
 
 .kanban-rpm-timeline-marker-recurring {
   border-style: dashed;
+  border-left-style: solid;
 }
 
 .kanban-rpm-timeline-more {

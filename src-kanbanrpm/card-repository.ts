@@ -232,7 +232,8 @@ export class CardRepository {
       : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ✅ ${todayIso}`);
 
     lines[index] = nextLine;
-    await this.plugin.app.vault.modify(file, lines.join('\n'));
+    const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), this.smallActionTimelineLog(action, todayIso));
+    await this.plugin.app.vault.modify(file, nextContent);
     await this.plugin.refreshViews();
   }
 
@@ -585,7 +586,7 @@ export class CardRepository {
     ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Timeline Log\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
@@ -675,6 +676,25 @@ export class CardRepository {
     const replacement = `${'#'.repeat(level)} ${title}\n\n${normalizedBody}${normalizedBody ? '\n' : ''}`;
     if (existing) return `${content.slice(0, existing.start)}${replacement}${content.slice(existing.end)}`;
     return `${content.trimEnd()}\n\n${replacement}`;
+  }
+
+  private prependTimelineLog(content: string, entry: string): string {
+    if (content.includes(entry)) return content;
+    const existing = this.findHeadingSection(content, 'Timeline Log');
+    if (existing) {
+      const body = content.slice(existing.bodyStart, existing.end).trim();
+      return this.replaceSection(content, 'Timeline Log', body ? `${entry}\n${body}` : entry);
+    }
+
+    const timeline = this.findHeadingSection(content, 'Timeline');
+    const section = `### Timeline Log\n\n${entry}\n`;
+    if (timeline) return `${content.slice(0, timeline.end).trimEnd()}\n\n${section}${content.slice(timeline.end)}`;
+    return `${content.trimEnd()}\n\n${section}`;
+  }
+
+  private smallActionTimelineLog(action: SmallAction, date: string): string {
+    const heading = action.heading && action.heading !== 'Timeline Log' ? ` (${action.heading})` : '';
+    return `- ${date} completed: ${action.text}${heading}`;
   }
 
   private parseTimelineDate(section: string, label: string): string {

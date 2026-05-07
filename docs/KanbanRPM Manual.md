@@ -183,7 +183,7 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-`Timeline` view uses a Laminar-style layout: a left `Perpetual` sidebar, top range/search/scope controls, horizontal date columns, and a `Memo` row. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document. Click `Memo` or a day-cell `+` to create/open `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`.
+`Timeline` view uses a Laminar-style layout: a left `Perpetual` sidebar, top range/search/scope controls, horizontal date columns, and a toggleable `Memo` row. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document. Type directly into a date memo cell to save quick text or checkbox notes in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`.
 
 Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
 
@@ -207,7 +207,7 @@ Supported metadata:
 
 Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
 
-You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]` and adds today's `✅ YYYY-MM-DD` done date. Unchecking changes `[x]` back to `[ ]` and removes the done date.
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `✅ YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log`. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
 
 Small-action settings:
 

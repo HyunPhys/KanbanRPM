@@ -145,3 +145,11 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added `Today`, previous/next week, timeline search, and scope controls.
 - Added a `Memo` row and day-cell `+` buttons that create/open date notes in `KanbanRPM Workspace/timeline/`.
 - Kept due, review, small-action, and recurring markers in the new layout.
+
+### Phase 4.6 Timeline Memo And Completion Log
+
+- Changed Timeline Memo from open-note buttons to inline date-cell textareas with show/hide controls.
+- Made Timeline markers more card-like and less table-like.
+- Added `### Timeline Log` to new living document templates.
+- Checking a small action now prepends a completed entry to `### Timeline Log`; unchecking does not remove log history.
+- Deferred deeper `Action index` redesign to a later phase.
