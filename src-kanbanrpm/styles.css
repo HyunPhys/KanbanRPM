@@ -47,6 +47,29 @@
   justify-content: flex-end;
 }
 
+.kanban-rpm-view-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 7px;
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-view-button {
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--rpm-muted);
+  font-size: 12px;
+}
+
+.kanban-rpm-view-button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
 .kanban-rpm-toolbar-secondary {
   display: flex;
   align-items: center;
@@ -554,6 +577,191 @@
   gap: 10px;
   padding: 12px;
   overflow: auto;
+}
+
+.kanban-rpm-table-wrap,
+.kanban-rpm-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: var(--rpm-bg);
+}
+
+.kanban-rpm-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--rpm-border);
+  border-radius: 8px;
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-table th,
+.kanban-rpm-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rpm-border);
+  text-align: left;
+  vertical-align: top;
+  font-size: 12px;
+}
+
+.kanban-rpm-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.kanban-rpm-table tbody tr.is-blocked td:first-child {
+  box-shadow: inset 3px 0 0 var(--text-error);
+}
+
+.kanban-rpm-table-sort,
+.kanban-rpm-table-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.kanban-rpm-table-sort {
+  color: var(--rpm-muted);
+  font-weight: 650;
+}
+
+.kanban-rpm-table-sort.is-active,
+.kanban-rpm-table-title {
+  color: var(--text-accent);
+}
+
+.kanban-rpm-table-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-table-title-cell {
+  min-width: 220px;
+}
+
+.kanban-rpm-table-subtext,
+.kanban-rpm-table-context,
+.kanban-rpm-tree-muted,
+.kanban-rpm-tree-count {
+  color: var(--rpm-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-table-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kanban-rpm-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kanban-rpm-table-actions button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.kanban-rpm-table-empty {
+  color: var(--rpm-muted);
+  text-align: center;
+}
+
+.kanban-rpm-status-select {
+  max-width: 140px;
+  font-size: 12px;
+}
+
+.kanban-rpm-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-rpm-tree-project {
+  border: 1px solid var(--rpm-border);
+  border-left: 4px solid var(--rpm-project-color, var(--interactive-accent));
+  border-radius: 8px;
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-tree-subproject {
+  margin: 0 8px 8px 24px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 7px;
+  background: var(--rpm-panel-alt);
+}
+
+.kanban-rpm-tree-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(160px, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--rpm-border);
+}
+
+.kanban-rpm-tree-row:first-child {
+  border-top: 0;
+}
+
+.kanban-rpm-tree-project-row {
+  font-weight: 700;
+}
+
+.kanban-rpm-tree-action-row {
+  grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+}
+
+.kanban-rpm-tree-action-row.is-blocked {
+  box-shadow: inset 3px 0 0 var(--text-error);
+}
+
+.kanban-rpm-tree-toggle {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 11px;
+}
+
+.kanban-rpm-tree-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-accent);
+  font-weight: 650;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-tree-pill {
+  padding: 2px 6px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 999px;
+  color: var(--rpm-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.kanban-rpm-tree-spacer {
+  width: 24px;
 }
 
 .kanban-rpm-lane {

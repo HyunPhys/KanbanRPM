@@ -144,6 +144,7 @@ KanbanRPM Workspace/archive/
 ## MVP Features
 
 - Open the KanbanRPM board from the command palette or ribbon.
+- Switch between `Board`, `Table`, and `List` views from the toolbar.
 - Search/filter cards from the board toolbar.
 - Filter cards by `Project` and `Category`.
 - Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
@@ -172,6 +173,7 @@ KanbanRPM Workspace/archive/
 - Configure Category values from plugin settings.
 - Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
 - Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
+- Sort cards in `Table` view and inspect a collapsible `Project -> Subproject -> Big Action` tree in `List` view.
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
 - Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.

@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './constants';
 import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
-import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status } from './types';
+import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status, ViewMode } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
 
 interface PointerDragState {
@@ -15,6 +15,8 @@ interface PointerDragState {
   activeLaneEl?: HTMLElement;
 }
 
+type TableSortKey = 'title' | 'project' | 'type' | 'status' | 'priority' | 'date' | 'dependencies' | 'actions';
+
 export class KanbanRPMView extends ItemView {
   private plugin: KanbanRPMPlugin;
   private cards: ProjectCard[] = [];
@@ -23,6 +25,9 @@ export class KanbanRPMView extends ItemView {
   private searchQuery = '';
   private projectFilter = '';
   private workstreamTypeFilter = '';
+  private viewMode: ViewMode = 'board';
+  private tableSortKey: TableSortKey = 'priority';
+  private tableSortDirection: 'asc' | 'desc' = 'asc';
   private groupByProject = true;
   private toolbarExpanded = false;
   private showDataWarnings = false;
@@ -31,6 +36,7 @@ export class KanbanRPMView extends ItemView {
   private projectNotesCollapsed = false;
   private expandedSmallActions = new Set<string>();
   private collapsedSmallActions = new Set<string>();
+  private collapsedListNodes = new Set<string>();
   private pointerDrag?: PointerDragState;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanRPMPlugin) {
@@ -74,7 +80,9 @@ export class KanbanRPMView extends ItemView {
     title.createEl('h2', { text: 'KanbanRPM' });
     title.createSpan({
       cls: 'kanban-rpm-count',
-      text: this.searchQuery ? `${visibleBoardCards.length} of ${this.cards.length} cards` : `${visibleBoardCards.length} cards`,
+      text: this.searchQuery
+        ? `${visibleBoardCards.length} of ${this.cards.length} cards - ${this.viewMode}`
+        : `${visibleBoardCards.length} cards - ${this.viewMode}`,
     });
 
     const actions = toolbar.createDiv({ cls: 'kanban-rpm-actions' });
@@ -99,15 +107,19 @@ export class KanbanRPMView extends ItemView {
       });
     }
 
+    this.renderViewSwitcher(actions);
+
     actions.createEl('button', { text: 'New document' }).addEventListener('click', () => {
       new NewProjectCardModal(this.app, this.plugin).open();
     });
-    actions
-      .createEl('button', { text: this.groupByProject ? 'Flat board' : this.getGroupingLabel() })
-      .addEventListener('click', () => {
-        this.groupByProject = !this.groupByProject;
-        this.render();
-      });
+    if (this.viewMode === 'board') {
+      actions
+        .createEl('button', { text: this.groupByProject ? 'Flat board' : this.getGroupingLabel() })
+        .addEventListener('click', () => {
+          this.groupByProject = !this.groupByProject;
+          this.render();
+        });
+    }
     actions.createEl('button', { text: 'Refresh' }).addEventListener('click', () => {
       void this.refresh();
     });
@@ -141,9 +153,32 @@ export class KanbanRPMView extends ItemView {
     if (this.showActionIndex) this.renderActionIndexGrouped(container, visibleBoardCards);
     this.renderProjectNotes(container);
 
-    const board = container.createDiv({ cls: 'kanban-rpm-board' });
-    for (const lane of this.plugin.settings.statuses) {
-      this.renderLane(board, lane, visibleBoardCards.filter((card) => card.status === lane.id).sort(compareCards));
+    if (this.viewMode === 'table') {
+      this.renderTableView(container, visibleBoardCards);
+      return;
+    }
+
+    if (this.viewMode === 'list') {
+      this.renderListView(container, visibleBoardCards);
+      return;
+    }
+
+    this.renderBoardView(container, visibleBoardCards);
+  }
+
+  private renderViewSwitcher(container: HTMLElement): void {
+    const switcher = container.createDiv({ cls: 'kanban-rpm-view-switcher' });
+    for (const mode of ['board', 'table', 'list'] as ViewMode[]) {
+      const label = mode[0].toUpperCase() + mode.slice(1);
+      const button = switcher.createEl('button', {
+        cls: this.viewMode === mode ? 'kanban-rpm-view-button is-active' : 'kanban-rpm-view-button',
+        text: label,
+        attr: { 'aria-pressed': String(this.viewMode === mode) },
+      });
+      button.addEventListener('click', () => {
+        this.viewMode = mode;
+        this.render();
+      });
     }
   }
 
@@ -484,6 +519,251 @@ export class KanbanRPMView extends ItemView {
     });
     row.setAttr('role', 'button');
     row.setAttr('tabindex', '0');
+  }
+
+  private renderBoardView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
+    const board = container.createDiv({ cls: 'kanban-rpm-board' });
+    for (const lane of this.plugin.settings.statuses) {
+      this.renderLane(board, lane, visibleBoardCards.filter((card) => card.status === lane.id).sort(compareCards));
+    }
+  }
+
+  private renderTableView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
+    const sortedCards = this.sortTableCards(visibleBoardCards);
+    const wrap = container.createDiv({ cls: 'kanban-rpm-table-wrap' });
+    const table = wrap.createEl('table', { cls: 'kanban-rpm-table' });
+    const thead = table.createEl('thead');
+    const header = thead.createEl('tr');
+    this.renderTableHeader(header, 'title', 'Title');
+    this.renderTableHeader(header, 'project', 'Project');
+    this.renderTableHeader(header, 'type', 'Type');
+    this.renderTableHeader(header, 'status', 'Status');
+    this.renderTableHeader(header, 'priority', 'Priority');
+    this.renderTableHeader(header, 'date', 'Due / Review');
+    this.renderTableHeader(header, 'dependencies', 'Dependencies');
+    this.renderTableHeader(header, 'actions', 'Actions');
+
+    const tbody = table.createEl('tbody');
+    if (!sortedCards.length) {
+      const row = tbody.createEl('tr');
+      const cell = row.createEl('td', { cls: 'kanban-rpm-table-empty', text: 'No cards match the current filters.' });
+      cell.colSpan = 8;
+      return;
+    }
+
+    for (const card of sortedCards) this.renderTableRow(tbody, card);
+  }
+
+  private renderTableHeader(row: HTMLTableRowElement, key: TableSortKey, label: string): void {
+    const th = row.createEl('th');
+    const active = this.tableSortKey === key;
+    const button = th.createEl('button', {
+      cls: active ? 'kanban-rpm-table-sort is-active' : 'kanban-rpm-table-sort',
+      text: `${label}${active ? (this.tableSortDirection === 'asc' ? ' ▲' : ' ▼') : ''}`,
+    });
+    button.addEventListener('click', () => {
+      if (this.tableSortKey === key) {
+        this.tableSortDirection = this.tableSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.tableSortKey = key;
+        this.tableSortDirection = 'asc';
+      }
+      this.render();
+    });
+  }
+
+  private renderTableRow(tbody: HTMLTableSectionElement, card: ProjectCard): void {
+    const row = tbody.createEl('tr', { cls: card.blockedBy.length ? 'is-blocked' : '' });
+    row.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
+
+    const titleCell = row.createEl('td', { cls: 'kanban-rpm-table-title-cell' });
+    const titleButton = titleCell.createEl('button', { cls: 'kanban-rpm-table-title', text: card.title });
+    titleButton.addEventListener('click', () => {
+      void this.plugin.openCard(card);
+    });
+    if (card.nextAction) titleCell.createDiv({ cls: 'kanban-rpm-table-subtext', text: card.nextAction });
+
+    const projectCell = row.createEl('td');
+    const projectLine = projectCell.createDiv({ cls: 'kanban-rpm-table-context' });
+    this.addProjectToken(projectLine, card.colorKey);
+    projectLine.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
+
+    row.createEl('td', { text: this.cardTypeLabel(card.type) });
+    const statusCell = row.createEl('td');
+    this.renderStatusSelect(statusCell, card);
+    row.createEl('td', { text: `P${card.priority}` });
+    row.createEl('td', { text: this.cardDateLabel(card) });
+    row.createEl('td', { text: this.cardDependencyLabel(card) });
+
+    const actionCell = row.createEl('td', { cls: 'kanban-rpm-table-actions' });
+    actionCell.createSpan({ text: `${card.actionCount} tasks` });
+    actionCell.createEl('button', { text: 'Edit' }).addEventListener('click', () => {
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+  }
+
+  private renderStatusSelect(container: HTMLElement, card: ProjectCard): void {
+    const select = container.createEl('select', { cls: 'kanban-rpm-status-select' });
+    for (const status of this.plugin.settings.statuses) {
+      select.createEl('option', { text: status.label, value: status.id });
+    }
+    select.value = card.status;
+    select.addEventListener('change', () => {
+      void this.plugin.setCardStatus(card, select.value);
+    });
+  }
+
+  private renderListView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
+    const list = container.createDiv({ cls: 'kanban-rpm-tree' });
+    const projects = this.cards
+      .filter((card) => card.type === 'project')
+      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitle === this.projectFilter)
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    const projectNames = new Set(projects.map((project) => project.title));
+    for (const card of visibleBoardCards) {
+      if (card.projectTitle && !projectNames.has(card.projectTitle)) {
+        projectNames.add(card.projectTitle);
+        projects.push(card);
+      }
+    }
+
+    if (!projects.length) {
+      list.createDiv({ cls: 'kanban-rpm-empty', text: 'No project tree matches the current filters.' });
+      return;
+    }
+
+    projects.sort((a, b) => a.projectTitle.localeCompare(b.projectTitle) || a.title.localeCompare(b.title));
+    for (const project of projects) {
+      const projectTitle = project.type === 'project' ? project.title : project.projectTitle;
+      if (!projectTitle) continue;
+      this.renderProjectTree(list, projectTitle, visibleBoardCards);
+    }
+  }
+
+  private renderProjectTree(container: HTMLElement, projectTitle: string, visibleBoardCards: ProjectCard[]): void {
+    const projectCards = visibleBoardCards.filter((card) => card.projectTitle === projectTitle);
+    const nodeKey = `project:${projectTitle}`;
+    const collapsed = this.collapsedListNodes.has(nodeKey);
+    const projectEl = container.createDiv({ cls: 'kanban-rpm-tree-project' });
+    const header = projectEl.createDiv({ cls: 'kanban-rpm-tree-row kanban-rpm-tree-project-row' });
+    header.style.setProperty('--rpm-project-color', this.projectColor(projectTitle));
+    this.renderTreeToggle(header, nodeKey, collapsed);
+    this.addProjectToken(header, projectTitle);
+    const title = header.createEl('button', { cls: 'kanban-rpm-tree-title', text: projectTitle });
+    title.addEventListener('click', () => {
+      const projectCard = this.cards.find((card) => card.type === 'project' && card.title === projectTitle);
+      if (projectCard) void this.plugin.openCard(projectCard);
+    });
+    header.createSpan({ cls: 'kanban-rpm-tree-count', text: `${projectCards.length} items` });
+
+    if (collapsed) return;
+
+    const subprojectCards = projectCards.filter((card) => card.type === 'subproject').sort(compareCards);
+    const subprojectTitles = new Set<string>();
+    for (const subproject of subprojectCards) subprojectTitles.add(subproject.title);
+    for (const card of projectCards) if (card.subprojectTitle) subprojectTitles.add(card.subprojectTitle);
+    if (!subprojectTitles.size) subprojectTitles.add('No subproject');
+
+    for (const subprojectTitle of Array.from(subprojectTitles).sort((a, b) => a.localeCompare(b))) {
+      this.renderSubprojectTree(projectEl, projectTitle, subprojectTitle, projectCards);
+    }
+  }
+
+  private renderSubprojectTree(
+    container: HTMLElement,
+    projectTitle: string,
+    subprojectTitle: string,
+    projectCards: ProjectCard[]
+  ): void {
+    const subprojectCard = projectCards.find((card) => card.type === 'subproject' && card.title === subprojectTitle);
+    const bigActions = projectCards
+      .filter((card) => card.type === 'big_action')
+      .filter((card) => (subprojectTitle === 'No subproject' ? !card.subprojectTitle : card.subprojectTitle === subprojectTitle))
+      .sort(compareCards);
+    if (!subprojectCard && !bigActions.length) return;
+
+    const nodeKey = `subproject:${projectTitle}:${subprojectTitle}`;
+    const collapsed = this.collapsedListNodes.has(nodeKey);
+    const group = container.createDiv({ cls: 'kanban-rpm-tree-subproject' });
+    const row = group.createDiv({ cls: 'kanban-rpm-tree-row kanban-rpm-tree-subproject-row' });
+    this.renderTreeToggle(row, nodeKey, collapsed);
+    const title = row.createEl('button', { cls: 'kanban-rpm-tree-title', text: subprojectTitle });
+    title.addEventListener('click', () => {
+      if (subprojectCard) void this.plugin.openCard(subprojectCard);
+    });
+    if (subprojectCard) {
+      row.createSpan({ cls: 'kanban-rpm-tree-pill', text: subprojectCard.status });
+      row.createSpan({ cls: 'kanban-rpm-tree-muted', text: subprojectCard.nextAction || subprojectCard.workstreamType });
+    }
+    row.createSpan({ cls: 'kanban-rpm-tree-count', text: `${bigActions.length} actions` });
+
+    if (collapsed) return;
+
+    for (const card of bigActions) {
+      const item = group.createDiv({ cls: `kanban-rpm-tree-row kanban-rpm-tree-action-row${card.blockedBy.length ? ' is-blocked' : ''}` });
+      item.createSpan({ cls: 'kanban-rpm-tree-spacer' });
+      const titleButton = item.createEl('button', { cls: 'kanban-rpm-tree-title', text: card.title });
+      titleButton.addEventListener('click', () => {
+        void this.plugin.openCard(card);
+      });
+      item.createSpan({ cls: 'kanban-rpm-tree-pill', text: card.status });
+      item.createSpan({ cls: 'kanban-rpm-tree-muted', text: this.cardDateLabel(card) });
+      item.createSpan({ cls: 'kanban-rpm-tree-muted', text: `${card.actionCount} tasks` });
+    }
+  }
+
+  private renderTreeToggle(container: HTMLElement, key: string, collapsed: boolean): void {
+    container
+      .createEl('button', { cls: 'kanban-rpm-tree-toggle', text: collapsed ? '>' : 'v' })
+      .addEventListener('click', () => {
+        if (this.collapsedListNodes.has(key)) this.collapsedListNodes.delete(key);
+        else this.collapsedListNodes.add(key);
+        this.render();
+      });
+  }
+
+  private sortTableCards(cards: ProjectCard[]): ProjectCard[] {
+    const sorted = [...cards].sort((a, b) => {
+      const aValue = this.tableSortValue(a, this.tableSortKey);
+      const bValue = this.tableSortValue(b, this.tableSortKey);
+      const result = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+      return result || compareCards(a, b);
+    });
+    if (this.tableSortDirection === 'desc') sorted.reverse();
+    return sorted;
+  }
+
+  private tableSortValue(card: ProjectCard, key: TableSortKey): string {
+    if (key === 'title') return card.title;
+    if (key === 'project') return card.breadcrumb || card.projectTitle || '';
+    if (key === 'type') return card.type;
+    if (key === 'status') return card.status;
+    if (key === 'priority') return String(card.priority).padStart(2, '0');
+    if (key === 'date') return toDateSortValue(card);
+    if (key === 'dependencies') return String(card.blockedBy.length + card.dependsOn.length + card.blocks.length).padStart(3, '0');
+    return String(card.actionCount).padStart(4, '0');
+  }
+
+  private cardTypeLabel(type: ProjectCard['type']): string {
+    if (type === 'big_action') return 'Big Action';
+    if (type === 'subproject') return 'Subproject';
+    return 'Project';
+  }
+
+  private cardDateLabel(card: ProjectCard): string {
+    const parts = [];
+    if (card.dueDate) parts.push(`due ${card.dueDate}`);
+    if (card.nextReview) parts.push(`review ${card.nextReview}`);
+    return parts.join(' - ') || 'No date';
+  }
+
+  private cardDependencyLabel(card: ProjectCard): string {
+    const parts = [];
+    if (card.blockedBy.length) parts.push(`blocked by ${card.blockedBy.length}`);
+    if (card.dependsOn.length) parts.push(`depends ${card.dependsOn.length}`);
+    if (card.blocks.length) parts.push(`blocks ${card.blocks.length}`);
+    return parts.join(' - ') || 'None';
   }
 
   private renderLane(board: HTMLElement, lane: Lane, cards: ProjectCard[]): void {

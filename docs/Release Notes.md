@@ -110,3 +110,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Moved `Data warnings`, `Command center`, and `Action index` behind filter-row toggle buttons.
 - Removed hidden panels from the board area entirely instead of leaving collapsed panel headers.
 - Added a `Project notes` collapse control while keeping Project documents separate from status lanes.
+
+### Phase 4.1 Table And List Views
+
+- Added a toolbar view switcher for `Board`, `Table`, and `List`.
+- Added sortable `Table` view with status editing from each row.
+- Added collapsible `List` view for the `Project -> Subproject -> Big Action` hierarchy.
+- Kept Project documents out of board lanes while making them openable from the tree and Project notes strip.

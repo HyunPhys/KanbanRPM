@@ -41,8 +41,8 @@ for (const rel of [
 assertFileContains('README.md', ['npm run package', 'docs/Install.md', 'docs/Release Notes.md']);
 assertFileContains('docs/Install.md', [manifest.id, manifest.version, 'main.js', 'manifest.json', 'styles.css']);
 assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Daily', 'Weekly review', 'Action index']);
-assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Pull Daily', 'Weekly review']);
-assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Pull Daily', 'Weekly review']);
+assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Pull Daily', 'Weekly review', 'Table', 'List']);
+assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Pull Daily', 'Weekly review', 'Table', 'List']);
 assertFileContains('docs/Attribution.md', ['obsidian-community/obsidian-kanban', 'kanban-rpm']);
 
 console.log('KanbanRPM smoke checks passed');
