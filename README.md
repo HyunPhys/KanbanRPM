@@ -38,6 +38,7 @@ The roadmap, baseline checklist, and user manuals are maintained at:
 
 ```text
 docs/Roadmap.md
+docs/Roadmap v0.2.md
 docs/Install.md
 docs/Baseline QA.md
 docs/Release QA.md

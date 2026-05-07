@@ -5,15 +5,15 @@ import type { ActionItem, CardIssue, CardIssueLevel, LegacyProjectCandidate, New
 import {
   compareCards,
   getWikiLinkTarget,
-  isStatus,
+  normalizeStatus,
   isValidDateString,
   parseOrder,
   parsePriority,
   sanitizeFileName,
   splitFrontmatter,
   text,
-  textareaToList,
   toStringList,
+  textareaToList,
   yamlArray,
   yamlScalar,
 } from './utils';
@@ -25,6 +25,7 @@ export class CardRepository {
     await this.plugin.ensureWorkspace();
     const cards: ProjectCard[] = [];
     const prefix = `${this.plugin.cardsFolder}/`;
+    const statuses = this.plugin.settings.statuses;
 
     for (const file of this.plugin.app.vault.getMarkdownFiles()) {
       if (!file.path.startsWith(prefix)) continue;
@@ -32,13 +33,26 @@ export class CardRepository {
       const cache = this.plugin.app.metadataCache.getFileCache(file);
       const fm = cache?.frontmatter ?? {};
       if (fm.kanban_rpm !== true && fm.kanban_rpm !== 'true') continue;
+      const content = await this.plugin.app.vault.read(file);
+      const sectionData = this.parseLivingDocSections(content);
+      const type = this.normalizeCardType(text(fm.type));
+      const parent = text(fm.parent) || text(fm.project) || text(fm.group);
+      const order = parseOrder(fm.order) ?? parseOrder(fm.rpm_order);
 
-      const status = isStatus(fm.status) ? fm.status : 'inbox';
       cards.push({
         file,
         path: file.path,
+        id: text(fm.id) || file.basename,
         title: text(fm.title) || file.basename,
-        status,
+        type,
+        status: normalizeStatus(fm.status, statuses),
+        parent,
+        parentPath: '',
+        parentTitle: '',
+        projectTitle: '',
+        subprojectTitle: '',
+        breadcrumb: '',
+        colorKey: '',
         priority: parsePriority(fm.priority),
         area: text(fm.area),
         group: text(fm.group),
@@ -60,13 +74,22 @@ export class CardRepository {
         relatedPhenomena: toStringList(fm.related_phenomena),
         relatedPeople: toStringList(fm.related_people),
         relatedNotes: toStringList(fm.related_notes),
-        dependsOn: toStringList(fm.depends_on),
-        blocks: toStringList(fm.blocks),
+        dependsOn: [...toStringList(fm.depends_on), ...sectionData.dependsOn],
+        blocks: [...toStringList(fm.blocks), ...sectionData.blocks],
+        blockedBy: [],
         sourceNotes: toStringList(fm.source_notes),
-        rpmOrder: parseOrder(fm.rpm_order),
+        perpetuals: sectionData.perpetuals.map((item) => ({
+          ...item,
+          cardPath: file.path,
+          cardTitle: text(fm.title) || file.basename,
+        })),
+        actionCount: sectionData.actionCount,
+        rpmOrder: order,
       });
     }
 
+    this.applyHierarchy(cards);
+    this.applyBlockedBy(cards);
     return cards.sort(compareCards);
   }
 
@@ -82,12 +105,47 @@ export class CardRepository {
       index += 1;
     }
 
-    const content = `---\nkanban_rpm: true\ntype: project\nstatus: ${yamlScalar(values.status)}\npriority: ${yamlScalar(values.priority || 3)}\narea: ${yamlScalar(values.area)}\ngroup: ${yamlScalar(values.group)}\nworkstream_type: ${yamlScalar(values.workstreamType)}\nproject_kind: ${yamlScalar(values.projectKind)}\nstage: ${yamlScalar(values.stage)}\ntitle: ${yamlScalar(title)}\nnext_action: ${yamlScalar(values.nextAction)}\nwaiting_for: ${yamlScalar(values.waitingFor)}\nblocker: ${yamlScalar(values.blocker)}\nnext_review: ${yamlScalar(values.nextReview)}\ndue_date: ${yamlScalar(values.dueDate)}\nimportance: ${yamlScalar(values.importance || 'normal')}\nrpm_order: \nlegacy_links: ${yamlArray(textareaToList(values.legacyLinks))}\nrelated_samples: ${yamlArray(textareaToList(values.relatedSamples))}\nrelated_phenomena: ${yamlArray(textareaToList(values.relatedPhenomena))}\nrelated_people: ${yamlArray(textareaToList(values.relatedPeople))}\nrelated_notes: ${yamlArray(textareaToList(values.relatedNotes))}\ndepends_on: ${yamlArray(textareaToList(values.dependsOn))}\nblocks: ${yamlArray(textareaToList(values.blocks))}\nsource_notes: ${yamlArray(textareaToList(values.sourceNotes))}\n---\n\n## Active Actions\n\n## Waiting\n\n## Decision Log\n\n## Timeline\n\n## References\n`;
+    const parent = values.group ? `\nparent: ${yamlScalar(values.group)}` : '';
+    const content = `---\nkanban_rpm: true\ntype: project\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parent}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> status: ${values.status}\n> project: ${title}\n\n## Current Focus\n\n${values.nextAction ? `- ${values.nextAction}\n` : ''}\n## Subprojects\n\n## Big Actions\n\n${values.nextAction ? `### ${values.nextAction}\n\n- [ ] ${values.nextAction}\n\n` : ''}## Dependencies\n\nDepends on:\n${textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n')}\n\nBlocks:\n${textareaToList(values.blocks).map((item) => `- ${item}`).join('\n')}\n\n## Perpetual\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}\n## Notes\n\n## Decisions\n\n## Timeline\n\n## References\n\n${textareaToList(values.legacyLinks).map((item) => `- ${item}`).join('\n')}\n`;
 
     const file = await this.plugin.app.vault.create(path, content);
     new Notice(`KanbanRPM card created: ${title}`);
     await this.plugin.refreshViews();
     return file;
+  }
+
+  async compactCardMetadata(card: ProjectCard): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const { body } = splitFrontmatter(content);
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    const fm = cache?.frontmatter ?? {};
+    const preserveKeys = new Set(['kanban_rpm', 'type', 'id', 'status', 'parent', 'order']);
+    const compactFrontmatter: Record<string, unknown> = {
+      kanban_rpm: true,
+      type: this.normalizeCardType(text(fm.type)),
+      id: text(fm.id) || sanitizeFileName(card.title),
+      status: card.status,
+    };
+    if (card.parent) compactFrontmatter.parent = card.parent;
+    if (card.rpmOrder !== undefined) compactFrontmatter.order = card.rpmOrder;
+
+    const metadataLines: string[] = [];
+    for (const [key, value] of Object.entries(fm)) {
+      if (preserveKeys.has(key)) continue;
+      const asList = toStringList(value);
+      const asText = text(value).trim();
+      if (!asText && !asList.length) continue;
+      metadataLines.push(`- ${key}: ${Array.isArray(value) ? asList.join(', ') : asText}`);
+    }
+
+    const metadataBlock = metadataLines.length ? `\n## PM Metadata\n\n${metadataLines.join('\n')}\n` : '';
+    const nextBody = body.includes('## PM Metadata') || !metadataLines.length ? body : `${body.trimEnd()}\n${metadataBlock}\n`;
+    await this.plugin.app.vault.modify(file, `---\n${stringifyYaml(compactFrontmatter)}---\n${nextBody}`);
+    new Notice(`Compacted KanbanRPM metadata: ${card.title}`);
+    await this.plugin.refreshViews();
   }
 
   async scanLegacyProjectNotes(): Promise<LegacyProjectCandidate[]> {
@@ -117,7 +175,7 @@ export class CardRepository {
       const reasons = this.getLegacyCandidateReasons(file, fm);
       if (!reasons.length) continue;
 
-      const status = isStatus(fm.status) ? fm.status : 'inbox';
+      const status = normalizeStatus(fm.status, this.plugin.settings.statuses);
       const title = text(fm.title) || file.basename;
       const legacyLink = `[[${file.basename}]]`;
       const existingCardTitle = seeded.get(file.path) ?? seeded.get(normalizePath(file.path)) ?? seeded.get(normalizePath(file.basename + '.md')) ?? '';
@@ -230,7 +288,7 @@ export class CardRepository {
 
     await this.updateCardFrontmatter(file, {
       status: targetStatus,
-      rpm_order: newOrder,
+      order: newOrder,
     });
   }
 
@@ -257,7 +315,7 @@ export class CardRepository {
         if (!(file instanceof TFile)) continue;
 
         await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
-          frontmatter.rpm_order = nextOrder;
+          frontmatter.order = nextOrder;
         });
         updated += 1;
       }
@@ -314,6 +372,7 @@ export class CardRepository {
 
     delete frontmatter.position;
     delete frontmatter.rpm_order;
+    delete frontmatter.order;
     delete frontmatter.archived;
     delete frontmatter.archived_at;
 
@@ -400,7 +459,9 @@ export class CardRepository {
 
       if (fm.type && text(fm.type) !== 'project') add('warning', 'type', `Expected type "project"; current value is "${text(fm.type)}".`);
       if (!text(fm.title).trim()) add('warning', 'title', 'Missing title; file basename is being used.');
-      if (!isStatus(fm.status)) add('error', 'status', `Invalid status "${text(fm.status) || '(empty)'}"; card is shown in Inbox.`);
+      if (!this.plugin.settings.statuses.some((status) => status.id === text(fm.status))) {
+        add('error', 'status', `Unknown status "${text(fm.status) || '(empty)'}"; card is shown in ${this.plugin.settings.statuses[0]?.label ?? 'Inbox'}.`);
+      }
 
       const rawPriority = Number(fm.priority);
       if (!Number.isFinite(rawPriority) || rawPriority < 1 || rawPriority > 5 || Math.round(rawPriority) !== rawPriority) {
@@ -432,12 +493,16 @@ export class CardRepository {
         ...toStringList(fm.source_notes),
         ...toStringList(fm.legacy_links),
         ...toStringList(fm.related_notes),
+        ...card.dependsOn,
+        ...card.blocks,
       ];
       for (const ref of refs) {
         if (ref.includes('[[') && !this.resolveLinkedFile(ref, card.path)) {
           add('warning', 'links', `Could not resolve linked note ${ref}.`);
         }
       }
+
+      if (this.hasCircularDependency(card, cards)) add('warning', 'dependencies', 'Circular dependency detected.');
     }
 
     return issues.sort((a, b) => {
@@ -553,5 +618,141 @@ export class CardRepository {
     const meaningful = parts.find((part) => part.includes('💼'));
     if (meaningful) return meaningful.replace('💼', '').trim();
     return '';
+  }
+
+  private renderNonEmptyMetadata(values: NewCardValues): string {
+    const rows: string[] = [];
+    for (const [label, value] of [
+      ['priority', values.priority],
+      ['area', values.area],
+      ['workstream_type', values.workstreamType],
+      ['project_kind', values.projectKind],
+      ['stage', values.stage],
+      ['waiting_for', values.waitingFor],
+      ['blocker', values.blocker],
+      ['next_review', values.nextReview],
+      ['due_date', values.dueDate],
+      ['importance', values.importance],
+    ]) {
+      if (String(value || '').trim()) rows.push(`- ${label}: ${String(value).trim()}`);
+    }
+    for (const [label, raw] of [
+      ['related_samples', values.relatedSamples],
+      ['related_phenomena', values.relatedPhenomena],
+      ['related_people', values.relatedPeople],
+      ['related_notes', values.relatedNotes],
+      ['source_notes', values.sourceNotes],
+    ]) {
+      const list = textareaToList(raw);
+      if (list.length) rows.push(`- ${label}: ${list.join(', ')}`);
+    }
+    return rows.length ? `${rows.join('\n')}\n\n` : '';
+  }
+
+  private parseLivingDocSections(content: string): {
+    dependsOn: string[];
+    blocks: string[];
+    perpetuals: Array<{ cardPath: string; cardTitle: string; text: string; cadence: 'daily' | 'weekly' | 'monthly' }>;
+    actionCount: number;
+  } {
+    const dependencies = this.getSection(content, 'Dependencies');
+    const perpetual = this.getSection(content, 'Perpetual');
+    const dependsOn = this.parseDependencyList(dependencies, 'Depends on');
+    const blocks = this.parseDependencyList(dependencies, 'Blocks');
+    const perpetuals = perpetual
+      .split(/\r?\n/)
+      .map((line) => line.match(/^\s*[-*]\s+\[[ xX-]\]\s+(.+?)\s+@(daily|weekly|monthly)\b/))
+      .filter((match): match is RegExpMatchArray => Boolean(match))
+      .map((match) => ({
+        cardPath: '',
+        cardTitle: '',
+        text: match[1].trim(),
+        cadence: match[2] as 'daily' | 'weekly' | 'monthly',
+      }));
+    const actionCount = content.split(/\r?\n/).filter((line) => /^\s*[-*]\s+\[ \]\s+/.test(line)).length;
+    return { dependsOn, blocks, perpetuals, actionCount };
+  }
+
+  private getSection(content: string, title: string): string {
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = content.match(new RegExp(`^##\\s+${escaped}\\s*$([\\s\\S]*?)(?=^##\\s+|$)`, 'im'));
+    return match?.[1] ?? '';
+  }
+
+  private parseDependencyList(section: string, label: string): string[] {
+    const lines = section.split(/\r?\n/);
+    const values: string[] = [];
+    let active = false;
+    for (const line of lines) {
+      if (new RegExp(`^\\s*${label}:\\s*$`, 'i').test(line)) {
+        active = true;
+        continue;
+      }
+      if (/^\s*[A-Za-z].*:\s*$/.test(line)) active = false;
+      if (!active) continue;
+      const item = line.match(/^\s*[-*]\s+(.+)/);
+      if (item?.[1]) values.push(item[1].trim());
+    }
+    return values;
+  }
+
+  private normalizeCardType(value: string): ProjectCard['type'] {
+    if (value === 'subproject' || value === 'big_action' || value === 'project') return value;
+    return value ? 'legacy' : 'project';
+  }
+
+  private applyHierarchy(cards: ProjectCard[]): void {
+    for (const card of cards) {
+      const parentFile = card.parent ? this.resolveLinkedFile(card.parent, card.path) : null;
+      const parentCard = parentFile ? cards.find((item) => item.path === parentFile.path || item.file.basename === parentFile.basename) : undefined;
+      card.parentPath = parentCard?.path ?? parentFile?.path ?? '';
+      card.parentTitle = parentCard?.title ?? parentFile?.basename ?? text(card.parent);
+      if (card.type === 'project' || !card.parentTitle) {
+        card.projectTitle = card.title;
+        card.subprojectTitle = '';
+      } else if (parentCard?.type === 'project') {
+        card.projectTitle = parentCard.title;
+        card.subprojectTitle = card.type === 'subproject' ? card.title : '';
+      } else {
+        card.projectTitle = parentCard?.projectTitle || card.group || card.parentTitle || card.title;
+        card.subprojectTitle = parentCard?.type === 'subproject' ? parentCard.title : parentCard?.subprojectTitle || '';
+      }
+      card.breadcrumb = [card.projectTitle, card.subprojectTitle && card.subprojectTitle !== card.title ? card.subprojectTitle : '']
+        .filter(Boolean)
+        .join(' > ');
+      card.colorKey = card.projectTitle || card.group || card.title;
+    }
+  }
+
+  private applyBlockedBy(cards: ProjectCard[]): void {
+    for (const card of cards) card.blockedBy = [];
+    for (const card of cards) {
+      for (const dependency of card.dependsOn) {
+        const dependencyFile = this.resolveLinkedFile(dependency, card.path);
+        const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : undefined;
+        if (dependencyCard && dependencyCard.status !== 'done') card.blockedBy.push(dependencyCard.title);
+      }
+      for (const blocked of card.blocks) {
+        const blockedFile = this.resolveLinkedFile(blocked, card.path);
+        const blockedCard = blockedFile ? cards.find((item) => item.path === blockedFile.path) : undefined;
+        if (blockedCard && card.status !== 'done') blockedCard.blockedBy.push(card.title);
+      }
+    }
+  }
+
+  private hasCircularDependency(card: ProjectCard, cards: ProjectCard[]): boolean {
+    const visited = new Set<string>();
+    const visit = (current: ProjectCard): boolean => {
+      if (visited.has(current.path)) return false;
+      visited.add(current.path);
+      for (const dependency of current.dependsOn) {
+        const dependencyFile = this.resolveLinkedFile(dependency, current.path);
+        const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : undefined;
+        if (!dependencyCard) continue;
+        if (dependencyCard.path === card.path || visit(dependencyCard)) return true;
+      }
+      return false;
+    };
+    return visit(card);
   }
 }

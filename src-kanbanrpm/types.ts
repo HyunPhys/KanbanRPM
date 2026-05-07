@@ -5,9 +5,19 @@ export interface KanbanRPMSettings {
   dailyFolder: string;
   dailySection: string;
   weeklyReviewFolder: string;
+  statuses: StatusDefinition[];
 }
 
-export type Status = 'inbox' | 'active' | 'waiting' | 'blocked' | 'someday' | 'done';
+export type Status = string;
+
+export type CardType = 'project' | 'subproject' | 'big_action' | 'legacy';
+
+export type ViewMode = 'board' | 'table' | 'list' | 'timeline' | 'graph';
+
+export interface StatusDefinition {
+  id: string;
+  label: string;
+}
 
 export interface Lane {
   id: Status;
@@ -17,9 +27,18 @@ export interface Lane {
 export interface ProjectCard {
   file: TFile;
   path: string;
+  id: string;
   title: string;
+  type: CardType;
   status: Status;
   priority: number;
+  parent: string;
+  parentPath: string;
+  parentTitle: string;
+  projectTitle: string;
+  subprojectTitle: string;
+  breadcrumb: string;
+  colorKey: string;
   area: string;
   group: string;
   workstreamType: string;
@@ -38,7 +57,10 @@ export interface ProjectCard {
   relatedNotes: string[];
   dependsOn: string[];
   blocks: string[];
+  blockedBy: string[];
   sourceNotes: string[];
+  perpetuals: RecurringItem[];
+  actionCount: number;
   rpmOrder?: number;
 }
 
@@ -74,6 +96,24 @@ export interface ActionItem {
   sourceLabel: string;
   lineNumber: number;
   text: string;
+  recurring?: boolean;
+}
+
+export interface RecurringItem {
+  cardPath: string;
+  cardTitle: string;
+  text: string;
+  cadence: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface DependencyEdge {
+  fromPath: string;
+  fromTitle: string;
+  toPath: string;
+  toTitle: string;
+  relationship: 'depends_on' | 'blocks';
+  raw: string;
+  broken: boolean;
 }
 
 export interface LegacyProjectCandidate {

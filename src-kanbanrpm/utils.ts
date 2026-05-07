@@ -1,6 +1,6 @@
 import { normalizePath } from 'obsidian';
 import { LANES, WEEKDAYS_KO } from './constants';
-import type { KanbanRPMSettings, ProjectCard, Status } from './types';
+import type { KanbanRPMSettings, ProjectCard, Status, StatusDefinition } from './types';
 
 export function text(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -48,7 +48,40 @@ export function sanitizeFileName(name: string): string {
 }
 
 export function isStatus(value: unknown): value is Status {
-  return LANES.some((lane) => lane.id === value);
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export function normalizeStatus(value: unknown, statuses: StatusDefinition[]): Status {
+  const raw = text(value).trim().toLowerCase().replace(/\s+/g, '-');
+  if (statuses.some((status) => status.id === raw)) return raw;
+  return statuses[0]?.id ?? LANES[0].id;
+}
+
+export function parseStatuses(value: string): StatusDefinition[] {
+  const statuses = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [idPart, labelPart] = line.split('|').map((part) => part.trim());
+      const id = (idPart || labelPart || 'status').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+      return {
+        id,
+        label: labelPart || idPart || id,
+      };
+    })
+    .filter((status) => status.id);
+
+  const seen = new Set<string>();
+  return statuses.filter((status) => {
+    if (seen.has(status.id)) return false;
+    seen.add(status.id);
+    return true;
+  });
+}
+
+export function serializeStatuses(statuses: StatusDefinition[]): string {
+  return statuses.map((status) => `${status.id} | ${status.label}`).join('\n');
 }
 
 export function isValidDateString(value: string): boolean {

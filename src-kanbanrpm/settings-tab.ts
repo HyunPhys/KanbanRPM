@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type KanbanRPMPlugin from './main';
+import { parseStatuses, serializeStatuses } from './utils';
 
 export class KanbanRPMSettingTab extends PluginSettingTab {
   private plugin: KanbanRPMPlugin;
@@ -65,6 +66,22 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
             this.plugin.settings.weeklyReviewFolder = value.trim() || DEFAULT_SETTINGS.weeklyReviewFolder;
             await this.plugin.saveSettings();
           });
+      });
+
+    new Setting(containerEl)
+      .setName('Global status set')
+      .setDesc('One status per line. Format: id | Label. Used by Board, Table, List, Timeline, and Graph.')
+      .addTextArea((input) => {
+        input
+          .setPlaceholder(serializeStatuses(DEFAULT_SETTINGS.statuses))
+          .setValue(serializeStatuses(this.plugin.settings.statuses))
+          .onChange(async (value) => {
+            const statuses = parseStatuses(value);
+            this.plugin.settings.statuses = statuses.length ? statuses : DEFAULT_SETTINGS.statuses;
+            await this.plugin.saveSettings();
+            await this.plugin.refreshViews();
+          });
+        input.inputEl.rows = 8;
       });
   }
 }

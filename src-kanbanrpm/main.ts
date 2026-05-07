@@ -66,6 +66,12 @@ export default class KanbanRPMPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: 'compact-card-metadata',
+      name: 'Compact card metadata',
+      callback: () => void this.compactVisibleCardMetadata(),
+    });
+
+    this.addCommand({
       id: 'open-schema-reference',
       name: 'Open schema reference',
       callback: () => void this.openSchemaReference(),
@@ -199,6 +205,20 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async normalizeCardOrder(): Promise<void> {
     await this.repository.normalizeCardOrder();
+  }
+
+  async compactCardMetadata(card: ProjectCard): Promise<void> {
+    await this.repository.compactCardMetadata(card);
+  }
+
+  async compactVisibleCardMetadata(): Promise<void> {
+    const cards = await this.loadCards();
+    if (!cards.length) {
+      new Notice('No KanbanRPM cards to compact.');
+      return;
+    }
+    await this.repository.compactCardMetadata(cards[0]);
+    new Notice('Compacted the first KanbanRPM card. Use card actions to compact specific cards.');
   }
 
   async openSchemaReference(): Promise<void> {
