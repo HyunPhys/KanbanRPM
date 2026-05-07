@@ -188,6 +188,19 @@
   font-size: 12px;
 }
 
+.kanban-rpm-project-strip-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kanban-rpm-project-strip-actions button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
 .kanban-rpm-project-note-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -247,6 +260,28 @@
 
 .kanban-rpm-filter select {
   max-width: 180px;
+}
+
+.kanban-rpm-panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.kanban-rpm-panel-toggle {
+  padding: 4px 8px;
+  border: 1px solid var(--rpm-border);
+  background: var(--background-secondary);
+  color: var(--rpm-muted);
+  font-size: 12px;
+}
+
+.kanban-rpm-panel-toggle.is-active {
+  border-color: var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
 .kanban-rpm-data-warnings {

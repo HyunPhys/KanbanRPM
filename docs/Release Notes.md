@@ -104,3 +104,9 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Updated Big Action create/edit to choose `Project` first, then a Subproject within that Project.
 - Kept legacy `parent` as a read fallback only.
 - Added warnings for missing or inconsistent Project/Subproject links.
+
+### Phase 3.12 Board Panel Toggles
+
+- Moved `Data warnings`, `Command center`, and `Action index` behind filter-row toggle buttons.
+- Removed hidden panels from the board area entirely instead of leaving collapsed panel headers.
+- Added a `Project notes` collapse control while keeping Project documents separate from status lanes.

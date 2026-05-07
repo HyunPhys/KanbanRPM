@@ -25,9 +25,10 @@ export class KanbanRPMView extends ItemView {
   private workstreamTypeFilter = '';
   private groupByProject = true;
   private toolbarExpanded = false;
-  private dataWarningsCollapsed = true;
-  private commandCenterCollapsed = false;
-  private actionIndexCollapsed = false;
+  private showDataWarnings = false;
+  private showCommandCenter = false;
+  private showActionIndex = false;
+  private projectNotesCollapsed = false;
   private expandedSmallActions = new Set<string>();
   private collapsedSmallActions = new Set<string>();
   private pointerDrag?: PointerDragState;
@@ -133,11 +134,11 @@ export class KanbanRPMView extends ItemView {
       });
     }
 
-    this.renderFilters(container);
+    this.renderFilters(container, visibleCards, visibleBoardCards);
 
-    this.renderDataWarnings(container, visibleCards);
-    this.renderCommandCenter(container, visibleBoardCards);
-    this.renderActionIndexGrouped(container, visibleBoardCards);
+    if (this.showDataWarnings) this.renderDataWarnings(container, visibleCards);
+    if (this.showCommandCenter) this.renderCommandCenter(container, visibleBoardCards);
+    if (this.showActionIndex) this.renderActionIndexGrouped(container, visibleBoardCards);
     this.renderProjectNotes(container);
 
     const board = container.createDiv({ cls: 'kanban-rpm-board' });
@@ -184,7 +185,7 @@ export class KanbanRPMView extends ItemView {
       .toLowerCase();
   }
 
-  private renderFilters(container: HTMLElement): void {
+  private renderFilters(container: HTMLElement, visibleCards: ProjectCard[], visibleBoardCards: ProjectCard[]): void {
     const filters = container.createDiv({ cls: 'kanban-rpm-filters' });
     this.renderSelectFilter(filters, 'Project', this.projectFilter, this.uniqueValues('projectTitle'), (value) => {
       this.projectFilter = value;
@@ -202,6 +203,40 @@ export class KanbanRPMView extends ItemView {
         this.render();
       });
     }
+
+    const visiblePaths = new Set(visibleCards.map((card) => card.path));
+    const visibleBoardPaths = new Set(visibleBoardCards.map((card) => card.path));
+    const warningCount = this.issues.filter((issue) => visiblePaths.has(issue.cardPath)).length;
+    const actionCount = this.actions.filter((action) => visibleBoardPaths.has(action.cardPath)).length;
+    const toggles = filters.createDiv({ cls: 'kanban-rpm-panel-toggles' });
+    this.renderPanelToggle(toggles, 'Data warnings', this.showDataWarnings, warningCount, () => {
+      this.showDataWarnings = !this.showDataWarnings;
+      this.render();
+    });
+    this.renderPanelToggle(toggles, 'Command center', this.showCommandCenter, undefined, () => {
+      this.showCommandCenter = !this.showCommandCenter;
+      this.render();
+    });
+    this.renderPanelToggle(toggles, 'Action index', this.showActionIndex, actionCount, () => {
+      this.showActionIndex = !this.showActionIndex;
+      this.render();
+    });
+  }
+
+  private renderPanelToggle(
+    container: HTMLElement,
+    label: string,
+    active: boolean,
+    count: number | undefined,
+    onClick: () => void
+  ): void {
+    const text = count === undefined ? label : `${label} (${count})`;
+    const button = container.createEl('button', {
+      cls: active ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+      text,
+      attr: { 'aria-pressed': String(active) },
+    });
+    button.addEventListener('click', onClick);
   }
 
   private renderSelectFilter(
@@ -235,7 +270,16 @@ export class KanbanRPMView extends ItemView {
     const panel = container.createDiv({ cls: 'kanban-rpm-project-strip' });
     const header = panel.createDiv({ cls: 'kanban-rpm-project-strip-header' });
     header.createEl('h3', { text: this.projectFilter ? 'Project note' : 'Project notes' });
-    header.createSpan({ text: `${projects.length} project${projects.length === 1 ? '' : 's'}` });
+    const actions = header.createDiv({ cls: 'kanban-rpm-project-strip-actions' });
+    actions.createSpan({ text: `${projects.length} project${projects.length === 1 ? '' : 's'}` });
+    actions
+      .createEl('button', { text: this.projectNotesCollapsed ? 'Expand' : 'Collapse' })
+      .addEventListener('click', () => {
+        this.projectNotesCollapsed = !this.projectNotesCollapsed;
+        this.render();
+      });
+
+    if (this.projectNotesCollapsed) return;
 
     if (!projects.length) {
       panel.createDiv({ cls: 'kanban-rpm-empty', text: 'No project notes match the current Project filter.' });
@@ -261,8 +305,6 @@ export class KanbanRPMView extends ItemView {
   private renderDataWarnings(container: HTMLElement, visibleCards: ProjectCard[]): void {
     const visiblePaths = new Set(visibleCards.map((card) => card.path));
     const issues = this.issues.filter((issue) => visiblePaths.has(issue.cardPath));
-    if (!issues.length) return;
-
     const errors = issues.filter((issue) => issue.level === 'error').length;
     const warnings = issues.length - errors;
     const panel = container.createDiv({ cls: 'kanban-rpm-data-warnings' });
@@ -270,14 +312,11 @@ export class KanbanRPMView extends ItemView {
     header.createEl('h3', { text: 'Data warnings' });
     const headerActions = header.createDiv({ cls: 'kanban-rpm-panel-actions' });
     headerActions.createSpan({ text: `${errors} errors - ${warnings} warnings` });
-    headerActions
-      .createEl('button', { text: this.dataWarningsCollapsed ? 'Expand' : 'Collapse' })
-      .addEventListener('click', () => {
-        this.dataWarningsCollapsed = !this.dataWarningsCollapsed;
-        this.render();
-      });
 
-    if (this.dataWarningsCollapsed) return;
+    if (!issues.length) {
+      panel.createDiv({ cls: 'kanban-rpm-empty', text: 'No data warnings in the current view.' });
+      return;
+    }
 
     for (const issue of issues.slice(0, 8)) {
       const row = panel.createDiv({ cls: `kanban-rpm-issue kanban-rpm-issue-${issue.level}` });
@@ -309,14 +348,6 @@ export class KanbanRPMView extends ItemView {
     headerActions.createEl('button', { text: 'Daily review' }).addEventListener('click', () => {
       void this.plugin.sendCardsToDaily(reviewCards);
     });
-    headerActions
-      .createEl('button', { text: this.commandCenterCollapsed ? 'Expand' : 'Collapse' })
-      .addEventListener('click', () => {
-        this.commandCenterCollapsed = !this.commandCenterCollapsed;
-        this.render();
-      });
-
-    if (this.commandCenterCollapsed) return;
 
     const grid = panel.createDiv({ cls: 'kanban-rpm-command-grid' });
     const waitingStatus = this.getConfiguredStatusId('waiting');
@@ -384,19 +415,11 @@ export class KanbanRPMView extends ItemView {
     header.createEl('h3', { text: 'Action index' });
     const headerActions = header.createDiv({ cls: 'kanban-rpm-panel-actions' });
     headerActions.createSpan({ text: `${actions.length} actions - ${grouped.length} cards` });
-    headerActions
-      .createEl('button', { text: this.actionIndexCollapsed ? 'Expand' : 'Collapse' })
-      .addEventListener('click', () => {
-        this.actionIndexCollapsed = !this.actionIndexCollapsed;
-        this.render();
-      });
 
     if (!actions.length) {
       panel.createDiv({ cls: 'kanban-rpm-empty', text: 'No linked unchecked actions found.' });
       return;
     }
-
-    if (this.actionIndexCollapsed) return;
 
     for (const group of visibleGroups) {
       const groupEl = panel.createDiv({ cls: 'kanban-rpm-action-group' });

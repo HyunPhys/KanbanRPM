@@ -136,7 +136,7 @@ New documents split plugin-readable control data from the free writing area:
 
 Cards show a `Project > Subproject` breadcrumb and a project color token, so the board stays readable even when many projects are visible.
 
-Project documents are not shown inside status lanes. They appear in a `Project notes` strip directly above the board. Click a project name to open the living Project document. When the `Project` filter is `All`, the strip shows all Project notes. When one Project is selected, it shows only that Project note.
+Project documents are not shown inside status lanes. They appear in a `Project notes` strip directly above the board. Click a project name to open the living Project document. When the `Project` filter is `All`, the strip shows all Project notes. When one Project is selected, it shows only that Project note. Use the strip's `Collapse` button when you want the board to use more vertical space.
 
 Toolbar:
 
@@ -153,6 +153,8 @@ Secondary actions under `More`:
 - `Normalize order`
 
 Use `Search cards`, `Project`, and `Category` filters to narrow the board.
+
+Next to the filter controls, use the panel buttons to show or hide `Data warnings`, `Command center`, and `Action index`. When a panel is off, it is removed from the board area entirely.
 
 The default grouped board adapts to the Project filter:
 
@@ -233,7 +235,7 @@ KanbanRPM does not create Daily notes. If today's Daily note does not exist, it 
 
 ## Data Warnings
 
-`Data warnings` is collapsible. It warns about:
+Open `Data warnings` from the panel buttons next to the filters. It warns about:
 
 - unknown `status`
 - invalid `priority`

@@ -146,7 +146,7 @@ KanbanRPM Workspace/archive/
 - Open the KanbanRPM board from the command palette or ribbon.
 - Search/filter cards from the board toolbar.
 - Filter cards by `Project` and `Category`.
-- Show collapsible `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
+- Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
 - Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
 - Select `Project` and, for Big Actions, `Subproject` from existing documents instead of typing links manually.
@@ -161,7 +161,7 @@ KanbanRPM Workspace/archive/
 - Promote an indexed action into a card's `## Current Focus` with `Set next`.
 - Group `Action index` entries by card.
 - Show a `Command center` panel for review queue, waiting cards, blocked cards, and dependency-heavy cards.
-- Collapse or expand `Data warnings`, `Command center`, and `Action index`.
+- Toggle `Data warnings`, `Command center`, and `Action index` from the filter row; closed panels are removed from the board area.
 - Keep secondary board actions under `More`, including `Pull Daily`, `Weekly review`, `Export arrows`, and `Normalize order`.
 - Select review/active/waiting/blocked/all-visible cards with `Pull Daily`.
 - Append Daily actions under a configurable `Daily section`.
@@ -170,7 +170,7 @@ KanbanRPM Workspace/archive/
 - Export dependency sections to Laminar-style `arrows/` notes with `Export arrows`.
 - Configure which board-card fields are visible from plugin settings.
 - Configure Category values from plugin settings.
-- Show Project documents in a dedicated `Project notes` strip above the board instead of inside status lanes.
+- Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
 - Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
