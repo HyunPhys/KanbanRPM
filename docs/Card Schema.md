@@ -29,6 +29,14 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 `order` is managed by KanbanRPM ordering tools.
 
+KanbanRPM computes a display breadcrumb from `parent` relationships:
+
+```text
+Project > Subproject
+```
+
+This breadcrumb appears on cards and rows so items remain visually attached to their project context.
+
 ## Living Document Sections
 
 New documents use this body shape:
@@ -126,6 +134,10 @@ Preferred recurring routine syntax:
 ```
 
 KanbanRPM v0.2 displays recurring items in Action index and Timeline-oriented views. It does not automatically generate recurring task copies yet.
+
+## Checkbox Promotion
+
+Detailed tasks stay as Markdown checkboxes by default. Use `Promote` in the Action index to create a new `big_action` document from an important checkbox/action. The source checkbox is not modified.
 
 ## Validation
 

@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { LANES, VIEW_TYPE } from './constants';
+import { VIEW_TYPE } from './constants';
 import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, LegacyImportModal, NewGroupModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, Status } from './types';
@@ -11,8 +11,10 @@ export class KanbanRPMView extends ItemView {
   private issues: CardIssue[] = [];
   private searchQuery = '';
   private groupFilter = '';
+  private projectFilter = '';
   private projectKindFilter = '';
   private workstreamTypeFilter = '';
+  private groupByProject = false;
   private commandCenterCollapsed = false;
   private actionIndexCollapsed = false;
 
@@ -84,6 +86,12 @@ export class KanbanRPMView extends ItemView {
     actions.createEl('button', { text: 'New card' }).addEventListener('click', () => {
       new NewProjectCardModal(this.app, this.plugin).open();
     });
+    actions
+      .createEl('button', { text: this.groupByProject ? 'Ungroup projects' : 'Group projects' })
+      .addEventListener('click', () => {
+        this.groupByProject = !this.groupByProject;
+        this.render();
+      });
     actions.createEl('button', { text: 'New group' }).addEventListener('click', () => {
       new NewGroupModal(this.app, this.plugin).open();
     });
@@ -113,7 +121,7 @@ export class KanbanRPMView extends ItemView {
     this.renderActionIndexGrouped(container, visibleCards);
 
     const board = container.createDiv({ cls: 'kanban-rpm-board' });
-    for (const lane of LANES) {
+    for (const lane of this.plugin.settings.statuses) {
       this.renderLane(board, lane, visibleCards.filter((card) => card.status === lane.id).sort(compareCards));
     }
   }
@@ -121,6 +129,7 @@ export class KanbanRPMView extends ItemView {
   private filterCards(cards: ProjectCard[]): ProjectCard[] {
     const query = this.searchQuery.trim().toLowerCase();
     return cards.filter((card) => {
+      if (this.projectFilter && card.projectTitle !== this.projectFilter) return false;
       if (this.groupFilter && card.group !== this.groupFilter) return false;
       if (this.projectKindFilter && card.projectKind !== this.projectKindFilter) return false;
       if (this.workstreamTypeFilter && card.workstreamType !== this.workstreamTypeFilter) return false;
@@ -133,6 +142,9 @@ export class KanbanRPMView extends ItemView {
   private getSearchText(card: ProjectCard): string {
     return [
       card.title,
+      card.breadcrumb,
+      card.projectTitle,
+      card.subprojectTitle,
       card.status,
       `p${card.priority}`,
       String(card.priority),
@@ -162,6 +174,10 @@ export class KanbanRPMView extends ItemView {
 
   private renderFilters(container: HTMLElement): void {
     const filters = container.createDiv({ cls: 'kanban-rpm-filters' });
+    this.renderSelectFilter(filters, 'Project', this.projectFilter, this.uniqueValues('projectTitle'), (value) => {
+      this.projectFilter = value;
+      this.render();
+    });
     this.renderSelectFilter(filters, 'Group', this.groupFilter, this.uniqueValues('group'), (value) => {
       this.groupFilter = value;
       this.render();
@@ -175,8 +191,9 @@ export class KanbanRPMView extends ItemView {
       this.render();
     });
 
-    if (this.groupFilter || this.projectKindFilter || this.workstreamTypeFilter) {
+    if (this.projectFilter || this.groupFilter || this.projectKindFilter || this.workstreamTypeFilter) {
       filters.createEl('button', { text: 'Clear filters' }).addEventListener('click', () => {
+        this.projectFilter = '';
         this.groupFilter = '';
         this.projectKindFilter = '';
         this.workstreamTypeFilter = '';
@@ -201,7 +218,7 @@ export class KanbanRPMView extends ItemView {
     select.addEventListener('change', () => onChange(select.value));
   }
 
-  private uniqueValues(field: 'group' | 'projectKind' | 'workstreamType'): string[] {
+  private uniqueValues(field: 'projectTitle' | 'group' | 'projectKind' | 'workstreamType'): string[] {
     return Array.from(new Set(this.cards.map((card) => card[field]).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b)
     );
@@ -387,6 +404,10 @@ export class KanbanRPMView extends ItemView {
       event.stopPropagation();
       void this.plugin.setNextAction(action.cardPath, action.text);
     });
+    rowActions.createEl('button', { text: 'Promote' }).addEventListener('click', (event) => {
+      event.stopPropagation();
+      void this.plugin.promoteActionToBigAction(action);
+    });
     row.addEventListener('click', () => {
       void this.plugin.openFilePath(action.sourcePath);
     });
@@ -484,7 +505,19 @@ export class KanbanRPMView extends ItemView {
       return;
     }
 
-    for (const card of cards) this.renderCard(list, card);
+    if (!this.groupByProject) {
+      for (const card of cards) this.renderCard(list, card);
+      return;
+    }
+
+    for (const group of this.groupCardsByProject(cards)) {
+      const groupEl = list.createDiv({ cls: 'kanban-rpm-project-group' });
+      const header = groupEl.createDiv({ cls: 'kanban-rpm-project-group-header' });
+      this.addProjectToken(header, group.project);
+      header.createSpan({ text: group.project });
+      header.createSpan({ cls: 'kanban-rpm-project-group-count', text: String(group.cards.length) });
+      for (const card of group.cards) this.renderCard(groupEl, card);
+    }
   }
 
   private renderCard(list: HTMLElement, card: ProjectCard): void {
@@ -498,6 +531,7 @@ export class KanbanRPMView extends ItemView {
     const cardEl = list.createDiv({ cls: cardClasses });
     cardEl.draggable = true;
     cardEl.dataset.path = card.path;
+    cardEl.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
 
     cardEl.addEventListener('dragstart', (event) => {
       if (!event.dataTransfer) return;
@@ -508,7 +542,11 @@ export class KanbanRPMView extends ItemView {
     cardEl.addEventListener('dragend', () => cardEl.removeClass('is-dragging'));
 
     const titleRow = cardEl.createDiv({ cls: 'kanban-rpm-card-title-row' });
-    titleRow.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
+    const titleWrap = titleRow.createDiv({ cls: 'kanban-rpm-card-title-wrap' });
+    const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-context' });
+    this.addProjectToken(context, card.colorKey);
+    context.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
+    titleWrap.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
       void this.plugin.openCard(card);
     });
     titleRow.createSpan({
@@ -518,6 +556,7 @@ export class KanbanRPMView extends ItemView {
 
     const meta = cardEl.createDiv({ cls: 'kanban-rpm-meta' });
     this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
+    this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
     this.addMeta(meta, card.group, 'group', 'kanban-rpm-meta-group');
     this.addMeta(meta, card.area, 'area', 'kanban-rpm-meta-area');
     this.addMeta(meta, card.projectKind, 'kind', 'kanban-rpm-meta-kind');
@@ -530,6 +569,8 @@ export class KanbanRPMView extends ItemView {
     this.addCountMeta(meta, card.dependsOn.length, 'depends', 'kanban-rpm-meta-dependency');
     this.addCountMeta(meta, card.blocks.length, 'blocks', 'kanban-rpm-meta-dependency');
     this.addCountMeta(meta, card.sourceNotes.length, 'sources', 'kanban-rpm-meta-source');
+    this.addCountMeta(meta, card.actionCount, 'tasks', 'kanban-rpm-meta-source');
+    this.addCountMeta(meta, card.blockedBy.length, 'blocked by', 'kanban-rpm-meta-dependency');
     for (const link of card.legacyLinks.slice(0, 2)) this.addMeta(meta, link, 'legacy', 'kanban-rpm-meta-legacy');
 
     if (card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
@@ -591,11 +632,8 @@ export class KanbanRPMView extends ItemView {
 
   private renderStatusActions(container: HTMLElement, card: ProjectCard): void {
     const targets: Array<[Status, string]> = [
-      ['active', 'Active'],
-      ['waiting', 'Waiting'],
-      ['blocked', 'Blocked'],
-      ['done', 'Done'],
-    ];
+      ...this.plugin.settings.statuses.map((status) => [status.id, status.label] as [Status, string]),
+    ].slice(0, 6);
 
     for (const [status, label] of targets) {
       if (card.status === status) continue;
@@ -607,6 +645,7 @@ export class KanbanRPMView extends ItemView {
 
   private renderCardRelations(cardEl: HTMLElement, card: ProjectCard): void {
     const rows: Array<[string, string[], string]> = [
+      ['Blocked by', card.blockedBy, 'kanban-rpm-relation-blocks'],
       ['Depends', card.dependsOn, 'kanban-rpm-relation-depends'],
       ['Blocks', card.blocks, 'kanban-rpm-relation-blocks'],
       ['Sources', card.sourceNotes.slice(0, 3), 'kanban-rpm-relation-sources'],
@@ -649,6 +688,30 @@ export class KanbanRPMView extends ItemView {
     }
 
     return undefined;
+  }
+
+  private groupCardsByProject(cards: ProjectCard[]): Array<{ project: string; cards: ProjectCard[] }> {
+    const map = new Map<string, ProjectCard[]>();
+    for (const card of cards) {
+      const project = card.projectTitle || card.group || 'No project';
+      const existing = map.get(project) ?? [];
+      existing.push(card);
+      map.set(project, existing);
+    }
+    return Array.from(map.entries())
+      .map(([project, groupCards]) => ({ project, cards: groupCards.sort(compareCards) }))
+      .sort((a, b) => a.project.localeCompare(b.project));
+  }
+
+  private addProjectToken(container: HTMLElement, key: string): void {
+    const token = container.createSpan({ cls: 'kanban-rpm-project-token' });
+    token.style.setProperty('--rpm-project-color', this.projectColor(key));
+  }
+
+  private projectColor(key: string): string {
+    let hash = 0;
+    for (const char of (key || 'project')) hash = (hash * 31 + char.charCodeAt(0)) % 360;
+    return `hsl(${hash} 62% 48%)`;
   }
 }
 

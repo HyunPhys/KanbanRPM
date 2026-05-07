@@ -85,17 +85,23 @@ Done when:
 
 ## Phase 2. Hierarchy And Visual Identity
 
+Status: Implemented.
+
 Goal: make every item visibly belong to a Project/Subproject context.
 
-Tasks:
+Implemented:
 
 - Build a hierarchy index from `parent`, wikilinks, and parsed sections.
 - Compute `Project > Subproject` breadcrumb for every Project/Subproject/Big Action.
 - Add project color tokens/stripes derived from project identity.
 - Add project grouping toggle.
-- Show breadcrumb and project color in Board, Table, and List.
+- Show breadcrumb and project color in Board.
 - Add checkbox task counts from living documents.
 - Add checkbox-to-Big-Action promotion command/action.
+
+Deferred to Phase 4:
+
+- Show breadcrumb and project color in Table and List.
 
 Done when:
 

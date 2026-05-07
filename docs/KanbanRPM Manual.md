@@ -129,11 +129,16 @@ Use `Search cards` to search visible card text and metadata.
 
 Use the filter bar to narrow the board by:
 
+- `Project`
 - `Group`
 - `Project kind`
 - `Workstream type`
 
 Click `Clear filters` to reset the structured filters. Click `Clear` to reset search.
+
+Cards show their `Project > Subproject` breadcrumb above the title. The colored token and left stripe are derived from the project identity, so an all-cards board still shows which project each item belongs to.
+
+Click `Group projects` in the toolbar to group cards inside each lane by project. Click `Ungroup projects` to return to the flat lane view.
 
 ## 8. Import Legacy Project Notes
 
@@ -210,6 +215,7 @@ Available action controls:
 
 - Click an action row or `Open source` to open the source note.
 - Click `Set next` to copy that action into the card's `next_action`.
+- Click `Promote` to create a new `Big Action` living document from that checkbox/action. The original source checkbox is not modified.
 
 This lets meeting notes and communication notes remain as the original record while the card keeps the current next action.
 

@@ -338,6 +338,39 @@ export class CardRepository {
     new Notice('KanbanRPM next_action updated from Action index.');
   }
 
+  async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
+    const parentCard = (await this.loadCards()).find((card) => card.path === action.cardPath);
+    const title = action.text.replace(/#todo\b/g, '').trim() || 'Promoted Big Action';
+    const file = await this.createCard({
+      title,
+      type: 'big_action',
+      parent: parentCard ? `[[${parentCard.file.basename}]]` : '',
+      status: this.plugin.settings.statuses[0]?.id ?? 'inbox',
+      priority: parentCard ? String(parentCard.priority) : '3',
+      area: parentCard?.area ?? '',
+      group: parentCard?.projectTitle ?? parentCard?.group ?? '',
+      workstreamType: parentCard?.workstreamType ?? '',
+      projectKind: parentCard?.projectKind ?? '',
+      stage: parentCard?.stage ?? '',
+      nextAction: title,
+      waitingFor: '',
+      blocker: '',
+      nextReview: '',
+      dueDate: '',
+      importance: 'normal',
+      legacyLinks: '',
+      relatedSamples: '',
+      relatedPhenomena: '',
+      relatedPeople: '',
+      relatedNotes: '',
+      dependsOn: '',
+      blocks: '',
+      sourceNotes: `[[${action.sourceLabel}]]`,
+    });
+    new Notice(`Promoted action to Big Action: ${title}`);
+    return file;
+  }
+
   async archiveCard(card: ProjectCard): Promise<void> {
     await this.plugin.ensureWorkspace();
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);

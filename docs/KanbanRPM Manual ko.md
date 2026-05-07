@@ -81,6 +81,10 @@ PM context는 `Current Focus`, `Subprojects`, `Big Actions`, `Dependencies`, `Pe
 
 filter bar에서는 `Group`, `Project kind`, `Workstream type` 기준으로 board를 좁힐 수 있습니다. `Search cards`는 card title과 metadata를 검색합니다.
 
+v0.2에서는 card title 위에 `Project > Subproject` breadcrumb가 표시됩니다. project identity에서 나온 color token과 left stripe도 표시되므로, 전체 card를 펼쳐 놓아도 각 card가 어느 project에 속하는지 바로 볼 수 있습니다.
+
+toolbar의 `Group projects`를 클릭하면 각 lane 안에서 project별로 card를 묶어 보여줍니다. 다시 `Ungroup projects`를 클릭하면 flat lane view로 돌아갑니다.
+
 ## 7. Import legacy project notes
 
 기존 `💼` project note나 project tag note를 KanbanRPM card로 연결하려면 `KanbanRPM: Import legacy project notes` command를 실행하거나 board toolbar의 `Import legacy`를 클릭합니다.
@@ -142,6 +146,7 @@ board toolbar의 `Pull Daily` 또는 `KanbanRPM: Pull cards to Daily` command를
 
 - action row 또는 `Open source`를 클릭하면 source note를 엽니다.
 - `Set next`를 클릭하면 해당 action을 card의 `next_action`으로 복사합니다.
+- `Promote`를 클릭하면 해당 checkbox/action에서 새 `Big Action` living document를 만듭니다. 원본 checkbox는 수정하지 않습니다.
 
 원본 note는 수정하지 않습니다. `Collapse` / `Expand`로 `Action index`를 숨기거나 다시 펼 수 있습니다.
 

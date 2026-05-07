@@ -241,6 +241,10 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.setNextAction(cardPath, nextAction);
   }
 
+  async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
+    return this.repository.promoteActionToBigAction(action);
+  }
+
   async archiveCard(card: ProjectCard): Promise<void> {
     await this.repository.archiveCard(card);
   }
