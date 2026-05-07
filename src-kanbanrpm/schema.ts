@@ -53,6 +53,24 @@ Rich planning data belongs in the document body:
 - \`## Timeline\` for \`Next review\` and \`Due date\`.
 - \`## References\` for source notes that feed the Action index.
 
+## Small Actions
+
+Small actions are checkbox tasks inside the living document. KanbanRPM reads a Tasks-compatible emoji subset:
+
+\`\`\`markdown
+- [ ] Email vendor ⏳ 2026-05-10 📅 2026-05-15 🔼
+- [x] Submit quote request ✅ 2026-05-07
+\`\`\`
+
+Supported metadata:
+
+- scheduled date: \`⏳ YYYY-MM-DD\`
+- due date: \`📅 YYYY-MM-DD\`
+- done date: \`✅ YYYY-MM-DD\`
+- priority: \`⏫\`, \`🔼\`, \`🔽\`, \`⏬\`
+
+Small-action card display is controlled from plugin settings. The default is due/scheduled actions through one week, including overdue actions.
+
 Suggested \`Category\` values:
 
 \`\`\`text

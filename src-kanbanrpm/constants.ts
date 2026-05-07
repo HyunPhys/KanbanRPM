@@ -17,6 +17,25 @@ export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   dailySection: 'KanbanRPM',
   weeklyReviewFolder: 'KanbanRPM Workspace/perpetual',
   statuses: DEFAULT_STATUSES,
+  cardDisplayFields: {
+    breadcrumb: true,
+    type: true,
+    status: true,
+    priority: true,
+    category: true,
+    currentFocus: true,
+    waiting: true,
+    blockers: true,
+    dates: true,
+    dependencies: true,
+    sources: true,
+    smallActionSummary: true,
+  },
+  smallActionDisplay: {
+    collapsedByDefault: true,
+    sourceFilter: 'dated',
+    dateWindow: 'week',
+  },
 };
 
 export const LANES: Lane[] = DEFAULT_STATUSES;

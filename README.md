@@ -166,6 +166,8 @@ KanbanRPM Workspace/archive/
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
 - Show compact card relation rows for `Depends on`, `Blocks`, and `References`.
 - Export dependency sections to Laminar-style `arrows/` notes with `Export arrows`.
+- Configure which board-card fields are visible from plugin settings.
+- Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Drag cards between lanes to update `status`.
 - Drag cards within a lane to set `order`.
 - Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.

@@ -125,6 +125,24 @@ Preferred recurring routine syntax:
 
 Detailed tasks stay as Markdown checkboxes by default. Use `Promote` in the Action index to create a new `big_action` document from an important checkbox/action. The source checkbox is not modified.
 
+## Small Actions
+
+Small actions are checkbox tasks inside Project/Subproject/Big Action documents. KanbanRPM reads a Tasks-compatible emoji subset:
+
+```markdown
+- [ ] Email vendor ⏳ 2026-05-10 📅 2026-05-15 🔼
+- [x] Submit quote request ✅ 2026-05-07
+```
+
+Supported fields:
+
+- scheduled date: `⏳ YYYY-MM-DD`
+- due date: `📅 YYYY-MM-DD`
+- done date: `✅ YYYY-MM-DD`
+- priority: `⏫`, `🔼`, `🔽`, `⏬`
+
+Small actions are displayed on board cards according to plugin settings. The default is to show due/scheduled actions through one week, including overdue actions.
+
 ## Validation
 
 KanbanRPM warns about:

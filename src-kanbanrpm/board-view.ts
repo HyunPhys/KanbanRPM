@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './constants';
 import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
-import type { ActionItem, CardIssue, Lane, ProjectCard, Status } from './types';
+import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
 
 interface PointerDragState {
@@ -28,6 +28,8 @@ export class KanbanRPMView extends ItemView {
   private dataWarningsCollapsed = true;
   private commandCenterCollapsed = false;
   private actionIndexCollapsed = false;
+  private expandedSmallActions = new Set<string>();
+  private collapsedSmallActions = new Set<string>();
   private pointerDrag?: PointerDragState;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanRPMPlugin) {
@@ -477,37 +479,48 @@ export class KanbanRPMView extends ItemView {
 
     const titleRow = cardEl.createDiv({ cls: 'kanban-rpm-card-title-row' });
     const titleWrap = titleRow.createDiv({ cls: 'kanban-rpm-card-title-wrap' });
-    const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-context' });
-    this.addProjectToken(context, card.colorKey);
-    context.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
+    if (this.plugin.settings.cardDisplayFields.breadcrumb) {
+      const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-context' });
+      this.addProjectToken(context, card.colorKey);
+      context.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
+    }
     titleWrap.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
       void this.plugin.openCard(card);
     });
-    titleRow.createSpan({
-      cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
-      text: `P${card.priority}`,
-    });
+    if (this.plugin.settings.cardDisplayFields.priority) {
+      titleRow.createSpan({
+        cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
+        text: `P${card.priority}`,
+      });
+    }
 
     const meta = cardEl.createDiv({ cls: 'kanban-rpm-meta' });
-    this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
-    this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
-    this.addMeta(meta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
-    this.addMeta(meta, card.dueDate, 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-    this.addMeta(meta, card.nextReview, 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-    this.addCountMeta(meta, card.dependsOn.length, 'depends', 'kanban-rpm-meta-dependency');
-    this.addCountMeta(meta, card.blocks.length, 'blocks', 'kanban-rpm-meta-dependency');
-    this.addCountMeta(meta, card.sourceNotes.length, 'sources', 'kanban-rpm-meta-source');
-    this.addCountMeta(meta, card.actionCount, 'tasks', 'kanban-rpm-meta-source');
-    this.addCountMeta(meta, card.blockedBy.length, 'blocked by', 'kanban-rpm-meta-dependency');
+    const fields = this.plugin.settings.cardDisplayFields;
+    if (fields.status) this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
+    if (fields.type) this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
+    if (fields.category) this.addMeta(meta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
+    if (fields.dates) {
+      this.addMeta(meta, card.dueDate, 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+      this.addMeta(meta, card.nextReview, 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+    }
+    if (fields.dependencies) {
+      this.addCountMeta(meta, card.dependsOn.length, 'depends', 'kanban-rpm-meta-dependency');
+      this.addCountMeta(meta, card.blocks.length, 'blocks', 'kanban-rpm-meta-dependency');
+      this.addCountMeta(meta, card.blockedBy.length, 'blocked by', 'kanban-rpm-meta-dependency');
+    }
+    if (fields.sources) this.addCountMeta(meta, card.sourceNotes.length, 'sources', 'kanban-rpm-meta-source');
+    if (fields.smallActionSummary) this.addCountMeta(meta, card.actionCount, 'tasks', 'kanban-rpm-meta-source');
+    if (!meta.childElementCount) meta.remove();
 
-    if (card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
-    if (card.waitingFor) {
+    if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
+    if (fields.waiting && card.waitingFor) {
       cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-waiting', text: `Waiting: ${card.waitingFor}` });
     }
-    if (card.blocker) {
+    if (fields.blockers && card.blocker) {
       cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-blocker', text: `Blocked: ${card.blocker}` });
     }
-    this.renderCardRelations(cardEl, card);
+    if (fields.dependencies || fields.sources) this.renderCardRelations(cardEl, card);
+    if (fields.smallActionSummary) this.renderSmallActions(cardEl, card);
 
     const actions = cardEl.createDiv({ cls: 'kanban-rpm-card-actions' });
     actions.createEl('button', { text: 'Open' }).addEventListener('click', () => {
@@ -546,6 +559,104 @@ export class KanbanRPMView extends ItemView {
 
   private addCountMeta(container: HTMLElement, count: number, label: string, cls?: string): void {
     if (count > 0) container.createSpan({ cls, text: `${label}: ${count}` });
+  }
+
+  private renderSmallActions(cardEl: HTMLElement, card: ProjectCard): void {
+    const visibleActions = this.getVisibleSmallActions(card);
+    if (!card.smallActions.length && !visibleActions.length) return;
+
+    const open = card.smallActions.filter((action) => !action.done).length;
+    const overdue = card.smallActions.filter((action) => !action.done && this.isSmallActionOverdue(action)).length;
+    const dueSoon = card.smallActions.filter((action) => !action.done && this.isSmallActionInWindow(action, 'week')).length;
+    const expanded = this.isSmallActionsExpanded(card);
+
+    const panel = cardEl.createDiv({ cls: 'kanban-rpm-small-actions' });
+    const header = panel.createEl('button', {
+      cls: 'kanban-rpm-small-actions-toggle',
+      text: `${expanded ? '▼' : '▶'} Small actions: ${open} open${overdue ? ` - ${overdue} overdue` : ''}${dueSoon ? ` - ${dueSoon} due soon` : ''}`,
+    });
+    header.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.toggleSmallActions(card);
+      this.render();
+    });
+
+    if (!expanded) return;
+
+    if (!visibleActions.length) {
+      panel.createDiv({ cls: 'kanban-rpm-small-action-empty', text: 'No small actions match the display rule.' });
+      return;
+    }
+
+    const list = panel.createDiv({ cls: 'kanban-rpm-small-action-list' });
+    for (const action of visibleActions.slice(0, 6)) {
+      const row = list.createDiv({ cls: `kanban-rpm-small-action${action.done ? ' is-done' : ''}` });
+      row.createDiv({ cls: 'kanban-rpm-small-action-text', text: action.text });
+      const meta = row.createDiv({ cls: 'kanban-rpm-small-action-meta' });
+      if (action.scheduledDate) meta.createSpan({ text: `scheduled ${action.scheduledDate}` });
+      if (action.dueDate) meta.createSpan({ text: `due ${action.dueDate}` });
+      if (action.doneDate) meta.createSpan({ text: `done ${action.doneDate}` });
+      if (action.priority !== 'normal') meta.createSpan({ text: action.priority });
+      if (action.heading) meta.createSpan({ text: action.heading });
+    }
+
+    if (visibleActions.length > 6) {
+      panel.createDiv({ cls: 'kanban-rpm-small-action-more', text: `+${visibleActions.length - 6} more` });
+    }
+  }
+
+  private isSmallActionsExpanded(card: ProjectCard): boolean {
+    if (this.plugin.settings.smallActionDisplay.collapsedByDefault) return this.expandedSmallActions.has(card.path);
+    return !this.collapsedSmallActions.has(card.path);
+  }
+
+  private toggleSmallActions(card: ProjectCard): void {
+    if (this.plugin.settings.smallActionDisplay.collapsedByDefault) {
+      if (this.expandedSmallActions.has(card.path)) this.expandedSmallActions.delete(card.path);
+      else this.expandedSmallActions.add(card.path);
+      return;
+    }
+
+    if (this.collapsedSmallActions.has(card.path)) this.collapsedSmallActions.delete(card.path);
+    else this.collapsedSmallActions.add(card.path);
+  }
+
+  private getVisibleSmallActions(card: ProjectCard): SmallAction[] {
+    const { sourceFilter, dateWindow } = this.plugin.settings.smallActionDisplay;
+    return card.smallActions
+      .filter((action) => {
+        if (sourceFilter === 'dated' && !action.dueDate && !action.scheduledDate) return false;
+        if (sourceFilter === 'done' && !action.done) return false;
+        return this.isSmallActionInWindow(action, dateWindow);
+      })
+      .sort((a, b) => this.smallActionSortValue(a).localeCompare(this.smallActionSortValue(b)) || a.lineNumber - b.lineNumber);
+  }
+
+  private smallActionSortValue(action: SmallAction): string {
+    return action.scheduledDate || action.dueDate || action.doneDate || '9999-99-99';
+  }
+
+  private isSmallActionOverdue(action: SmallAction): boolean {
+    const date = action.scheduledDate || action.dueDate;
+    return Boolean(date && isPastDate(date));
+  }
+
+  private isSmallActionInWindow(action: SmallAction, window: string): boolean {
+    if (window === 'all') return true;
+    const date = action.scheduledDate || action.dueDate || action.doneDate;
+    if (!date) return false;
+    if (window === 'overdue') return isPastDate(date);
+    if (window === 'today') return date === this.todayIso();
+    if (isPastDate(date) || date === this.todayIso()) return true;
+    if (window === 'tomorrow') return isDueSoon(date, 1);
+    if (window === 'week') return isDueSoon(date, 7);
+    if (window === 'month') return isDueSoon(date, 31);
+    return true;
+  }
+
+  private todayIso(): string {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   }
 
   private attachPointerDrag(cardEl: HTMLElement, card: ProjectCard): void {
@@ -620,12 +731,14 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderCardRelations(cardEl: HTMLElement, card: ProjectCard): void {
-    const rows: Array<[string, string[], string]> = [
-      ['Blocked by', card.blockedBy, 'kanban-rpm-relation-blocks'],
-      ['Depends', card.dependsOn, 'kanban-rpm-relation-depends'],
-      ['Blocks', card.blocks, 'kanban-rpm-relation-blocks'],
-      ['Sources', card.sourceNotes.slice(0, 3), 'kanban-rpm-relation-sources'],
-    ];
+    const fields = this.plugin.settings.cardDisplayFields;
+    const rows: Array<[string, string[], string]> = [];
+    if (fields.dependencies) {
+      rows.push(['Blocked by', card.blockedBy, 'kanban-rpm-relation-blocks']);
+      rows.push(['Depends', card.dependsOn, 'kanban-rpm-relation-depends']);
+      rows.push(['Blocks', card.blocks, 'kanban-rpm-relation-blocks']);
+    }
+    if (fields.sources) rows.push(['Sources', card.sourceNotes.slice(0, 3), 'kanban-rpm-relation-sources']);
     const visibleRows = rows.filter(([, values]) => values.length > 0);
     if (!visibleRows.length) return;
 

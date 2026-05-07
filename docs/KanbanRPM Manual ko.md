@@ -138,6 +138,36 @@ card에는 `Project > Subproject` breadcrumb와 project color token이 표시됩
 
 card를 다른 lane으로 drag하면 `status`가 바뀝니다. 같은 lane 안에서 drag하면 `order`가 바뀝니다. card 안의 button click은 drag로 오작동하지 않도록 분리되어 있습니다.
 
+settings의 `Card display fields`에서 board card에 표시할 정보를 고를 수 있습니다. `Type`, `Status`, `Priority`, `Category` 같은 frontmatter field뿐 아니라 `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, 날짜, sources, small-action summary처럼 body section에서 읽는 정보도 show/hide할 수 있습니다.
+
+## Small Actions
+
+Small action은 living document 안에 있는 checkbox task입니다. 별도 card로 만들지 않고 Markdown body 안에 둡니다.
+
+KanbanRPM은 Tasks-style emoji metadata를 읽습니다.
+
+```markdown
+- [ ] Stack TTT sample ⏳ 2026-05-10 📅 2026-05-14 🔼
+- [x] Confirm mask design ✅ 2026-05-07
+```
+
+지원하는 metadata:
+
+- `scheduled`: `⏳ YYYY-MM-DD`
+- `due`: `📅 YYYY-MM-DD`
+- `done`: `✅ YYYY-MM-DD`
+- priority: `⏫`, `🔼`, `🔽`, `⏬`
+
+board card에는 small action row가 접힌 상태로 표시됩니다. `▶ Small actions`를 누르면 펼쳐지고, `▼ Small actions`를 누르면 다시 접힙니다.
+
+Small-action settings:
+
+- `Small actions collapsed by default`
+- `Small action source`: `Due or scheduled only`, `Done only`, `All small actions`
+- `Small action date window`: `Any date`, `Overdue only`, `Today only`, `Through tomorrow`, `Through one week`, `Through one month`
+
+default는 `Due or scheduled only`, `Through one week`입니다. 상대 기간 filter는 오늘 이전 overdue action, 오늘, 그리고 해당 미래 기간까지 포함합니다. `Today only`와 `Overdue only`는 해당 날짜 범주만 보여줍니다.
+
 ## Action Index
 
 `Action index`는 card의 `## References`에 적힌 source note에서 unchecked checkbox와 `#todo` line을 읽습니다. 원본 note는 수정하지 않습니다.

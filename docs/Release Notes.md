@@ -73,3 +73,11 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Kept `Category` as the only broad classification field.
 - Changed Action index source scanning to use `## References`.
 - Updated English/Korean manuals, schema docs, README, and smoke checks for the living-document model.
+
+### Phase 3.8 Card Display And Small Actions
+
+- Added plugin settings for selecting which fields appear on board cards.
+- Added small-action parsing for checkbox tasks inside living documents.
+- Supported Tasks-style scheduled, due, done, and priority emoji metadata.
+- Added collapsible `Small actions` rows on cards.
+- Added settings for small-action source filtering and date-window filtering.

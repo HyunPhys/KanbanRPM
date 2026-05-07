@@ -19,7 +19,7 @@ export default class KanbanRPMPlugin extends Plugin {
   private repository!: CardRepository;
 
   async onload(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = this.normalizeSettings(await this.loadData());
     this.repository = new CardRepository(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new KanbanRPMView(leaf, this));
@@ -76,6 +76,23 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  private normalizeSettings(data: Partial<KanbanRPMSettings> | null): KanbanRPMSettings {
+    const saved = data ?? {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...saved,
+      statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
+      cardDisplayFields: {
+        ...DEFAULT_SETTINGS.cardDisplayFields,
+        ...(saved.cardDisplayFields ?? {}),
+      },
+      smallActionDisplay: {
+        ...DEFAULT_SETTINGS.smallActionDisplay,
+        ...(saved.smallActionDisplay ?? {}),
+      },
+    };
   }
 
   private registerCardRefreshEvents(): void {

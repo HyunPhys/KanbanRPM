@@ -1,7 +1,7 @@
 import { Notice, TFile, normalizePath, stringifyYaml } from 'obsidian';
 import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
-import type { ActionItem, CardIssue, CardIssueLevel, NewCardValues, ProjectCard, Status } from './types';
+import type { ActionItem, CardIssue, CardIssueLevel, NewCardValues, ProjectCard, SmallAction, SmallActionPriority, Status } from './types';
 import {
   compareCards,
   getWikiLinkTarget,
@@ -62,6 +62,11 @@ export class CardRepository {
         blockedBy: [],
         sourceNotes: sectionData.sourceNotes,
         perpetuals: sectionData.perpetuals.map((item) => ({
+          ...item,
+          cardPath: file.path,
+          cardTitle: this.getDocumentTitle(content) || file.basename,
+        })),
+        smallActions: sectionData.smallActions.map((item) => ({
           ...item,
           cardPath: file.path,
           cardTitle: this.getDocumentTitle(content) || file.basename,
@@ -474,6 +479,7 @@ export class CardRepository {
     blocks: string[];
     sourceNotes: string[];
     perpetuals: Array<{ cardPath: string; cardTitle: string; text: string; cadence: 'daily' | 'weekly' | 'monthly' }>;
+    smallActions: SmallAction[];
     actionCount: number;
   } {
     const dependencies = this.getSection(content, 'Dependencies');
@@ -497,9 +503,10 @@ export class CardRepository {
         text: match[1].trim(),
         cadence: match[2] as 'daily' | 'weekly' | 'monthly',
       }));
-    const actionCount = content.split(/\r?\n/).filter((line) => /^\s*[-*]\s+\[ \]\s+/.test(line)).length;
+    const smallActions = this.parseSmallActions(content);
+    const actionCount = smallActions.filter((action) => !action.done).length;
     const sourceNotes = this.parsePlainList(references).filter((item) => item.includes('[['));
-    return { currentFocus, waitingFor, blocker, nextReview, dueDate, dependsOn, blocks, sourceNotes, perpetuals, actionCount };
+    return { currentFocus, waitingFor, blocker, nextReview, dueDate, dependsOn, blocks, sourceNotes, perpetuals, smallActions, actionCount };
   }
 
   private firstListItem(section: string): string {
@@ -572,6 +579,62 @@ export class CardRepository {
       .split(/\r?\n/)
       .map((line) => line.match(/^\s*[-*]\s+(.+)/)?.[1]?.trim() ?? '')
       .filter(Boolean);
+  }
+
+  private parseSmallActions(content: string): SmallAction[] {
+    const actions: SmallAction[] = [];
+    let heading = '';
+
+    content.split(/\r?\n/).forEach((line, index) => {
+      const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+      if (headingMatch?.[1]) heading = headingMatch[1].trim();
+
+      const task = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/);
+      if (!task?.[2]) return;
+
+      const rawText = task[2].trim();
+      const dueDate = this.extractTaskDate(rawText, '\\u{1F4C5}');
+      const scheduledDate = this.extractTaskDate(rawText, '\\u{23F3}');
+      const doneDate = this.extractTaskDate(rawText, '\\u{2705}');
+      const priority = this.extractTaskPriority(rawText);
+
+      actions.push({
+        cardPath: '',
+        cardTitle: '',
+        text: this.stripTaskMetadata(rawText),
+        done: task[1].toLowerCase() === 'x',
+        dueDate,
+        scheduledDate,
+        doneDate,
+        priority,
+        heading,
+        lineNumber: index + 1,
+        raw: line,
+      });
+    });
+
+    return actions;
+  }
+
+  private extractTaskDate(textValue: string, marker: string): string {
+    const match = textValue.match(new RegExp(`${marker}\\s*(\\d{4}-\\d{2}-\\d{2})`, 'u'));
+    return match?.[1] ?? '';
+  }
+
+  private extractTaskPriority(textValue: string): SmallActionPriority {
+    if (/\u{23EB}/u.test(textValue)) return 'highest';
+    if (/\u{1F53C}/u.test(textValue)) return 'high';
+    if (/\u{1F53D}/u.test(textValue)) return 'low';
+    if (/\u{23EC}/u.test(textValue)) return 'lowest';
+    return 'normal';
+  }
+
+  private stripTaskMetadata(textValue: string): string {
+    return textValue
+      .replace(/[\u{1F4C5}\u{23F3}\u{2705}]\s*\d{4}-\d{2}-\d{2}/gu, '')
+      .replace(/[\u{23EB}\u{1F53C}\u{1F53D}\u{23EC}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private normalizeCardType(value: string): ProjectCard['type'] {

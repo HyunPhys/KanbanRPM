@@ -136,6 +136,36 @@ Use `Search cards`, `Project`, and `Category` filters to narrow the board.
 
 Drag a card to another lane to update `status`. Drag within a lane to update `order`. Card buttons do not start drag.
 
+Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
+
+## Small Actions
+
+Small actions are checkbox tasks inside the living document. They stay in the Markdown body instead of becoming separate cards.
+
+KanbanRPM reads Tasks-style emoji metadata:
+
+```markdown
+- [ ] Stack TTT sample ⏳ 2026-05-10 📅 2026-05-14 🔼
+- [x] Confirm mask design ✅ 2026-05-07
+```
+
+Supported metadata:
+
+- `scheduled`: `⏳ YYYY-MM-DD`
+- `due`: `📅 YYYY-MM-DD`
+- `done`: `✅ YYYY-MM-DD`
+- priority: `⏫`, `🔼`, `🔽`, `⏬`
+
+Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse.
+
+Small-action settings:
+
+- `Small actions collapsed by default`
+- `Small action source`: `Due or scheduled only`, `Done only`, or `All small actions`
+- `Small action date window`: `Any date`, `Overdue only`, `Today only`, `Through tomorrow`, `Through one week`, or `Through one month`
+
+Default behavior is `Due or scheduled only` and `Through one week`. Relative windows include overdue actions, today, and the future period. `Today only` and `Overdue only` are exact filters.
+
 ## Action Index
 
 `Action index` reads unchecked checkboxes and `#todo` lines from notes listed in a card's `## References` section. It does not modify the source notes.

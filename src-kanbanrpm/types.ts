@@ -6,6 +6,8 @@ export interface KanbanRPMSettings {
   dailySection: string;
   weeklyReviewFolder: string;
   statuses: StatusDefinition[];
+  cardDisplayFields: CardDisplaySettings;
+  smallActionDisplay: SmallActionDisplaySettings;
 }
 
 export type Status = string;
@@ -50,6 +52,7 @@ export interface ProjectCard {
   blockedBy: string[];
   sourceNotes: string[];
   perpetuals: RecurringItem[];
+  smallActions: SmallAction[];
   actionCount: number;
   order?: number;
 }
@@ -86,6 +89,46 @@ export interface RecurringItem {
   cardTitle: string;
   text: string;
   cadence: 'daily' | 'weekly' | 'monthly';
+}
+
+export type SmallActionPriority = 'highest' | 'high' | 'medium' | 'normal' | 'low' | 'lowest';
+
+export interface SmallAction {
+  cardPath: string;
+  cardTitle: string;
+  text: string;
+  done: boolean;
+  dueDate: string;
+  scheduledDate: string;
+  doneDate: string;
+  priority: SmallActionPriority;
+  heading: string;
+  lineNumber: number;
+  raw: string;
+}
+
+export interface CardDisplaySettings {
+  breadcrumb: boolean;
+  type: boolean;
+  status: boolean;
+  priority: boolean;
+  category: boolean;
+  currentFocus: boolean;
+  waiting: boolean;
+  blockers: boolean;
+  dates: boolean;
+  dependencies: boolean;
+  sources: boolean;
+  smallActionSummary: boolean;
+}
+
+export type SmallActionSourceFilter = 'dated' | 'done' | 'all';
+export type SmallActionDateWindow = 'all' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'month';
+
+export interface SmallActionDisplaySettings {
+  collapsedByDefault: boolean;
+  sourceFilter: SmallActionSourceFilter;
+  dateWindow: SmallActionDateWindow;
 }
 
 export interface DependencyEdge {
