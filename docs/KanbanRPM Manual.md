@@ -52,9 +52,10 @@ Required fields are marked with a red `*`:
 - `Title`
 - `Status`
 - `Type`
-- `Parent`, only when `Type` is `Subproject` or `Big Action`
+- `Project`, when `Type` is `Subproject` or `Big Action`
+- `Subproject`, when `Type` is `Big Action`
 
-`Parent` is selected from existing Project/Subproject documents. You do not need to type links manually.
+`Project` and `Subproject` are selected from existing documents. You do not need to type links manually. For a `Big Action`, choose `Project` first, then choose one of that Project's Subprojects.
 
 Optional fields are under `Advanced metadata`:
 
@@ -79,12 +80,15 @@ New documents keep frontmatter short:
 
 ```yaml
 kanban_rpm: true
-type: project
-id: example-project
+type: big_action
+id: example-big-action
 status: active
-parent:
+project: "[[TTT]]"
+subproject: "[[TTT Experiment]]"
 order:
 ```
+
+Hierarchy is stored explicitly. A `Subproject` stores its `project`; a `Big Action` stores both `project` and `subproject`. This keeps the document readable and leaves room for future explicit levels such as `pro_project` or `sub_subproject`.
 
 New documents split plugin-readable control data from the free writing area:
 
@@ -94,7 +98,8 @@ New documents split plugin-readable control data from the free writing area:
 > [!kanban-rpm]
 > type: Project
 > status: active
-> parent: Project Title
+> project: [[TTT]]
+> subproject: [[TTT Experiment]]
 
 ## PM Control
 

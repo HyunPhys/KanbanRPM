@@ -33,6 +33,8 @@ export class CardRepository {
       const sectionData = this.parseLivingDocSections(content);
       const type = this.normalizeCardType(text(fm.type));
       const parent = text(fm.parent);
+      const project = text(fm.project);
+      const subproject = text(fm.subproject);
       const order = parseOrder(fm.order);
 
       cards.push({
@@ -50,6 +52,8 @@ export class CardRepository {
         breadcrumb: '',
         colorKey: '',
         priority: parsePriority(fm.priority),
+        project,
+        subproject,
         workstreamType: text(fm.workstream_type),
         nextAction: sectionData.currentFocus,
         waitingFor: sectionData.waitingFor,
@@ -92,9 +96,7 @@ export class CardRepository {
       index += 1;
     }
 
-    const parent = values.parent.trim();
-    const parentLine = parent ? `\nparent: ${yamlScalar(parent)}` : '';
-    const content = this.getLivingDocTemplate(values, title, baseName, parentLine);
+    const content = this.getLivingDocTemplate(values, title, baseName);
 
     const file = await this.plugin.app.vault.create(path, content);
     new Notice(`KanbanRPM card created: ${title}`);
@@ -121,7 +123,9 @@ export class CardRepository {
 
     await this.updateCardFrontmatter(file, {
       type: values.type,
-      parent: values.parent.trim(),
+      project: values.project.trim() || undefined,
+      subproject: values.subproject.trim() || undefined,
+      parent: undefined,
       status: values.status,
       priority: parsePriority(values.priority),
       workstream_type: values.workstreamType.trim(),
@@ -226,7 +230,8 @@ export class CardRepository {
     const file = await this.createCard({
       title,
       type: 'big_action',
-      parent: parentCard ? `[[${parentCard.file.basename}]]` : '',
+      project: parentCard?.project || (parentCard?.type === 'project' ? `[[${parentCard.file.basename}]]` : ''),
+      subproject: parentCard?.subproject || (parentCard?.type === 'subproject' ? `[[${parentCard.file.basename}]]` : ''),
       status: this.plugin.settings.statuses[0]?.id ?? 'inbox',
       priority: parentCard ? String(parentCard.priority) : '3',
       workstreamType: parentCard?.workstreamType ?? '',
@@ -284,9 +289,14 @@ export class CardRepository {
     delete frontmatter.archived_at;
 
     frontmatter.kanban_rpm = true;
-    frontmatter.type = 'project';
+    frontmatter.type = card.type;
     frontmatter.status = card.status;
     frontmatter.priority = card.priority;
+    if (card.project) frontmatter.project = card.project;
+    else delete frontmatter.project;
+    if (card.subproject) frontmatter.subproject = card.subproject;
+    else delete frontmatter.subproject;
+    delete frontmatter.parent;
 
     const copyPath = this.getAvailablePath(this.plugin.cardsFolder, sanitizeFileName(copyTitle), file.extension);
     const copyContent = `---\n${stringifyYaml(frontmatter)}---\n${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
@@ -357,6 +367,22 @@ export class CardRepository {
       if (cardType && !['project', 'subproject', 'big_action'].includes(cardType)) {
         add('warning', 'type', `Expected project, subproject, or big_action; current value is "${cardType}".`);
       }
+      if (card.type === 'subproject' && !card.project) {
+        add('warning', 'project', 'Subproject documents should declare a project link.');
+      }
+      if (card.type === 'big_action') {
+        if (!card.project) add('warning', 'project', 'Big Action documents should declare a project link.');
+        if (!card.subproject) add('warning', 'subproject', 'Big Action documents should declare a subproject link.');
+        if (card.project && card.subproject) {
+          const projectFile = this.resolveLinkedFile(card.project, card.path);
+          const subprojectFile = this.resolveLinkedFile(card.subproject, card.path);
+          const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path) : undefined;
+          const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path) : undefined;
+          if (projectCard && subprojectCard && subprojectCard.projectTitle !== projectCard.title) {
+            add('warning', 'hierarchy', `Subproject "${subprojectCard.title}" does not belong to Project "${projectCard.title}".`);
+          }
+        }
+      }
       if (!this.plugin.settings.statuses.some((status) => status.id === text(fm.status))) {
         add('error', 'status', `Unknown status "${text(fm.status) || '(empty)'}"; card is shown in ${this.plugin.settings.statuses[0]?.label ?? 'Inbox'}.`);
       }
@@ -374,7 +400,7 @@ export class CardRepository {
       const order = text(fm.order).trim();
       if (order && !Number.isFinite(Number(order))) add('warning', 'order', `order should be numeric; current value is "${order}".`);
 
-      const refs = [...card.sourceNotes, ...card.dependsOn, ...card.blocks];
+      const refs = [card.project, card.subproject, ...card.sourceNotes, ...card.dependsOn, ...card.blocks].filter(Boolean);
       for (const ref of refs) {
         if (ref.includes('[[') && !this.resolveLinkedFile(ref, card.path)) {
           add('warning', 'links', `Could not resolve linked note ${ref}.`);
@@ -474,7 +500,7 @@ export class CardRepository {
     return rows.length ? `${rows.join('\n')}\n\n` : '';
   }
 
-  private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string, parentLine: string): string {
+  private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string): string {
     const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '';
     const seededSmallAction = values.nextAction.trim() ? `- [ ] ${values.nextAction.trim()}\n` : '';
     const waiting = values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '';
@@ -487,10 +513,15 @@ export class CardRepository {
     const blocks = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
     const references = textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n');
     const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
-    const parentDisplay = values.parent.trim() || title;
+    const projectLine = values.project.trim() ? `\nproject: ${yamlScalar(values.project.trim())}` : '';
+    const subprojectLine = values.subproject.trim() ? `\nsubproject: ${yamlScalar(values.subproject.trim())}` : '';
+    const hierarchyRows = [
+      values.project.trim() ? `> project: ${values.project.trim()}` : '',
+      values.subproject.trim() ? `> subproject: ${values.subproject.trim()}` : '',
+    ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> parent: ${parentDisplay}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
@@ -700,19 +731,26 @@ export class CardRepository {
 
   private applyHierarchy(cards: ProjectCard[]): void {
     for (const card of cards) {
+      const projectFile = card.project ? this.resolveLinkedFile(card.project, card.path) : null;
+      const subprojectFile = card.subproject ? this.resolveLinkedFile(card.subproject, card.path) : null;
+      const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path || item.file.basename === projectFile.basename) : undefined;
+      const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path || item.file.basename === subprojectFile.basename) : undefined;
       const parentFile = card.parent ? this.resolveLinkedFile(card.parent, card.path) : null;
       const parentCard = parentFile ? cards.find((item) => item.path === parentFile.path || item.file.basename === parentFile.basename) : undefined;
-      card.parentPath = parentCard?.path ?? parentFile?.path ?? '';
-      card.parentTitle = parentCard?.title ?? parentFile?.basename ?? text(card.parent);
-      if (card.type === 'project' || !card.parentTitle) {
+      card.parentPath = subprojectCard?.path ?? projectCard?.path ?? parentCard?.path ?? subprojectFile?.path ?? projectFile?.path ?? parentFile?.path ?? '';
+      card.parentTitle = subprojectCard?.title ?? projectCard?.title ?? parentCard?.title ?? subprojectFile?.basename ?? projectFile?.basename ?? parentFile?.basename ?? text(card.subproject || card.project || card.parent);
+      if (card.type === 'project') {
         card.projectTitle = card.title;
         card.subprojectTitle = '';
-      } else if (parentCard?.type === 'project') {
-        card.projectTitle = parentCard.title;
-        card.subprojectTitle = card.type === 'subproject' ? card.title : '';
+      } else if (card.type === 'subproject') {
+        card.projectTitle = (projectCard?.title ?? projectFile?.basename ?? parentCard?.title ?? parentFile?.basename ?? text(card.project || card.parent)) || 'No project';
+        card.subprojectTitle = card.title;
+      } else if (card.type === 'big_action') {
+        card.projectTitle = (projectCard?.title ?? projectFile?.basename ?? subprojectCard?.projectTitle ?? parentCard?.projectTitle ?? text(card.project)) || 'No project';
+        card.subprojectTitle = subprojectCard?.title ?? subprojectFile?.basename ?? (parentCard?.type === 'subproject' ? parentCard.title : '') ?? text(card.subproject);
       } else {
-        card.projectTitle = parentCard?.projectTitle || card.parentTitle || card.title;
-        card.subprojectTitle = parentCard?.type === 'subproject' ? parentCard.title : parentCard?.subprojectTitle || '';
+        card.projectTitle = (projectCard?.title ?? text(card.project)) || card.title;
+        card.subprojectTitle = subprojectCard?.title ?? text(card.subproject);
       }
       card.breadcrumb = [card.projectTitle, card.subprojectTitle && card.subprojectTitle !== card.title ? card.subprojectTitle : '']
         .filter(Boolean)

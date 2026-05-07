@@ -36,6 +36,8 @@ export interface ProjectCard {
   status: Status;
   priority: number;
   parent: string;
+  project: string;
+  subproject: string;
   parentPath: string;
   parentTitle: string;
   projectTitle: string;
@@ -61,7 +63,8 @@ export interface ProjectCard {
 export interface NewCardValues {
   title: string;
   type: CardType;
-  parent: string;
+  project: string;
+  subproject: string;
   status: Status;
   priority: string;
   workstreamType: string;

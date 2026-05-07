@@ -6,10 +6,11 @@ KanbanRPM v0.2 treats every Project, Subproject, and Big Action as a living Mark
 
 ```yaml
 kanban_rpm: true
-type: project
+type: big_action
 id: example-workstream
 status: active
-parent:
+project: "[[TTT]]"
+subproject: "[[TTT Experiment]]"
 order:
 ```
 
@@ -19,7 +20,9 @@ Allowed `type` values:
 project | subproject | big_action
 ```
 
-`parent` links a Subproject or Big Action to an existing Project/Subproject. The create/edit modal provides a dropdown, so users do not need to type the parent manually.
+`project` links a Subproject or Big Action to its Project. `subproject` links a Big Action to its Subproject. The create/edit modal provides dropdowns, so users do not need to type these links manually.
+
+KanbanRPM stores hierarchy explicitly. Current levels are `project` and `subproject`; future levels such as `pro_project` or `sub_subproject` should be added as explicit level fields instead of overloading one generic parent field.
 
 `status` uses the global status set from KanbanRPM settings. The default is:
 
@@ -56,7 +59,8 @@ New documents use this body shape:
 > [!kanban-rpm]
 > type: Project
 > status: active
-> parent: Project Title
+> project: [[TTT]]
+> subproject: [[TTT Experiment]]
 
 ## PM Control
 

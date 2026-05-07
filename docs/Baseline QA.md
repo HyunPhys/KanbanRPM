@@ -39,7 +39,8 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 - [ ] Click `New document`.
 - [ ] Create a test Project with title, status, type, priority, category, and Current Focus.
-- [ ] Create a test Subproject and choose the Project from the `Parent` dropdown.
+- [ ] Create a test Subproject and choose the Project from the `Project` dropdown.
+- [ ] Create a test Big Action and choose `Project`, then a matching `Subproject`.
 - [ ] Confirm the card appears on the board.
 - [ ] Confirm the card file exists in `KanbanRPM Workspace/cards/`.
 - [ ] Click `Edit`.

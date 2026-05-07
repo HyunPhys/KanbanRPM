@@ -13,6 +13,11 @@ export const DEFAULT_STATUSES: StatusDefinition[] = [
 
 export const DEFAULT_CATEGORIES = ['research', 'experiment', 'analysis', 'writing', 'setup', 'purchase', 'admin', 'communication'];
 
+export const HIERARCHY_LEVELS = [
+  { id: 'project', label: 'Project', cardType: 'project' },
+  { id: 'subproject', label: 'Subproject', cardType: 'subproject' },
+] as const;
+
 export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   workspaceFolder: 'KanbanRPM Workspace',
   dailyFolder: '100. \uAC1C\uC778/110. \uB2E4\uC774\uC5B4\uB9AC/111. Daily',

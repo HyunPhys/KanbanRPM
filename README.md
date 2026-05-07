@@ -111,10 +111,11 @@ Card files use this frontmatter shape:
 
 ```yaml
 kanban_rpm: true
-type: project
-id: example-project
+type: big_action
+id: example-big-action
 status: inbox
-parent:
+project: "[[TTT]]"
+subproject: "[[TTT Experiment]]"
 order:
 ```
 
@@ -125,6 +126,7 @@ Flexible architecture terms:
 - `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
 - `Subproject`: a workstream under a Project, such as `TTT Analysis` or `Glove Box Setup`.
 - `Big Action`: a trackable chunk of work under a Project/Subproject.
+- `project` / `subproject`: explicit hierarchy links stored in frontmatter. Future hierarchy levels should be added as explicit level fields.
 - `Checkbox task`: a detailed action that stays inside source notes.
 - `Depends on` and `Blocks`: lightweight dependency sections inspired by Laminar arrows.
 - `References`: notes to scan for unchecked checkbox actions and `#todo` lines.
@@ -147,7 +149,7 @@ KanbanRPM Workspace/archive/
 - Show collapsible `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
 - Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
-- Select `Parent` from existing Project/Subproject documents instead of typing it manually.
+- Select `Project` and, for Big Actions, `Subproject` from existing documents instead of typing links manually.
 - Create cards directly in a lane with the lane `+` quick add button.
 - Edit card metadata from the board.
 - Duplicate existing cards.

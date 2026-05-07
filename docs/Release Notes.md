@@ -96,3 +96,11 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Updated card create/edit dropdowns, Category filter, and validation to use configured categories.
 - Removed Project documents from board lanes and rendered them in a dedicated `Project notes` strip above the board.
 - Made grouped board behavior depend on the Project filter: all projects group by Project, one Project groups by Subproject.
+
+### Phase 3.11 Explicit Hierarchy Fields
+
+- Replaced new-document hierarchy storage with explicit `project` and `subproject` fields.
+- Updated Subproject create/edit to choose `Project`.
+- Updated Big Action create/edit to choose `Project` first, then a Subproject within that Project.
+- Kept legacy `parent` as a read fallback only.
+- Added warnings for missing or inconsistent Project/Subproject links.

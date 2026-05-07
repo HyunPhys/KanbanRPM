@@ -9,18 +9,21 @@ This note is a local reference for KanbanRPM card frontmatter. It is created by 
 
 \`\`\`yaml
 kanban_rpm: true
-type: project
+type: big_action
 id: example-workstream
 status: active
+project: "[[TTT]]"
+subproject: "[[TTT Experiment]]"
 \`\`\`
 
-New living documents keep frontmatter intentionally short. The plugin treats \`Title\`, \`Type\`, and \`Status\` as required in the create/edit modal. \`Parent\` is required for \`subproject\` and \`big_action\` documents.
+New living documents keep frontmatter intentionally short. The plugin treats \`Title\`, \`Type\`, and \`Status\` as required in the create/edit modal. \`Project\` is required for Subproject and Big Action documents. \`Subproject\` is also required for Big Action documents.
 
 ## Execution Fields
 
 \`\`\`yaml
 status: inbox
-parent:
+project:
+subproject:
 order:
 \`\`\`
 
@@ -33,6 +36,8 @@ ${DEFAULT_STATUSES.map((status) => status.id).join(' | ')}
 The active status set is global and editable in KanbanRPM settings. Every Board/List/Table/Timeline/Graph surface should read the same status set.
 
 \`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
+
+\`project\` and \`subproject\` are explicit hierarchy links. Current levels are Project and Subproject; future hierarchy levels should be added as additional explicit level fields rather than overloading one generic parent field.
 
 Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Dependencies\`, \`### Timeline\`, and \`### PM Metadata\`.
 
