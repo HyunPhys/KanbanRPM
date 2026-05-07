@@ -37,20 +37,21 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 ## Card Create/Edit
 
-- [ ] Click `New card`.
-- [ ] Create a test card with title, priority, area, and next action.
+- [ ] Click `New document`.
+- [ ] Create a test Project with title, status, type, priority, category, and Current Focus.
+- [ ] Create a test Subproject and choose the Project from the `Parent` dropdown.
 - [ ] Confirm the card appears on the board.
 - [ ] Confirm the card file exists in `KanbanRPM Workspace/cards/`.
 - [ ] Click `Edit`.
-- [ ] Change status, priority, next action, waiting, blocker, review date, and due date.
-- [ ] Confirm frontmatter updates correctly.
+- [ ] Change status, priority, Current Focus, waiting, blocker, review date, and due date.
+- [ ] Confirm short frontmatter and body sections update correctly.
 
 ## Drag/Drop
 
 - [ ] Drag the test card to another lane.
 - [ ] Confirm `status` changes in frontmatter.
 - [ ] Drag within the same lane.
-- [ ] Confirm `rpm_order` is written.
+- [ ] Confirm `order` is written.
 - [ ] Confirm the board auto-refreshes after file changes.
 
 ## Daily Pull
@@ -83,5 +84,5 @@ Tester: Byunghyun Kim
 Obsidian version: Not recorded
 KanbanRPM version: 0.1.0
 Result: Passed
-Notes: User confirmed plugin load, board workflow, card workflow, legacy import, and Daily/Weekly workflow worked without issues.
+Notes: User confirmed plugin load, board workflow, card workflow, and Daily/Weekly workflow worked without issues.
 ```

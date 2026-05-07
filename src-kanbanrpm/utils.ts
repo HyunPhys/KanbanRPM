@@ -97,11 +97,11 @@ export function toDateSortValue(card: ProjectCard): string {
 }
 
 export function compareCards(a: ProjectCard, b: ProjectCard): number {
-  const aManual = Number.isFinite(a.rpmOrder);
-  const bManual = Number.isFinite(b.rpmOrder);
+  const aManual = Number.isFinite(a.order);
+  const bManual = Number.isFinite(b.order);
 
-  if (aManual && bManual && a.rpmOrder !== b.rpmOrder) {
-    return (a.rpmOrder ?? 0) - (b.rpmOrder ?? 0);
+  if (aManual && bManual && a.order !== b.order) {
+    return (a.order ?? 0) - (b.order ?? 0);
   }
 
   if (aManual !== bManual) return aManual ? -1 : 1;

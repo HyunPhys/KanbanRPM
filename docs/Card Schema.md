@@ -1,6 +1,6 @@
 # KanbanRPM Living Document Schema
 
-KanbanRPM v0.2 treats every Project, Subproject, and Big Action as a living Markdown document. Frontmatter is intentionally short; project-management context should live in readable document sections.
+KanbanRPM v0.2 treats every Project, Subproject, and Big Action as a living Markdown document. Frontmatter is intentionally short; project-management context belongs in readable document sections.
 
 ## Minimal Frontmatter
 
@@ -19,33 +19,30 @@ Allowed `type` values:
 project | subproject | big_action
 ```
 
-`status` uses the global status set from KanbanRPM settings. The default status set is:
+`parent` links a Subproject or Big Action to an existing Project/Subproject. The create/edit modal provides a dropdown, so users do not need to type the parent manually.
+
+`status` uses the global status set from KanbanRPM settings. The default is:
 
 ```text
 Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
-`parent` links a Subproject or Big Action to its parent Project/Subproject. It can be a wikilink such as `[[TTT]]` or a plain title.
+`order` is managed by drag/reorder and `Normalize order`.
 
-`order` is managed by KanbanRPM ordering tools.
+## Optional Frontmatter
 
-In the create/edit modal, required fields are marked with a red `*`: `Title`, `Status`, `Type`, and conditionally `Parent` for Subproject/Big Action documents.
-
-Terminology:
-
-- `Project` is the top-level living document.
-- `Subproject` is a workstream under a Project.
-- `Big Action` is a trackable chunk of work under a Project/Subproject.
-- `Checkbox task` remains inside source notes.
-- `group` is legacy compatibility metadata and appears in the UI as `Legacy group`.
-
-KanbanRPM computes a display breadcrumb from `parent` relationships:
-
-```text
-Project > Subproject
+```yaml
+priority: 3
+workstream_type: experiment
 ```
 
-This breadcrumb appears on cards and rows so items remain visually attached to their project context.
+KanbanRPM shows `workstream_type` as `Category`. It is the single broad classification field.
+
+Suggested `Category` values:
+
+```text
+research | experiment | analysis | writing | setup | purchase | admin | communication
+```
 
 ## Living Document Sections
 
@@ -65,6 +62,10 @@ New documents use this body shape:
 
 ## Big Actions
 
+## Waiting
+
+## Blockers
+
 ## Dependencies
 
 Depends on:
@@ -73,8 +74,6 @@ Blocks:
 
 ## Perpetual
 
-## PM Metadata
-
 ## Notes
 
 ## Decisions
@@ -82,43 +81,24 @@ Blocks:
 ## Timeline
 
 ## References
+
+## PM Metadata
 ```
 
-KanbanRPM reads these sections for Board/Table/List/Timeline/Graph behavior, while keeping the document readable as a normal note.
+KanbanRPM reads these sections while keeping the document useful as a normal note:
 
-## Legacy Metadata
-
-v0.1 cards may still contain frontmatter fields such as:
-
-```yaml
-priority:
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance:
-legacy_links:
-related_samples:
-related_phenomena:
-related_people:
-related_notes:
-depends_on:
-blocks:
-source_notes:
-rpm_order:
-```
-
-KanbanRPM continues to read these fields for compatibility. Legacy `rpm_order` is treated as `order` when loading older cards. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to remove empty legacy fields and move non-empty metadata into `## PM Metadata`.
+- `## Current Focus`: the action shown on cards and used by Daily Pull.
+- `## Waiting`: waiting context.
+- `## Blockers`: concrete blockers.
+- `## Dependencies`: `Depends on` and `Blocks` wikilinks.
+- `## Perpetual`: recurring review/routine checkbox items.
+- `## Timeline`: `Next review` and `Due date` rows.
+- `## References`: source notes scanned by Action index.
+- `## PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
 
 ## Dependencies
 
-Preferred v0.2 dependency syntax:
+Preferred syntax:
 
 ```markdown
 ## Dependencies
@@ -129,8 +109,6 @@ Depends on:
 Blocks:
 - [[TTT Manuscript]]
 ```
-
-KanbanRPM also reads legacy `depends_on` and `blocks` frontmatter fields.
 
 ## Perpetual
 
@@ -143,8 +121,6 @@ Preferred recurring routine syntax:
 - [ ] TEM Data Backup @monthly
 ```
 
-KanbanRPM v0.2 displays recurring items in Action index and Timeline-oriented views. It does not automatically generate recurring task copies yet.
-
 ## Checkbox Promotion
 
 Detailed tasks stay as Markdown checkboxes by default. Use `Promote` in the Action index to create a new `big_action` document from an important checkbox/action. The source checkbox is not modified.
@@ -154,9 +130,10 @@ Detailed tasks stay as Markdown checkboxes by default. Use `Promote` in the Acti
 KanbanRPM warns about:
 
 - unknown status values
-- malformed dates in legacy fields
+- invalid priority values
+- unknown `Category`
+- non-numeric `order`
 - broken dependency/source links
 - circular dependencies
-- non-numeric `order` / `rpm_order`
 
 Invalid or unknown status values fall back to the first configured status for display.

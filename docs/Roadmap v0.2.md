@@ -148,10 +148,9 @@ Goal: reduce terminology confusion and keep Phase 4 from building on noisy v0.1/
 Implemented:
 
 - Keep the board toolbar focused on primary actions.
-- Move secondary actions under `More`: `Pull Daily`, `Weekly review`, `Import legacy`, `Export arrows`, and `Normalize order`.
+- Move secondary actions under `More`: `Pull Daily`, `Weekly review`, `Export arrows`, and `Normalize order`.
 - Make `Data warnings` collapsible.
 - Move optional card fields into `Advanced metadata` in create/edit modals.
-- Rename visible `Group` UI to `Legacy group`.
 - Clarify Project terminology around `Project`, `Subproject`, `Big Action`, and `Checkbox task`.
 - Remove the unused older Action index render path.
 - Make `Parent` a dropdown sourced from existing Project/Subproject documents.
@@ -159,10 +158,12 @@ Implemented:
 - Collapse `area` / `project_kind` / `workstream_type` into one visible `Category` field.
 - Move prose-like planning fields into body sections in new living document templates.
 
-Deferred:
+Phase 3.7 cleanup:
 
-- Deeper TypeScript model split between persisted schema, derived index state, and legacy compatibility fields.
-- Full removal of legacy `group` and `rpm_order` aliases, which still need compatibility support.
+- Removed legacy import, group-note creation, and metadata compaction commands from the active plugin surface.
+- Removed legacy compatibility fields from the active TypeScript model.
+- Standardized manual order on `order`.
+- Updated user manuals, schema docs, README, and smoke checks to match the living-document model.
 
 ## Phase 4. Board, Table, And List Views
 

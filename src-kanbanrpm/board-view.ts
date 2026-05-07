@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './constants';
-import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, LegacyImportModal, NewProjectCardModal } from './modals';
+import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, Status } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
@@ -21,7 +21,6 @@ export class KanbanRPMView extends ItemView {
   private actions: ActionItem[] = [];
   private issues: CardIssue[] = [];
   private searchQuery = '';
-  private groupFilter = '';
   private projectFilter = '';
   private workstreamTypeFilter = '';
   private groupByProject = false;
@@ -123,9 +122,6 @@ export class KanbanRPMView extends ItemView {
       secondary.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
         void this.plugin.openWeeklyReview(visibleCards);
       });
-      secondary.createEl('button', { text: 'Import legacy' }).addEventListener('click', () => {
-        new LegacyImportModal(this.app, this.plugin).open();
-      });
       secondary.createEl('button', { text: 'Export arrows' }).addEventListener('click', () => {
         void this.plugin.writeDependencyArrows(visibleCards);
       });
@@ -150,7 +146,6 @@ export class KanbanRPMView extends ItemView {
     const query = this.searchQuery.trim().toLowerCase();
     return cards.filter((card) => {
       if (this.projectFilter && card.projectTitle !== this.projectFilter) return false;
-      if (this.groupFilter && card.group !== this.groupFilter) return false;
       if (this.workstreamTypeFilter && card.workstreamType !== this.workstreamTypeFilter) return false;
       if (!query) return true;
 
@@ -167,22 +162,12 @@ export class KanbanRPMView extends ItemView {
       card.status,
       `p${card.priority}`,
       String(card.priority),
-      card.area,
-      card.group,
       card.workstreamType,
-      card.projectKind,
-      card.stage,
       card.nextAction,
       card.waitingFor,
       card.blocker,
       card.nextReview,
       card.dueDate,
-      card.importance,
-      ...card.legacyLinks,
-      ...card.relatedSamples,
-      ...card.relatedPhenomena,
-      ...card.relatedPeople,
-      ...card.relatedNotes,
       ...card.dependsOn,
       ...card.blocks,
       ...card.sourceNotes,
@@ -197,19 +182,14 @@ export class KanbanRPMView extends ItemView {
       this.projectFilter = value;
       this.render();
     });
-    this.renderSelectFilter(filters, 'Legacy group', this.groupFilter, this.uniqueValues('group'), (value) => {
-      this.groupFilter = value;
-      this.render();
-    });
     this.renderSelectFilter(filters, 'Category', this.workstreamTypeFilter, this.uniqueValues('workstreamType'), (value) => {
       this.workstreamTypeFilter = value;
       this.render();
     });
 
-    if (this.projectFilter || this.groupFilter || this.workstreamTypeFilter) {
+    if (this.projectFilter || this.workstreamTypeFilter) {
       filters.createEl('button', { text: 'Clear filters' }).addEventListener('click', () => {
         this.projectFilter = '';
-        this.groupFilter = '';
         this.workstreamTypeFilter = '';
         this.render();
       });
@@ -232,7 +212,7 @@ export class KanbanRPMView extends ItemView {
     select.addEventListener('change', () => onChange(select.value));
   }
 
-  private uniqueValues(field: 'projectTitle' | 'group' | 'workstreamType'): string[] {
+  private uniqueValues(field: 'projectTitle' | 'workstreamType'): string[] {
     return Array.from(new Set(this.cards.map((card) => card[field]).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b)
     );
@@ -511,17 +491,14 @@ export class KanbanRPMView extends ItemView {
     const meta = cardEl.createDiv({ cls: 'kanban-rpm-meta' });
     this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
     this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
-    this.addMeta(meta, card.group, 'legacy group', 'kanban-rpm-meta-group');
     this.addMeta(meta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
     this.addMeta(meta, card.dueDate, 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
     this.addMeta(meta, card.nextReview, 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-    this.addCountMeta(meta, card.relatedPeople.length, 'people', 'kanban-rpm-meta-relation');
     this.addCountMeta(meta, card.dependsOn.length, 'depends', 'kanban-rpm-meta-dependency');
     this.addCountMeta(meta, card.blocks.length, 'blocks', 'kanban-rpm-meta-dependency');
     this.addCountMeta(meta, card.sourceNotes.length, 'sources', 'kanban-rpm-meta-source');
     this.addCountMeta(meta, card.actionCount, 'tasks', 'kanban-rpm-meta-source');
     this.addCountMeta(meta, card.blockedBy.length, 'blocked by', 'kanban-rpm-meta-dependency');
-    for (const link of card.legacyLinks.slice(0, 2)) this.addMeta(meta, link, 'legacy', 'kanban-rpm-meta-legacy');
 
     if (card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
     if (card.waitingFor) {
@@ -538,14 +515,6 @@ export class KanbanRPMView extends ItemView {
     });
     actions.createEl('button', { text: 'Edit' }).addEventListener('click', () => {
       new EditProjectCardModal(this.app, this.plugin, card).open();
-    });
-    actions.createEl('button', { text: 'Compact' }).addEventListener('click', () => {
-      new ConfirmCardActionModal(this.app, {
-        title: 'Compact metadata',
-        message: `Move non-empty legacy metadata from "${card.title}" into the document body and remove empty frontmatter fields?`,
-        confirmText: 'Compact',
-        onConfirm: () => this.plugin.compactCardMetadata(card),
-      }).open();
     });
     actions.createEl('button', { text: 'Duplicate' }).addEventListener('click', () => {
       void this.plugin.duplicateCard(card);
@@ -700,7 +669,7 @@ export class KanbanRPMView extends ItemView {
   private groupCardsByProject(cards: ProjectCard[]): Array<{ project: string; cards: ProjectCard[] }> {
     const map = new Map<string, ProjectCard[]>();
     for (const card of cards) {
-      const project = card.projectTitle || card.group || 'No project';
+      const project = card.projectTitle || 'No project';
       const existing = map.get(project) ?? [];
       existing.push(card);
       map.set(project, existing);

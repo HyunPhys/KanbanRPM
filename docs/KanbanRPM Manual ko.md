@@ -2,44 +2,80 @@
 
 이 문서는 KanbanRPM을 처음 쓰는 사람을 위한 한국어 manual입니다. Plugin UI에 표시되는 용어는 영어로 유지합니다.
 
-## 1. 기본 개념
-
-KanbanRPM의 기본 구조는 다음입니다.
+## Core Model
 
 ```text
 Project -> Subproject -> Big Action -> Checkbox task
 ```
 
 - `Project`: 최상위 living document입니다. 예: `TTT`, `Lab Setup`.
-- `Subproject`: Project 아래의 workstream입니다. 예: `TTT Experiment`, `Glove Box Setup`.
-- `Big Action`: board에서 추적할 만한 큰 실행 단위입니다.
-- `Checkbox task`: 문서나 meeting note 안에 남는 세부 할 일입니다.
+- `Subproject`: Project 안의 병렬 workstream입니다. 예: `TTT Experiment`, `Glove Box Setup`.
+- `Big Action`: board에서 상태 추적할 가치가 있는 큰 실행 단위입니다.
+- `Checkbox task`: meeting note, source note, living document 본문에 남겨두는 작은 할 일입니다.
 
 작은 checkbox를 모두 card로 만들지 않습니다. 중요한 것만 `Promote`해서 `Big Action`으로 올립니다.
 
-## 2. Board
+## Open Board
 
-기본 status lane은 다음입니다.
+1. Obsidian `Community plugins`에서 `KanbanRPM`을 enable합니다.
+2. `KanbanRPM: Open board`를 실행하거나 ribbon icon을 클릭합니다.
+
+KanbanRPM은 필요할 때 workspace를 만듭니다.
+
+```text
+KanbanRPM Workspace/
+  cards/
+  arrows/
+  perpetual/
+  attachments/
+  archive/
+```
+
+실제 Project/Subproject/Big Action 문서는 `cards/`에 저장됩니다.
+
+## Status Lanes
+
+기본 lane은 다음과 같습니다.
 
 ```text
 Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
-`status`는 실행 상태입니다. 실험 절차, 구매 단계, writing 단계 같은 설명은 별도 `stage` field가 아니라 Markdown body에 적습니다.
+`status`는 실행 상태입니다. quotation, drawing, deposition, analysis, writing 같은 절차 정보는 별도 `stage` field가 아니라 Markdown body에 적습니다.
 
-## 3. New document
+`Statuses`는 settings에서 전역으로 수정할 수 있습니다. 알 수 없는 status는 `Data warnings`에 표시되고 첫 번째 status로 fallback됩니다.
 
-1. board에서 `New document`를 클릭합니다.
-2. required field는 빨간색 `*`로 표시됩니다.
-3. `Title`, `Status`, `Type`을 입력합니다.
-4. `Type`이 `Subproject` 또는 `Big Action`이면 `Parent`를 기존 Project/Subproject 목록에서 선택합니다.
-5. 필요한 경우 `Advanced metadata`를 열어 `Priority`, `Category`, `Legacy group` 등을 입력합니다.
+## New Document
 
-`Parent`는 직접 타이핑하지 않습니다. 기존 문서 중에서 고릅니다.
+`New document`를 누르거나 lane의 `+` 버튼을 누릅니다.
 
-## 4. Living document template
+필수 field는 빨간색 `*`로 표시됩니다.
 
-새 문서는 frontmatter를 짧게 유지합니다.
+- `Title`
+- `Status`
+- `Type`
+- `Parent`: `Type`이 `Subproject` 또는 `Big Action`일 때만 필수
+
+`Parent`는 직접 입력하지 않고, 기존 Project/Subproject 목록에서 선택합니다.
+
+`Advanced metadata`에는 선택 field만 둡니다.
+
+- `Priority`
+- `Category`
+- `Current Focus`
+- `Waiting for`
+- `Blocker`
+- `Next review`
+- `Due date`
+- `Source notes`
+- `Depends on`
+- `Blocks`
+
+`Category`는 내부적으로 `workstream_type`에 저장됩니다. KanbanRPM은 더 이상 `area`, `project_kind`, `importance`, `stage`를 쓰지 않습니다.
+
+## Living Document Template
+
+새 문서의 frontmatter는 짧게 유지합니다.
 
 ```yaml
 kanban_rpm: true
@@ -50,7 +86,7 @@ parent:
 order:
 ```
 
-읽어야 하는 정보는 body section에 둡니다.
+읽고 써야 하는 PM 정보는 body section에 둡니다.
 
 ```markdown
 ## Current Focus
@@ -78,84 +114,99 @@ order:
 ## PM Metadata
 ```
 
-`Current Focus`, `Waiting`, `Blockers`, `Timeline` 같은 줄글 정보는 metadata보다 본문에 두는 것을 원칙으로 합니다.
+결정, 미팅 요약, sample context, 분석 메모, communication history는 본문에 직접 적습니다. 각 document는 card이면서 동시에 살아있는 프로젝트 노트입니다.
 
-## 5. Category
+## Board
 
-`area`, `Project kind`, `Workstream type`은 개념이 겹치므로 UI에서는 `Category` 하나만 사용합니다.
+card에는 `Project > Subproject` breadcrumb와 project color token이 표시됩니다. 전체 card를 한 번에 띄워도 어떤 Project/Subproject에 속하는지 바로 볼 수 있습니다.
 
-내부 호환 field는 `workstream_type`입니다.
-
-추천값:
-
-```text
-research | experiment | analysis | writing | setup | purchase | admin | communication
-```
-
-`importance`는 `priority`와 중복되므로 사용하지 않습니다. `stage`도 `status`와 혼동되므로 사용하지 않습니다.
-
-## 6. Board toolbar
-
-상단에는 primary action만 보입니다.
+상단 toolbar의 primary action:
 
 - `New document`
 - `Group by Project` / `Flat board`
 - `Refresh`
 - `More`
 
-`More` 안에는 보조 기능이 들어갑니다.
+`More` 안의 secondary action:
 
 - `Pull Daily`
 - `Weekly review`
-- `Import legacy`
 - `Export arrows`
 - `Normalize order`
 
-## 7. Card controls
+`Search cards`, `Project`, `Category` filter로 board를 좁힐 수 있습니다.
 
-card 안의 status button은 제거했습니다. 상태 변경은 drag/drop으로 합니다.
+card를 다른 lane으로 drag하면 `status`가 바뀝니다. 같은 lane 안에서 drag하면 `order`가 바뀝니다. card 안의 button click은 drag로 오작동하지 않도록 분리되어 있습니다.
 
-남아 있는 card action:
+## Action Index
 
-- `Open`
-- `Edit`
-- `Compact`
-- `Duplicate`
-- `Send to Daily`
-- `Archive`
-- `Delete`
+`Action index`는 card의 `## References`에 적힌 source note에서 unchecked checkbox와 `#todo` line을 읽습니다. 원본 note는 수정하지 않습니다.
 
-## 8. Data warnings
+- `Open source`: source note를 엽니다.
+- `Set next`: 해당 action을 card의 `## Current Focus`로 복사합니다.
+- `Promote`: 해당 action으로 새 `Big Action` document를 만듭니다.
 
-`Data warnings`는 collapse/expand할 수 있습니다.
+## Dependencies
+
+dependency는 body에 적습니다.
+
+```markdown
+## Dependencies
+
+Depends on:
+- [[TTT Data Processing]]
+
+Blocks:
+- [[TTT Manuscript]]
+```
+
+KanbanRPM은 dependency count, `blocked by` badge, broken link warning, circular dependency warning을 표시합니다. `Export arrows`는 `KanbanRPM Workspace/arrows/`에 Laminar-style arrow note를 만듭니다.
+
+## Daily / Weekly
+
+`Send to Daily`는 오늘 Daily note가 이미 있을 때만 아래 line을 추가합니다.
+
+```markdown
+- [ ] [[Card Title]]: Current Focus
+```
+
+KanbanRPM은 Daily note를 자동 생성하지 않습니다. Daily note가 없으면 예상 경로를 notice로 알려줍니다.
+
+`Weekly review`는 `KanbanRPM Workspace/perpetual/` 아래에 KanbanRPM-owned weekly review note를 생성하거나 엽니다.
+
+## Data Warnings
+
+`Data warnings`는 collapse/expand 가능합니다.
 
 주요 warning:
 
 - 알 수 없는 `status`
 - 잘못된 `priority`
-- legacy frontmatter의 잘못된 날짜
 - 알 수 없는 `Category`
-- 깨진 wikilink
+- 숫자가 아닌 `order`
+- `## References` 또는 `## Dependencies`의 broken wikilink
 - circular dependency
 
-## 9. Action index
+warning row를 클릭하면 해당 document를 엽니다.
 
-`Action index`는 linked note의 unchecked checkbox와 `#todo`를 읽습니다. 원본 문서는 수정하지 않습니다.
+## Settings
 
-- `Open source`: 원본 note 열기
-- `Set next`: 해당 action을 card의 next action으로 사용
-- `Promote`: checkbox/action을 새 `Big Action` 문서로 승격
+사용 가능한 settings:
 
-## 10. Daily / Weekly
+- `Workspace folder`
+- `Daily folder`
+- `Daily section`
+- `Weekly review folder`
+- `Statuses`
 
-`Send to Daily`는 오늘 Daily note가 이미 있을 때만 task line을 추가합니다.
+## Troubleshooting
 
-```markdown
-- [ ] [[Card Title]]: next action
-```
+board가 비어 있으면 문서가 `KanbanRPM Workspace/cards/`에 있는지, `kanban_rpm: true`가 있는지, archive로 이동하지 않았는지 확인합니다.
 
-`Weekly review` / `Weekly Review`는 KanbanRPM workspace 안에 review note를 생성하거나 엽니다.
+`Action index`가 비어 있으면 `## References`에 source note wikilink가 있고, 해당 note에 unchecked checkbox 또는 `#todo`가 있는지 확인합니다.
 
-## 11. Developer note
+`Send to Daily`가 동작하지 않으면 오늘 Daily note가 존재하는지, card에 `## Current Focus`가 있는지 확인합니다.
+
+## Developer Note
 
 User-facing behavior가 바뀌면 `docs/KanbanRPM Manual.md`와 이 한국어 manual을 함께 업데이트합니다.

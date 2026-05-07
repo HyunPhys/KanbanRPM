@@ -1,13 +1,10 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
-import type { DailyPullMode, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
+import type { DailyPullMode, NewCardValues, ProjectCard, Status } from './types';
 import { isDueSoon, isPastDate, isStatus } from './utils';
 
-type ListFieldKey = keyof Pick<
-  NewCardValues,
-  'relatedSamples' | 'relatedPhenomena' | 'relatedPeople' | 'relatedNotes' | 'dependsOn' | 'blocks' | 'sourceNotes'
->;
+type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes'>;
 
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
@@ -18,22 +15,12 @@ export class NewProjectCardModal extends Modal {
     parent: '',
     status: 'inbox',
     priority: '3',
-    area: '',
-    group: '',
     workstreamType: '',
-    projectKind: '',
-    stage: '',
     nextAction: '',
     waitingFor: '',
     blocker: '',
     nextReview: '',
     dueDate: '',
-    importance: 'normal',
-    legacyLinks: '',
-    relatedSamples: '',
-    relatedPhenomena: '',
-    relatedPeople: '',
-    relatedNotes: '',
     dependsOn: '',
     blocks: '',
     sourceNotes: '',
@@ -120,7 +107,7 @@ export class NewProjectCardModal extends Modal {
     details.createEl('summary', { text: 'Advanced metadata' });
     details.createDiv({
       cls: 'kanban-rpm-modal-help',
-      text: 'Optional compatibility and planning fields. Prefer writing context in the document body when possible.',
+      text: 'Optional structured hints. Prefer writing rich context in the document body.',
     });
     const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
 
@@ -131,16 +118,6 @@ export class NewProjectCardModal extends Modal {
         this.values.priority = value;
       });
     });
-
-    new Setting(grid)
-      .setName('Legacy group')
-      .setDesc('Optional old grouping label. New hierarchy should use Parent.')
-      .addText((input) => {
-        input.setPlaceholder('TTT');
-        input.onChange((value) => {
-          this.values.group = value;
-        });
-      });
 
     this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
 
@@ -171,21 +148,7 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(details)
-      .setName('Legacy links')
-      .setDesc('Comma or newline separated wikilinks')
-      .addTextArea((input) => {
-        input.setPlaceholder('[[old project note]]');
-        input.onChange((value) => {
-          this.values.legacyLinks = value;
-        });
-      });
-
-    this.addListField(details, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
-    this.addListField(details, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
-    this.addListField(details, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
-    this.addListField(details, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
     this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
     this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
@@ -281,26 +244,16 @@ export class EditProjectCardModal extends Modal {
     this.card = card;
     this.values = {
       title: card.title,
-      type: card.type === 'legacy' ? 'project' : card.type,
+      type: card.type,
       parent: card.parent,
       status: card.status,
       priority: String(card.priority),
-      area: card.area,
-      group: card.group,
       workstreamType: card.workstreamType,
-      projectKind: card.projectKind,
-      stage: card.stage,
       nextAction: card.nextAction,
       waitingFor: card.waitingFor,
       blocker: card.blocker,
       nextReview: card.nextReview,
       dueDate: card.dueDate,
-      importance: card.importance,
-      legacyLinks: card.legacyLinks.join('\n'),
-      relatedSamples: card.relatedSamples.join('\n'),
-      relatedPhenomena: card.relatedPhenomena.join('\n'),
-      relatedPeople: card.relatedPeople.join('\n'),
-      relatedNotes: card.relatedNotes.join('\n'),
       dependsOn: card.dependsOn.join('\n'),
       blocks: card.blocks.join('\n'),
       sourceNotes: card.sourceNotes.join('\n'),
@@ -382,7 +335,7 @@ export class EditProjectCardModal extends Modal {
     details.createEl('summary', { text: 'Advanced metadata' });
     details.createDiv({
       cls: 'kanban-rpm-modal-help',
-      text: 'Optional compatibility and planning fields. Prefer writing context in the document body when possible.',
+      text: 'Optional structured hints. Prefer writing rich context in the document body.',
     });
     const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
 
@@ -393,17 +346,6 @@ export class EditProjectCardModal extends Modal {
         this.values.priority = value;
       });
     });
-
-    new Setting(grid)
-      .setName('Legacy group')
-      .setDesc('Optional old grouping label. New hierarchy should use Parent.')
-      .addText((input) => {
-        input.setPlaceholder('TTT');
-        input.setValue(this.values.group);
-        input.onChange((value) => {
-          this.values.group = value;
-        });
-      });
 
     this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
 
@@ -438,21 +380,7 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(details)
-      .setName('Legacy links')
-      .setDesc('Comma or newline separated wikilinks')
-      .addTextArea((input) => {
-        input.setValue(this.values.legacyLinks);
-        input.onChange((value) => {
-          this.values.legacyLinks = value;
-        });
-      });
-
-    this.addListField(details, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
-    this.addListField(details, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
-    this.addListField(details, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
-    this.addListField(details, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
     this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
     this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
@@ -547,57 +475,6 @@ export interface ConfirmCardActionOptions {
   onConfirm: () => Promise<void>;
 }
 
-export class NewGroupModal extends Modal {
-  private plugin: KanbanRPMPlugin;
-  private groupName = '';
-
-  constructor(app: App, plugin: KanbanRPMPlugin) {
-    super(app);
-    this.plugin = plugin;
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl('h2', { text: 'New KanbanRPM legacy group' });
-
-    new Setting(contentEl).setName('Legacy group name').addText((input) => {
-      input.setPlaceholder('TTT');
-      input.onChange((value) => {
-        this.groupName = value;
-      });
-    });
-
-    new Setting(contentEl)
-      .addButton((button) => {
-        button
-            .setButtonText('Create legacy group')
-          .setCta()
-          .onClick(() => {
-            void this.createGroup();
-          });
-      })
-      .addButton((button) => {
-        button.setButtonText('Cancel').onClick(() => this.close());
-      });
-  }
-
-  private async createGroup(): Promise<void> {
-    if (!this.groupName.trim()) {
-      new Notice('KanbanRPM legacy group needs a name.');
-      return;
-    }
-
-    await this.plugin.createGroup(this.groupName);
-    await this.plugin.refreshViews();
-    this.close();
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
-}
-
 export class ConfirmCardActionModal extends Modal {
   private options: ConfirmCardActionOptions;
 
@@ -629,143 +506,6 @@ export class ConfirmCardActionModal extends Modal {
 
   onClose(): void {
     this.contentEl.empty();
-  }
-}
-
-export class LegacyImportModal extends Modal {
-  private plugin: KanbanRPMPlugin;
-  private candidates: LegacyProjectCandidate[] = [];
-  private selected = new Set<string>();
-  private loading = true;
-
-  constructor(app: App, plugin: KanbanRPMPlugin) {
-    super(app);
-    this.plugin = plugin;
-  }
-
-  async onOpen(): Promise<void> {
-    await this.loadCandidates();
-  }
-
-  private async loadCandidates(): Promise<void> {
-    this.loading = true;
-    this.render();
-    this.candidates = await this.plugin.scanLegacyProjectNotes();
-    this.selected = new Set(this.candidates.filter((candidate) => !candidate.alreadySeeded).map((candidate) => candidate.path));
-    this.loading = false;
-    this.render();
-  }
-
-  private render(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass('kanban-rpm-legacy-modal');
-    contentEl.createEl('h2', { text: 'Import legacy project notes' });
-    contentEl.createEl('p', {
-      cls: 'kanban-rpm-modal-help',
-      text: 'Preview-only scan. KanbanRPM creates new cards with legacy_links and never edits the original notes.',
-    });
-
-    if (this.loading) {
-      contentEl.createDiv({ cls: 'kanban-rpm-empty', text: 'Scanning legacy project notes...' });
-      return;
-    }
-
-    const available = this.candidates.filter((candidate) => !candidate.alreadySeeded);
-    const seeded = this.candidates.length - available.length;
-    contentEl.createDiv({
-      cls: 'kanban-rpm-legacy-summary',
-      text: `${this.candidates.length} candidates - ${available.length} available - ${seeded} already seeded`,
-    });
-
-    if (!this.candidates.length) {
-      contentEl.createDiv({ cls: 'kanban-rpm-empty', text: 'No legacy project candidates found.' });
-    } else {
-      const controls = contentEl.createDiv({ cls: 'kanban-rpm-legacy-controls' });
-      controls.createEl('button', { text: 'Select all available' }).addEventListener('click', () => {
-        this.selected = new Set(available.map((candidate) => candidate.path));
-        this.render();
-      });
-      controls.createEl('button', { text: 'Clear selection' }).addEventListener('click', () => {
-        this.selected.clear();
-        this.render();
-      });
-
-      const list = contentEl.createDiv({ cls: 'kanban-rpm-legacy-list' });
-      for (const candidate of this.candidates) this.renderCandidate(list, candidate);
-    }
-
-    new Setting(contentEl)
-      .addButton((button) => {
-        button
-          .setButtonText(`Seed ${this.selected.size} cards`)
-          .setCta()
-          .onClick(() => {
-            void this.seedSelected();
-          });
-      })
-      .addButton((button) => {
-        button.setButtonText('Rescan').onClick(() => {
-          void this.loadCandidates();
-        });
-      })
-      .addButton((button) => {
-        button.setButtonText('Close').onClick(() => this.close());
-      });
-  }
-
-  private renderCandidate(container: HTMLElement, candidate: LegacyProjectCandidate): void {
-    const row = container.createDiv({
-      cls: `kanban-rpm-legacy-row${candidate.alreadySeeded ? ' is-seeded' : ''}`,
-    });
-
-    const checkbox = row.createEl('input', {
-      attr: {
-        type: 'checkbox',
-        'aria-label': `Select ${candidate.title}`,
-      },
-    });
-    checkbox.checked = this.selected.has(candidate.path);
-    checkbox.disabled = candidate.alreadySeeded;
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) this.selected.add(candidate.path);
-      else this.selected.delete(candidate.path);
-    });
-
-    const body = row.createDiv({ cls: 'kanban-rpm-legacy-body' });
-    const title = body.createDiv({ cls: 'kanban-rpm-legacy-title' });
-    title.createSpan({ text: candidate.title });
-    if (candidate.alreadySeeded) {
-      title.createSpan({ cls: 'kanban-rpm-legacy-seeded', text: `already seeded: ${candidate.existingCardTitle}` });
-    }
-
-    body.createDiv({ cls: 'kanban-rpm-legacy-path', text: candidate.path });
-    body.createDiv({
-      cls: 'kanban-rpm-legacy-meta',
-      text: [
-        `status: ${candidate.status}`,
-        `priority: P${candidate.priority}`,
-        candidate.group ? `group: ${candidate.group}` : '',
-        candidate.reasons.join(', '),
-      ]
-        .filter(Boolean)
-        .join(' - '),
-    });
-
-    row.createEl('button', { text: 'Open' }).addEventListener('click', () => {
-      void this.plugin.openFilePath(candidate.path);
-    });
-  }
-
-  private async seedSelected(): Promise<void> {
-    const candidates = this.candidates.filter((candidate) => this.selected.has(candidate.path) && !candidate.alreadySeeded);
-    if (!candidates.length) {
-      new Notice('No legacy project notes selected.');
-      return;
-    }
-
-    await this.plugin.seedLegacyProjectCards(candidates);
-    await this.loadCandidates();
   }
 }
 
@@ -816,12 +556,12 @@ export class DailyPullModal extends Modal {
     const candidates = this.getCandidates();
     const withNext = candidates.filter((card) => card.nextAction);
     contentEl.createDiv({
-      cls: 'kanban-rpm-legacy-summary',
-      text: `${candidates.length} candidates - ${withNext.length} with next_action - ${this.selected.size} selected`,
+      cls: 'kanban-rpm-daily-card-summary',
+      text: `${candidates.length} candidates - ${withNext.length} with Current Focus - ${this.selected.size} selected`,
     });
 
-    const controls = contentEl.createDiv({ cls: 'kanban-rpm-legacy-controls' });
-    controls.createEl('button', { text: 'Select all with next_action' }).addEventListener('click', () => {
+    const controls = contentEl.createDiv({ cls: 'kanban-rpm-daily-card-controls' });
+    controls.createEl('button', { text: 'Select all with Current Focus' }).addEventListener('click', () => {
       this.selected = new Set(withNext.map((card) => card.path));
       this.render();
     });
@@ -830,7 +570,7 @@ export class DailyPullModal extends Modal {
       this.render();
     });
 
-    const list = contentEl.createDiv({ cls: 'kanban-rpm-legacy-list' });
+    const list = contentEl.createDiv({ cls: 'kanban-rpm-daily-card-list' });
     if (!candidates.length) {
       list.createDiv({ cls: 'kanban-rpm-empty', text: 'No cards match this pull mode.' });
     } else {
@@ -881,7 +621,7 @@ export class DailyPullModal extends Modal {
   }
 
   private renderCardOption(container: HTMLElement, card: ProjectCard): void {
-    const row = container.createDiv({ cls: `kanban-rpm-legacy-row${card.nextAction ? '' : ' is-seeded'}` });
+    const row = container.createDiv({ cls: `kanban-rpm-daily-card-row${card.nextAction ? '' : ' is-disabled'}` });
     const checkbox = row.createEl('input', {
       attr: {
         type: 'checkbox',
@@ -895,12 +635,13 @@ export class DailyPullModal extends Modal {
       else this.selected.delete(card.path);
     });
 
-    const body = row.createDiv({ cls: 'kanban-rpm-legacy-body' });
-    body.createDiv({ cls: 'kanban-rpm-legacy-title', text: card.title });
+    const body = row.createDiv({ cls: 'kanban-rpm-daily-card-body' });
+    body.createDiv({ cls: 'kanban-rpm-daily-card-title', text: card.title });
     body.createDiv({
-      cls: 'kanban-rpm-legacy-meta',
+      cls: 'kanban-rpm-daily-card-meta',
       text: [
-        card.group ? `group: ${card.group}` : '',
+        card.projectTitle ? `project: ${card.projectTitle}` : '',
+        card.subprojectTitle ? `subproject: ${card.subprojectTitle}` : '',
         `status: ${card.status}`,
         `P${card.priority}`,
         card.nextReview ? `review: ${card.nextReview}` : '',
@@ -909,7 +650,7 @@ export class DailyPullModal extends Modal {
         .filter(Boolean)
         .join(' - '),
     });
-    body.createDiv({ cls: 'kanban-rpm-legacy-path', text: card.nextAction || 'No next_action; cannot send to Daily.' });
+    body.createDiv({ cls: 'kanban-rpm-daily-card-path', text: card.nextAction || 'No Current Focus; cannot send to Daily.' });
 
     row.createEl('button', { text: 'Open' }).addEventListener('click', () => {
       void this.plugin.openCard(card);

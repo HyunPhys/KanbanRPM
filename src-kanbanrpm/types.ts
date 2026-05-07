@@ -10,7 +10,7 @@ export interface KanbanRPMSettings {
 
 export type Status = string;
 
-export type CardType = 'project' | 'subproject' | 'big_action' | 'legacy';
+export type CardType = 'project' | 'subproject' | 'big_action';
 
 export type ViewMode = 'board' | 'table' | 'list' | 'timeline' | 'graph';
 
@@ -39,29 +39,19 @@ export interface ProjectCard {
   subprojectTitle: string;
   breadcrumb: string;
   colorKey: string;
-  area: string;
-  group: string;
   workstreamType: string;
-  projectKind: string;
-  stage: string;
   nextAction: string;
   waitingFor: string;
   blocker: string;
   nextReview: string;
   dueDate: string;
-  importance: string;
-  legacyLinks: string[];
-  relatedSamples: string[];
-  relatedPhenomena: string[];
-  relatedPeople: string[];
-  relatedNotes: string[];
   dependsOn: string[];
   blocks: string[];
   blockedBy: string[];
   sourceNotes: string[];
   perpetuals: RecurringItem[];
   actionCount: number;
-  rpmOrder?: number;
+  order?: number;
 }
 
 export interface NewCardValues {
@@ -70,22 +60,12 @@ export interface NewCardValues {
   parent: string;
   status: Status;
   priority: string;
-  area: string;
-  group: string;
   workstreamType: string;
-  projectKind: string;
-  stage: string;
   nextAction: string;
   waitingFor: string;
   blocker: string;
   nextReview: string;
   dueDate: string;
-  importance: string;
-  legacyLinks: string;
-  relatedSamples: string;
-  relatedPhenomena: string;
-  relatedPeople: string;
-  relatedNotes: string;
   dependsOn: string;
   blocks: string;
   sourceNotes: string;
@@ -116,23 +96,6 @@ export interface DependencyEdge {
   relationship: 'depends_on' | 'blocks';
   raw: string;
   broken: boolean;
-}
-
-export interface LegacyProjectCandidate {
-  file: TFile;
-  path: string;
-  title: string;
-  status: Status;
-  priority: number;
-  area: string;
-  group: string;
-  projectKind: string;
-  workstreamType: string;
-  stage: string;
-  reasons: string[];
-  legacyLink: string;
-  alreadySeeded: boolean;
-  existingCardTitle: string;
 }
 
 export type DailyPullMode = 'review' | 'active' | 'waiting' | 'blocked' | 'all-visible';

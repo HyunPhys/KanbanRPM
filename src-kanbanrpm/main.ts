@@ -9,10 +9,10 @@ import { KanbanRPMView } from './board-view';
 import { CardRepository } from './card-repository';
 import { DEFAULT_SETTINGS, VIEW_TYPE } from './constants';
 import { openWeeklyReview, sendCardToDaily, sendCardsToDaily as sendCardBatchToDaily } from './daily';
-import { DailyPullModal, LegacyImportModal, NewGroupModal, NewProjectCardModal } from './modals';
+import { DailyPullModal, NewProjectCardModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
-import type { ActionItem, CardIssue, KanbanRPMSettings, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
+import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, Status } from './types';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
@@ -42,18 +42,6 @@ export default class KanbanRPMPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: 'new-group-note',
-      name: 'New legacy group note',
-      callback: () => new NewGroupModal(this.app, this).open(),
-    });
-
-    this.addCommand({
-      id: 'import-legacy-project-notes',
-      name: 'Import legacy project notes',
-      callback: () => new LegacyImportModal(this.app, this).open(),
-    });
-
-    this.addCommand({
       id: 'write-dependency-arrows',
       name: 'Export dependency arrows',
       callback: () => void this.writeDependencyArrows(),
@@ -63,12 +51,6 @@ export default class KanbanRPMPlugin extends Plugin {
       id: 'normalize-rpm-order',
       name: 'Normalize card order',
       callback: () => void this.normalizeCardOrder(),
-    });
-
-    this.addCommand({
-      id: 'compact-card-metadata',
-      name: 'Compact card metadata',
-      callback: () => void this.compactActiveCardMetadata(),
     });
 
     this.addCommand({
@@ -134,10 +116,6 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/archive`);
   }
 
-  get groupsFolder(): string {
-    return normalizePath(`${this.workspaceFolder}/groups`);
-  }
-
   get arrowsFolder(): string {
     return normalizePath(`${this.workspaceFolder}/arrows`);
   }
@@ -159,7 +137,6 @@ export default class KanbanRPMPlugin extends Plugin {
       this.workspaceFolder,
       this.cardsFolder,
       this.archiveFolder,
-      this.groupsFolder,
       this.arrowsFolder,
       `${this.workspaceFolder}/perpetual`,
       `${this.workspaceFolder}/attachments`,
@@ -207,24 +184,6 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.normalizeCardOrder();
   }
 
-  async compactCardMetadata(card: ProjectCard): Promise<void> {
-    await this.repository.compactCardMetadata(card);
-  }
-
-  async compactActiveCardMetadata(): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
-    if (!file || !this.isCardFile(file)) {
-      new Notice('Open a KanbanRPM card file before compacting metadata.');
-      return;
-    }
-    const card = (await this.loadCards()).find((item) => item.path === file.path);
-    if (!card) {
-      new Notice('Active file is not a loaded KanbanRPM card.');
-      return;
-    }
-    await this.repository.compactCardMetadata(card);
-  }
-
   async openSchemaReference(): Promise<void> {
     await this.ensureWorkspace();
     let file = this.app.vault.getAbstractFileByPath(this.schemaReferencePath);
@@ -255,18 +214,6 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async duplicateCard(card: ProjectCard): Promise<TFile | undefined> {
     return this.repository.duplicateCard(card);
-  }
-
-  async createGroup(name: string): Promise<TFile> {
-    return this.repository.createGroup(name);
-  }
-
-  async scanLegacyProjectNotes(): Promise<LegacyProjectCandidate[]> {
-    return this.repository.scanLegacyProjectNotes();
-  }
-
-  async seedLegacyProjectCards(candidates: LegacyProjectCandidate[]): Promise<TFile[]> {
-    return this.repository.seedLegacyProjectCards(candidates);
   }
 
   async collectActionIndex(cards: ProjectCard[]): Promise<ActionItem[]> {

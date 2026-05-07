@@ -101,7 +101,7 @@ function getWeeklyReviewContent(cards: ProjectCard[], settings: KanbanRPMSetting
   const blockedStatus = settings.statuses.find((status) => status.id === 'blocked')?.id ?? 'blocked';
   const reviewCards = cards
     .filter((card) => card.status !== doneStatus)
-    .sort((a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title));
+    .sort((a, b) => a.projectTitle.localeCompare(b.projectTitle) || a.title.localeCompare(b.title));
   const active = reviewCards.filter((card) => card.status === activeStatus);
   const waiting = reviewCards.filter((card) => card.status === waitingStatus || card.waitingFor);
   const blocked = reviewCards.filter((card) => card.status === blockedStatus || card.blocker || card.blockedBy.length);

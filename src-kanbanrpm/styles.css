@@ -86,10 +86,6 @@
   font-weight: 650;
 }
 
-.kanban-rpm-legacy-modal {
-  max-width: min(860px, 92vw);
-}
-
 .kanban-rpm-daily-modal {
   max-width: min(760px, 92vw);
 }
@@ -102,13 +98,13 @@
   margin-bottom: 10px;
 }
 
-.kanban-rpm-legacy-summary {
+.kanban-rpm-daily-card-summary {
   color: var(--text-muted);
   font-size: 12px;
   margin-bottom: 8px;
 }
 
-.kanban-rpm-legacy-controls {
+.kanban-rpm-daily-card-controls {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -116,14 +112,14 @@
   flex-wrap: wrap;
 }
 
-.kanban-rpm-legacy-list {
+.kanban-rpm-daily-card-list {
   max-height: min(56vh, 560px);
   overflow: auto;
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
 }
 
-.kanban-rpm-legacy-row {
+.kanban-rpm-daily-card-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -132,19 +128,19 @@
   border-top: 1px solid var(--background-modifier-border);
 }
 
-.kanban-rpm-legacy-row:first-child {
+.kanban-rpm-daily-card-row:first-child {
   border-top: 0;
 }
 
-.kanban-rpm-legacy-row.is-seeded {
+.kanban-rpm-daily-card-row.is-disabled {
   opacity: 0.62;
 }
 
-.kanban-rpm-legacy-body {
+.kanban-rpm-daily-card-body {
   min-width: 0;
 }
 
-.kanban-rpm-legacy-title {
+.kanban-rpm-daily-card-title {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -152,9 +148,8 @@
   overflow-wrap: anywhere;
 }
 
-.kanban-rpm-legacy-seeded,
-.kanban-rpm-legacy-path,
-.kanban-rpm-legacy-meta {
+.kanban-rpm-daily-card-path,
+.kanban-rpm-daily-card-meta {
   color: var(--text-muted);
   font-size: 12px;
   overflow-wrap: anywhere;
@@ -637,16 +632,6 @@
   color: var(--interactive-accent);
 }
 
-.kanban-rpm-meta .kanban-rpm-meta-area {
-  border-color: var(--interactive-accent);
-}
-
-.kanban-rpm-meta .kanban-rpm-meta-group {
-  border-color: var(--color-green);
-  color: var(--text-normal);
-}
-
-.kanban-rpm-meta .kanban-rpm-meta-stage,
 .kanban-rpm-meta .kanban-rpm-meta-kind {
   border-color: var(--color-cyan);
 }
@@ -663,16 +648,6 @@
 
 .kanban-rpm-meta .kanban-rpm-meta-date {
   border-style: dashed;
-}
-
-.kanban-rpm-meta .kanban-rpm-meta-legacy {
-  color: var(--text-faint);
-}
-
-.kanban-rpm-meta .kanban-rpm-importance-urgent {
-  border-color: var(--text-error);
-  color: var(--text-error);
-  font-weight: 600;
 }
 
 .kanban-rpm-next {

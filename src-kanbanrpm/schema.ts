@@ -36,22 +36,22 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 Optional planning fields can stay in the document body under sections such as \`## Current Focus\`, \`## Dependencies\`, \`## Timeline\`, and \`## PM Metadata\`.
 
-## Optional Compatibility Fields
+## Body-Backed Planning Fields
 
 \`\`\`yaml
-group:
 workstream_type:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
 \`\`\`
 
-KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. It replaces the older overlapping \`area\`, \`project_kind\`, and \`workstream_type\` trio.
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field.
+
+Rich planning data belongs in the document body:
+
+- \`## Current Focus\` for the next visible action.
+- \`## Waiting\` for people or responses you are waiting on.
+- \`## Blockers\` for concrete blockers.
+- \`## Dependencies\` for \`Depends on\` and \`Blocks\` wikilinks.
+- \`## Timeline\` for \`Next review\` and \`Due date\`.
+- \`## References\` for source notes that feed the Action index.
 
 Suggested \`Category\` values:
 
@@ -81,10 +81,9 @@ The board shows \`Data warnings\` for:
 
 - invalid or missing \`status\`
 - invalid \`priority\`
-- malformed frontmatter dates on legacy cards
 - unknown \`workstream_type\` / \`Category\`
 - non-numeric \`order\`
-- broken wikilinks in \`source_notes\`, \`legacy_links\`, or \`related_notes\`
+- broken wikilinks in \`## References\` or \`## Dependencies\`
 
 KanbanRPM tries to display imperfect cards rather than hiding them. Invalid \`status\` falls back to \`Inbox\` for display.
 `;
