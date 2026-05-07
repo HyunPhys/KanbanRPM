@@ -1,5 +1,5 @@
 import { Notice, TFile, normalizePath, stringifyYaml } from 'obsidian';
-import { IMPORTANCE_VALUES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
+import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, CardIssueLevel, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
 import {
@@ -59,11 +59,11 @@ export class CardRepository {
         workstreamType: text(fm.workstream_type),
         projectKind: text(fm.project_kind),
         stage: text(fm.stage),
-        nextAction: text(fm.next_action),
-        waitingFor: text(fm.waiting_for),
-        blocker: text(fm.blocker),
-        nextReview: text(fm.next_review),
-        dueDate: text(fm.due_date),
+        nextAction: text(fm.next_action) || sectionData.currentFocus,
+        waitingFor: text(fm.waiting_for) || sectionData.waitingFor,
+        blocker: text(fm.blocker) || sectionData.blocker,
+        nextReview: text(fm.next_review) || sectionData.nextReview,
+        dueDate: text(fm.due_date) || sectionData.dueDate,
         importance: text(fm.importance) || 'normal',
         legacyLinks: Array.isArray(fm.legacy_links)
           ? fm.legacy_links.map(text).filter(Boolean)
@@ -105,7 +105,7 @@ export class CardRepository {
       index += 1;
     }
 
-    const parent = values.parent.trim() || values.group.trim();
+    const parent = values.parent.trim();
     const parentLine = parent ? `\nparent: ${yamlScalar(parent)}` : '';
     const content = this.getLivingDocTemplate(values, title, baseName, parentLine);
 
@@ -219,7 +219,12 @@ export class CardRepository {
 
       const baseName = sanitizeFileName(candidate.title);
       const path = this.getAvailablePath(this.plugin.cardsFolder, baseName, 'md');
-      const content = `---\nkanban_rpm: true\ntype: project\nstatus: ${yamlScalar(candidate.status)}\npriority: ${yamlScalar(candidate.priority || 3)}\narea: ${yamlScalar(candidate.area)}\ngroup: ${yamlScalar(candidate.group)}\nworkstream_type: ${yamlScalar(candidate.workstreamType)}\nproject_kind: ${yamlScalar(candidate.projectKind)}\nstage: ${yamlScalar(candidate.stage)}\ntitle: ${yamlScalar(candidate.title)}\nnext_action: \nwaiting_for: \nblocker: \nnext_review: \ndue_date: \nimportance: normal\nrpm_order: \nlegacy_links: ${yamlArray([candidate.legacyLink])}\nrelated_samples: []\nrelated_phenomena: []\nrelated_people: []\nrelated_notes: []\ndepends_on: []\nblocks: []\nsource_notes: []\n---\n\n## Active Actions\n\n## Waiting\n\n## Decision Log\n\n## Timeline\n\n## References\n\n## Legacy Context\n\n- ${candidate.legacyLink}\n`;;
+      const metadata = [
+        candidate.priority && candidate.priority !== 3 ? `- priority: ${candidate.priority}` : '',
+        candidate.group ? `- group: ${candidate.group}` : '',
+        candidate.workstreamType ? `- workstream_type: ${candidate.workstreamType}` : '',
+      ].filter(Boolean).join('\n');
+      const content = `---\nkanban_rpm: true\ntype: project\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(candidate.status)}\norder: \n---\n\n# ${candidate.title}\n\n> [!kanban-rpm]\n> type: Project\n> status: ${candidate.status}\n> project: ${candidate.title}\n\n## Current Focus\n\n## Subprojects\n\n## Big Actions\n\n## Waiting\n\n## Blockers\n\n## Dependencies\n\nDepends on:\n\nBlocks:\n\n## Perpetual\n\n## Notes\n\n## Decisions\n\n## Timeline\n\n## References\n\n- ${candidate.legacyLink}\n\n## PM Metadata\n\n${metadata ? `${metadata}\n` : ''}`;;
 
       created.push(await this.plugin.app.vault.create(path, content));
     }
@@ -252,17 +257,17 @@ export class CardRepository {
       parent: values.parent.trim(),
       status: values.status,
       priority: parsePriority(values.priority),
-      area: values.area.trim(),
+      area: undefined,
       group: values.group.trim(),
       workstream_type: values.workstreamType.trim(),
-      project_kind: values.projectKind.trim(),
-      stage: values.stage.trim(),
+      project_kind: undefined,
+      stage: undefined,
       next_action: values.nextAction.trim(),
       waiting_for: values.waitingFor.trim(),
       blocker: values.blocker.trim(),
       next_review: values.nextReview.trim(),
       due_date: values.dueDate.trim(),
-      importance: values.importance.trim() || 'normal',
+      importance: undefined,
       legacy_links: textareaToList(values.legacyLinks),
       related_samples: textareaToList(values.relatedSamples),
       related_phenomena: textareaToList(values.relatedPhenomena),
@@ -493,7 +498,10 @@ export class CardRepository {
         });
       };
 
-      if (fm.type && text(fm.type) !== 'project') add('warning', 'type', `Expected type "project"; current value is "${text(fm.type)}".`);
+      const cardType = text(fm.type);
+      if (cardType && !['project', 'subproject', 'big_action'].includes(cardType)) {
+        add('warning', 'type', `Expected project, subproject, or big_action; current value is "${cardType}".`);
+      }
       if (!text(fm.title).trim()) add('warning', 'title', 'Missing title; file basename is being used.');
       if (!this.plugin.settings.statuses.some((status) => status.id === text(fm.status))) {
         add('error', 'status', `Unknown status "${text(fm.status) || '(empty)'}"; card is shown in ${this.plugin.settings.statuses[0]?.label ?? 'Inbox'}.`);
@@ -509,15 +517,9 @@ export class CardRepository {
         if (value && !isValidDateString(value)) add('warning', field, `${field} should use YYYY-MM-DD; current value is "${value}".`);
       }
 
-      for (const [field, allowed] of [
-        ['workstream_type', WORKSTREAM_TYPES],
-        ['project_kind', PROJECT_KINDS],
-        ['importance', IMPORTANCE_VALUES],
-      ] as Array<[string, string[]]>) {
-        const value = text(fm[field]).trim();
-        if (value && !allowed.includes(value)) {
-          add('warning', field, `${field} is not in the suggested vocabulary: ${allowed.join(', ')}.`);
-        }
+      const category = text(fm.workstream_type).trim();
+      if (category && !WORKSTREAM_TYPES.includes(category)) {
+        add('warning', 'workstream_type', `category is not in the suggested vocabulary: ${WORKSTREAM_TYPES.join(', ')}.`);
       }
 
       if (fm.rpm_order !== null && fm.rpm_order !== undefined && text(fm.rpm_order).trim()) {
@@ -659,17 +661,9 @@ export class CardRepository {
   private renderNonEmptyMetadata(values: NewCardValues): string {
     const rows: string[] = [];
     for (const [label, value] of [
-      ['priority', values.priority],
-      ['area', values.area],
+      ['priority', values.priority === '3' ? '' : values.priority],
       ['group', values.group],
       ['workstream_type', values.workstreamType],
-      ['project_kind', values.projectKind],
-      ['stage', values.stage],
-      ['waiting_for', values.waitingFor],
-      ['blocker', values.blocker],
-      ['next_review', values.nextReview],
-      ['due_date', values.dueDate],
-      ['importance', values.importance],
     ]) {
       if (String(value || '').trim()) rows.push(`- ${label}: ${String(value).trim()}`);
     }
@@ -689,23 +683,40 @@ export class CardRepository {
   private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string, parentLine: string): string {
     const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '';
     const bigAction = values.nextAction.trim() ? `### ${values.nextAction.trim()}\n\n- [ ] ${values.nextAction.trim()}\n\n` : '';
+    const waiting = values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '';
+    const blocker = values.blocker.trim() ? `- ${values.blocker.trim()}\n` : '';
+    const timelineRows = [
+      values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : '',
+      values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : '',
+    ].filter(Boolean).join('\n');
     const depends = textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n');
     const blocks = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
     const references = textareaToList(values.legacyLinks).map((item) => `- ${item}`).join('\n');
     const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
     const parentDisplay = values.parent.trim() || values.group.trim() || title;
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> project: ${parentDisplay}\n\n## Current Focus\n\n${currentFocus}\n## Subprojects\n\n## Big Actions\n\n${bigAction}## Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n## Perpetual\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}## Notes\n\n## Decisions\n\n## Timeline\n\n## References\n\n${references}\n`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> project: ${parentDisplay}\n\n## Current Focus\n\n${currentFocus}\n## Subprojects\n\n## Big Actions\n\n${bigAction}## Waiting\n\n${waiting}## Blockers\n\n${blocker}## Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n## Perpetual\n\n## Notes\n\n## Decisions\n\n## Timeline\n\n${timelineRows}\n\n## References\n\n${references}\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}`;
   }
 
   private parseLivingDocSections(content: string): {
+    currentFocus: string;
+    waitingFor: string;
+    blocker: string;
+    nextReview: string;
+    dueDate: string;
     dependsOn: string[];
     blocks: string[];
     perpetuals: Array<{ cardPath: string; cardTitle: string; text: string; cadence: 'daily' | 'weekly' | 'monthly' }>;
     actionCount: number;
   } {
     const dependencies = this.getSection(content, 'Dependencies');
+    const currentFocus = this.firstListItem(this.getSection(content, 'Current Focus'));
+    const waitingFor = this.firstListItem(this.getSection(content, 'Waiting'));
+    const blocker = this.firstListItem(this.getSection(content, 'Blockers'));
+    const timeline = this.getSection(content, 'Timeline');
     const perpetual = this.getSection(content, 'Perpetual');
+    const nextReview = this.parseTimelineDate(timeline, 'Next review');
+    const dueDate = this.parseTimelineDate(timeline, 'Due date');
     const dependsOn = this.parseDependencyList(dependencies, 'Depends on');
     const blocks = this.parseDependencyList(dependencies, 'Blocks');
     const perpetuals = perpetual
@@ -719,7 +730,18 @@ export class CardRepository {
         cadence: match[2] as 'daily' | 'weekly' | 'monthly',
       }));
     const actionCount = content.split(/\r?\n/).filter((line) => /^\s*[-*]\s+\[ \]\s+/.test(line)).length;
-    return { dependsOn, blocks, perpetuals, actionCount };
+    return { currentFocus, waitingFor, blocker, nextReview, dueDate, dependsOn, blocks, perpetuals, actionCount };
+  }
+
+  private firstListItem(section: string): string {
+    const match = section.match(/^\s*[-*]\s+(?:\[[ xX-]\]\s*)?(.+)$/m);
+    return match?.[1]?.trim() ?? '';
+  }
+
+  private parseTimelineDate(section: string, label: string): string {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = section.match(new RegExp(`${escaped}:\\s*(\\d{4}-\\d{2}-\\d{2})`, 'i'));
+    return match?.[1] ?? '';
   }
 
   private getSection(content: string, title: string): string {

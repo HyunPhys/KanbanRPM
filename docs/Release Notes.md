@@ -59,3 +59,8 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Folded optional card fields under `Advanced metadata`.
 - Clarified terminology: `Project`, `Subproject`, `Big Action`, `Checkbox task`, and `Legacy group`.
 - Renamed visible dependency export language from `Write arrows` to `Export arrows` / `Export dependency arrows`.
+- Replaced manual `Parent` text entry with a dropdown of existing Project/Subproject documents.
+- Removed card-level inline status buttons.
+- Consolidated overlapping `area`, `project_kind`, and `workstream_type` UI into `Category`.
+- Removed visible `importance` and `stage` fields from the editing flow.
+- Updated new living document templates so prose fields live in Markdown body sections.

@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
-import { IMPORTANCE_VALUES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
+import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { DailyPullMode, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
 import { isDueSoon, isPastDate, isStatus } from './utils';
@@ -11,6 +11,7 @@ type ListFieldKey = keyof Pick<
 
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
+  private parentOptions: ProjectCard[] = [];
   private values: NewCardValues = {
     title: '',
     type: 'project',
@@ -44,7 +45,12 @@ export class NewProjectCardModal extends Modal {
     this.values.status = defaultStatus;
   }
 
-  onOpen(): void {
+  async onOpen(): Promise<void> {
+    this.parentOptions = await this.plugin.loadCards();
+    this.renderForm();
+  }
+
+  private renderForm(): void {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl('h2', { text: 'New KanbanRPM living document' });
@@ -97,16 +103,15 @@ export class NewProjectCardModal extends Modal {
       dropdown.addOption('big_action', 'Big Action');
       dropdown.setValue(this.values.type);
       dropdown.onChange((value) => {
-        if (value === 'project' || value === 'subproject' || value === 'big_action') this.values.type = value;
+        if (value === 'project' || value === 'subproject' || value === 'big_action') {
+          this.values.type = value;
+          if (value === 'project') this.values.parent = '';
+          this.renderForm();
+        }
       });
     });
 
-    this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action').addText((input) => {
-      input.setPlaceholder('[[TTT]]');
-      input.onChange((value) => {
-        this.values.parent = value;
-      });
-    });
+    this.addParentDropdown(grid);
 
   }
 
@@ -127,13 +132,6 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Area').addText((input) => {
-      input.setPlaceholder('research');
-      input.onChange((value) => {
-        this.values.area = value;
-      });
-    });
-
     new Setting(grid)
       .setName('Legacy group')
       .setDesc('Optional old grouping label. New hierarchy should use Parent.')
@@ -144,17 +142,7 @@ export class NewProjectCardModal extends Modal {
         });
       });
 
-    this.addVocabularyDropdown(grid, 'Workstream type', 'workstreamType', WORKSTREAM_TYPES);
-    this.addVocabularyDropdown(grid, 'Project kind', 'projectKind', PROJECT_KINDS);
-
-    new Setting(grid).setName('Stage').addText((input) => {
-      input.setPlaceholder('quotation');
-      input.onChange((value) => {
-        this.values.stage = value;
-      });
-    });
-
-    this.addVocabularyDropdown(grid, 'Importance', 'importance', IMPORTANCE_VALUES, 'normal');
+    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
 
     new Setting(details).setName('Waiting for').addText((input) => {
       input.onChange((value) => {
@@ -205,7 +193,7 @@ export class NewProjectCardModal extends Modal {
   private addVocabularyDropdown(
     grid: HTMLElement,
     name: string,
-    key: keyof Pick<NewCardValues, 'workstreamType' | 'projectKind' | 'importance'>,
+    key: keyof Pick<NewCardValues, 'workstreamType'>,
     values: string[],
     fallback = ''
   ): void {
@@ -217,6 +205,31 @@ export class NewProjectCardModal extends Modal {
         this.values[key] = value;
       });
     });
+  }
+
+  private addParentDropdown(grid: HTMLElement): void {
+    const setting = this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action');
+    setting.addDropdown((dropdown) => {
+      dropdown.addOption('', this.values.type === 'project' ? 'None' : 'Choose parent');
+      for (const card of this.getParentOptions()) {
+        dropdown.addOption(this.parentValue(card), card.breadcrumb || card.title);
+      }
+      dropdown.setValue(this.values.parent);
+      dropdown.onChange((value) => {
+        this.values.parent = value;
+      });
+      dropdown.setDisabled(this.values.type === 'project');
+    });
+  }
+
+  private getParentOptions(): ProjectCard[] {
+    if (this.values.type === 'project') return [];
+    const allowed = this.values.type === 'subproject' ? new Set(['project']) : new Set(['project', 'subproject']);
+    return this.parentOptions.filter((card) => allowed.has(card.type)).sort((a, b) => (a.breadcrumb || a.title).localeCompare(b.breadcrumb || b.title));
+  }
+
+  private parentValue(card: ProjectCard): string {
+    return `[[${card.file.basename}]]`;
   }
 
   private async createCard(): Promise<void> {
@@ -260,6 +273,7 @@ export class EditProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
   private card: ProjectCard;
   private values: NewCardValues;
+  private parentOptions: ProjectCard[] = [];
 
   constructor(app: App, plugin: KanbanRPMPlugin, card: ProjectCard) {
     super(app);
@@ -293,7 +307,12 @@ export class EditProjectCardModal extends Modal {
     };
   }
 
-  onOpen(): void {
+  async onOpen(): Promise<void> {
+    this.parentOptions = (await this.plugin.loadCards()).filter((card) => card.path !== this.card.path);
+    this.renderForm();
+  }
+
+  private renderForm(): void {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl('h2', { text: 'Edit KanbanRPM living document' });
@@ -346,17 +365,15 @@ export class EditProjectCardModal extends Modal {
       dropdown.addOption('big_action', 'Big Action');
       dropdown.setValue(this.values.type);
       dropdown.onChange((value) => {
-        if (value === 'project' || value === 'subproject' || value === 'big_action') this.values.type = value;
+        if (value === 'project' || value === 'subproject' || value === 'big_action') {
+          this.values.type = value;
+          if (value === 'project') this.values.parent = '';
+          this.renderForm();
+        }
       });
     });
 
-    this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action').addText((input) => {
-      input.setPlaceholder('[[TTT]]');
-      input.setValue(this.values.parent);
-      input.onChange((value) => {
-        this.values.parent = value;
-      });
-    });
+    this.addParentDropdown(grid);
 
   }
 
@@ -377,13 +394,6 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Area').addText((input) => {
-      input.setValue(this.values.area);
-      input.onChange((value) => {
-        this.values.area = value;
-      });
-    });
-
     new Setting(grid)
       .setName('Legacy group')
       .setDesc('Optional old grouping label. New hierarchy should use Parent.')
@@ -395,18 +405,7 @@ export class EditProjectCardModal extends Modal {
         });
       });
 
-    this.addVocabularyDropdown(grid, 'Workstream type', 'workstreamType', WORKSTREAM_TYPES);
-    this.addVocabularyDropdown(grid, 'Project kind', 'projectKind', PROJECT_KINDS);
-
-    new Setting(grid).setName('Stage').addText((input) => {
-      input.setPlaceholder('quotation');
-      input.setValue(this.values.stage);
-      input.onChange((value) => {
-        this.values.stage = value;
-      });
-    });
-
-    this.addVocabularyDropdown(grid, 'Importance', 'importance', IMPORTANCE_VALUES, 'normal');
+    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
 
     new Setting(details).setName('Waiting for').addText((input) => {
       input.setValue(this.values.waitingFor);
@@ -461,7 +460,7 @@ export class EditProjectCardModal extends Modal {
   private addVocabularyDropdown(
     grid: HTMLElement,
     name: string,
-    key: keyof Pick<NewCardValues, 'workstreamType' | 'projectKind' | 'importance'>,
+    key: keyof Pick<NewCardValues, 'workstreamType'>,
     values: string[],
     fallback = ''
   ): void {
@@ -473,6 +472,34 @@ export class EditProjectCardModal extends Modal {
         this.values[key] = value;
       });
     });
+  }
+
+  private addParentDropdown(grid: HTMLElement): void {
+    const setting = this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action');
+    setting.addDropdown((dropdown) => {
+      dropdown.addOption('', this.values.type === 'project' ? 'None' : 'Choose parent');
+      for (const card of this.getParentOptions()) {
+        dropdown.addOption(this.parentValue(card), card.breadcrumb || card.title);
+      }
+      if (this.values.parent && !this.getParentOptions().some((card) => this.parentValue(card) === this.values.parent)) {
+        dropdown.addOption(this.values.parent, this.values.parent);
+      }
+      dropdown.setValue(this.values.parent);
+      dropdown.onChange((value) => {
+        this.values.parent = value;
+      });
+      dropdown.setDisabled(this.values.type === 'project');
+    });
+  }
+
+  private getParentOptions(): ProjectCard[] {
+    if (this.values.type === 'project') return [];
+    const allowed = this.values.type === 'subproject' ? new Set(['project']) : new Set(['project', 'subproject']);
+    return this.parentOptions.filter((card) => allowed.has(card.type)).sort((a, b) => (a.breadcrumb || a.title).localeCompare(b.breadcrumb || b.title));
+  }
+
+  private parentValue(card: ProjectCard): string {
+    return `[[${card.file.basename}]]`;
   }
 
   private async saveChanges(): Promise<void> {

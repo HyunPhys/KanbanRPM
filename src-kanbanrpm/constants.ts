@@ -22,6 +22,4 @@ export const DEFAULT_SETTINGS: KanbanRPMSettings = {
 export const LANES: Lane[] = DEFAULT_STATUSES;
 
 export const WORKSTREAM_TYPES = ['research', 'experiment', 'analysis', 'writing', 'setup', 'purchase', 'admin', 'communication'];
-export const PROJECT_KINDS = ['research', 'lab_setup', 'equipment', 'teaching', 'admin'];
-export const IMPORTANCE_VALUES = ['normal', 'planned', 'future', 'urgent', 'purchase', 'article'];
 export const WEEKDAYS_KO = ['\uC77C', '\uC6D4', '\uD654', '\uC218', '\uBAA9', '\uAE08', '\uD1A0'];

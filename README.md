@@ -112,30 +112,13 @@ Card files use this frontmatter shape:
 ```yaml
 kanban_rpm: true
 type: project
+id: example-project
 status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+parent:
+order:
 ```
+
+Readable planning context lives in Markdown sections such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, `Timeline`, `References`, and `PM Metadata`.
 
 Flexible architecture terms:
 
@@ -146,7 +129,8 @@ Flexible architecture terms:
 - `Legacy group`: the older optional `group` field kept for compatibility.
 - `depends_on` and `blocks`: lightweight dependency metadata inspired by Laminar arrows.
 - `source_notes`: notes to scan for unchecked checkbox actions and `#todo` lines.
-- `related_samples`, `related_phenomena`, and `related_people`: research/operations context that should stay connected to the card.
+- `Category`: one optional classification value stored as `workstream_type`.
+- `related_samples`, `related_phenomena`, and `related_people`: optional compatibility context for legacy or advanced workflows.
 
 The workspace also keeps Laminar-style support folders:
 
@@ -162,7 +146,7 @@ KanbanRPM Workspace/archive/
 
 - Open the KanbanRPM board from the command palette or ribbon.
 - Search/filter cards from the board toolbar.
-- Filter cards by `Project`, `Legacy group`, `Project kind`, and `Workstream type`.
+- Filter cards by `Project`, `Legacy group`, and `Category`.
 - Show collapsible `Data warnings` for invalid card frontmatter, unusual dates, invalid priority values, unknown vocabulary values, and broken source links.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
 - Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
@@ -173,7 +157,7 @@ KanbanRPM Workspace/archive/
 - Duplicate existing cards.
 - Archive cards to `KanbanRPM Workspace/archive/`.
 - Delete cards through a confirmation modal.
-- Show visual badges for status, legacy group, type, kind, stage, dependencies, priority, importance, and overdue dates.
+- Show visual badges for status, legacy group, type, category, dependencies, priority, and overdue dates.
 - Show an `Action index` that collects unchecked checkboxes and `#todo` lines from linked source notes without modifying the original notes.
 - Open source notes from the `Action index`.
 - Promote an indexed action into a card's `next_action` with `Set next`.
@@ -185,7 +169,6 @@ KanbanRPM Workspace/archive/
 - Append Daily actions under a configurable `Daily section`.
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
 - Show compact card relation rows for `depends_on`, `blocks`, and `source_notes`.
-- Move cards quickly with inline `Active`, `Waiting`, `Blocked`, and `Done` status buttons.
 - Export dependency metadata to Laminar-style `arrows/` notes with `Export arrows`.
 - Drag cards between lanes to update `status`.
 - Drag cards within a lane to set `order`.

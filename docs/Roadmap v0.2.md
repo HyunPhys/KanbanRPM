@@ -125,7 +125,7 @@ Implemented:
 - Prevent button/input clicks inside cards from starting drag.
 - Lane movement changes only `status`.
 - Same-lane reorder changes only `order`.
-- Keep inline status buttons as fallback.
+- Remove inline status buttons from cards; drag/drop is the primary status-change flow.
 - Mark required create/edit modal fields with a red `*`.
 
 Deferred:
@@ -154,6 +154,10 @@ Implemented:
 - Rename visible `Group` UI to `Legacy group`.
 - Clarify Project terminology around `Project`, `Subproject`, `Big Action`, and `Checkbox task`.
 - Remove the unused older Action index render path.
+- Make `Parent` a dropdown sourced from existing Project/Subproject documents.
+- Remove duplicated visible fields: `importance`, `stage`, `area`, and `project_kind`.
+- Collapse `area` / `project_kind` / `workstream_type` into one visible `Category` field.
+- Move prose-like planning fields into body sections in new living document templates.
 
 Deferred:
 

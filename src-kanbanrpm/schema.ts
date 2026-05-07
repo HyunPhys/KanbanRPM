@@ -1,4 +1,4 @@
-import { DEFAULT_STATUSES, IMPORTANCE_VALUES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
+import { DEFAULT_STATUSES, WORKSTREAM_TYPES } from './constants';
 
 export function getSchemaReferenceContent(): string {
   return `# KanbanRPM Card Schema
@@ -36,15 +36,11 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 Optional planning fields can stay in the document body under sections such as \`## Current Focus\`, \`## Dependencies\`, \`## Timeline\`, and \`## PM Metadata\`.
 
-## Flexible Architecture Fields
+## Optional Compatibility Fields
 
 \`\`\`yaml
-area:
 group:
 workstream_type:
-project_kind:
-stage:
-importance: normal
 legacy_links: []
 related_samples: []
 related_phenomena: []
@@ -55,22 +51,12 @@ blocks: []
 source_notes: []
 \`\`\`
 
-Suggested \`workstream_type\` values:
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. It replaces the older overlapping \`area\`, \`project_kind\`, and \`workstream_type\` trio.
+
+Suggested \`Category\` values:
 
 \`\`\`text
 ${WORKSTREAM_TYPES.join(' | ')}
-\`\`\`
-
-Suggested \`project_kind\` values:
-
-\`\`\`text
-${PROJECT_KINDS.join(' | ')}
-\`\`\`
-
-Suggested \`importance\` values:
-
-\`\`\`text
-${IMPORTANCE_VALUES.join(' | ')}
 \`\`\`
 
 ## Lane Customization Decision
@@ -95,8 +81,8 @@ The board shows \`Data warnings\` for:
 
 - invalid or missing \`status\`
 - invalid \`priority\`
-- malformed \`next_review\` or \`due_date\`
-- unknown \`workstream_type\`, \`project_kind\`, or \`importance\`
+- malformed frontmatter dates on legacy cards
+- unknown \`workstream_type\` / \`Category\`
 - non-numeric \`order\`
 - broken wikilinks in \`source_notes\`, \`legacy_links\`, or \`related_notes\`
 

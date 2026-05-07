@@ -59,15 +59,15 @@ The lane is stored in each card file:
 status: active
 ```
 
-`status` is the execution state. `stage` is the procedural position, such as `quotation`, `drawing`, `purchase`, `installation`, or `writing`.
+`status` is the execution state. Procedure details such as quotation, drawing, purchase, installation, or writing should live in the Markdown body, not in a separate `stage` field.
 
 ## 4. Create a Card
 
 1. Open the KanbanRPM board.
 2. Click `New document`.
 3. Fill the required fields marked with a red `*`: `Title`, `Status`, and `Type`.
-4. If `Type` is `Subproject` or `Big Action`, fill `Parent` as the parent Project/Subproject.
-5. Optionally open `Advanced metadata` for compatibility fields such as `Legacy group`, `Workstream type`, `Project kind`, and `Stage`.
+4. If `Type` is `Subproject` or `Big Action`, choose `Parent` from existing Project/Subproject documents.
+5. Optionally open `Advanced metadata` for compatibility fields such as `Legacy group` and `Category`.
 6. Click `Create document`.
 
 KanbanRPM creates a Markdown file in:
@@ -83,7 +83,13 @@ The card body starts with:
 
 ## Waiting
 
-## Decision Log
+## Blockers
+
+## Dependencies
+
+## Notes
+
+## Decisions
 
 ## Timeline
 
@@ -135,8 +141,7 @@ Use the filter bar to narrow the board by:
 
 - `Project`
 - `Legacy group`
-- `Project kind`
-- `Workstream type`
+- `Category`
 
 Click `Clear filters` to reset the structured filters. Click `Clear` to reset search.
 
@@ -164,7 +169,7 @@ Select the notes you want and click `Seed selected cards`. KanbanRPM creates new
 KanbanRPM Workspace/cards/
 ```
 
-Each seeded card gets the detected title, normalized `status`, `priority`, basic group metadata when available, and a `legacy_links` entry pointing back to the original note. The original legacy note is never edited.
+Each seeded card gets the detected title, normalized `status`, compatibility metadata when available, and a reference pointing back to the original note. The original legacy note is never edited.
 
 Duplicate prevention is based on existing card `legacy_links`. Running the import again marks already seeded notes and leaves them unchecked.
 
@@ -176,8 +181,8 @@ Current checks:
 
 - invalid or missing `status`
 - `priority` outside `1` to `5`
-- `next_review` or `due_date` not using `YYYY-MM-DD`
-- unknown `workstream_type` or `project_kind`
+- malformed frontmatter dates on legacy cards
+- unknown `Category`
 - broken wikilinks in `source_notes`, `legacy_links`, or `related_notes`
 
 Click a warning row to open the affected card. KanbanRPM still tries to show imperfect cards instead of hiding them.
@@ -231,8 +236,6 @@ Click `Edit` to update card metadata. Click `Open` to edit the Markdown body.
 
 Drag a card to another lane to update `status`. KanbanRPM uses pointer-based drag so card buttons, links, and inputs do not accidentally start a drag.
 
-You can also use the inline status buttons on a card to change `status` without dragging. These buttons follow your custom status set.
-
 Drag a card within the same lane to set manual order:
 
 ```yaml
@@ -266,7 +269,7 @@ This does not change the card metadata. It creates missing arrow notes and skips
 
 ## 12. Duplicate, Archive, or Delete
 
-Use `Duplicate` to copy a card into `cards/` with `Copy` added to the title. The duplicate keeps the same `Status` and `Priority`, but does not keep manual `rpm_order`.
+Use `Duplicate` to copy a card into `cards/` with `Copy` added to the title. The duplicate keeps the same `Status` and `Priority`, but does not keep manual `order`.
 
 Use `Archive` to move a card to:
 
