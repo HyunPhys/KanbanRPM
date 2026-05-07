@@ -81,3 +81,11 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Supported Tasks-style scheduled, due, done, and priority emoji metadata.
 - Added collapsible `Small actions` rows on cards.
 - Added settings for small-action source filtering and date-window filtering.
+
+### Phase 3.9 Small Action Editing And Templates
+
+- Added card-level small-action check/uncheck support that updates the original Markdown checkbox.
+- Grouped expanded small actions by their source heading.
+- Reworked new document templates around `PM Control`, a horizontal rule, and `Working Notes`.
+- Added separate Project, Subproject, and Big Action working-note templates.
+- Updated section parsing so KanbanRPM reads both older `##` sections and newer nested `###` control sections.

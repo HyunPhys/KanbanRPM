@@ -12,7 +12,7 @@ import { openWeeklyReview, sendCardToDaily, sendCardsToDaily as sendCardBatchToD
 import { DailyPullModal, NewProjectCardModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
-import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, Status } from './types';
+import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, SmallAction, Status } from './types';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
@@ -219,6 +219,10 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
     return this.repository.promoteActionToBigAction(action);
+  }
+
+  async toggleSmallAction(action: SmallAction): Promise<void> {
+    await this.repository.toggleSmallAction(action);
   }
 
   async archiveCard(card: ProjectCard): Promise<void> {

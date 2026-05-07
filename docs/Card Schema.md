@@ -54,47 +54,53 @@ New documents use this body shape:
 > [!kanban-rpm]
 > type: Project
 > status: active
-> project: Project Title
+> parent: Project Title
 
-## Current Focus
+## PM Control
 
-## Subprojects
+### Current Focus
 
-## Big Actions
+### Waiting
 
-## Waiting
+### Blockers
 
-## Blockers
-
-## Dependencies
+### Dependencies
 
 Depends on:
 
 Blocks:
 
-## Perpetual
+### Timeline
 
-## Notes
+### Perpetual
 
-## Decisions
+### References
 
-## Timeline
+### PM Metadata
 
-## References
+---
 
-## PM Metadata
+## Working Notes
+
+### Project Brief
+
+### Desired Outcomes
+
+### Decisions
 ```
 
 KanbanRPM reads these sections while keeping the document useful as a normal note:
 
-- `## Current Focus`: the action shown on cards and used by Daily Pull.
-- `## Waiting`: waiting context.
-- `## Blockers`: concrete blockers.
-- `## Dependencies`: `Depends on` and `Blocks` wikilinks.
-- `## Perpetual`: recurring review/routine checkbox items.
-- `## Timeline`: `Next review` and `Due date` rows.
-- `## References`: source notes scanned by Action index.
-- `## PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
+- `### Current Focus`: the action shown on cards and used by Daily Pull.
+- `### Waiting`: waiting context.
+- `### Blockers`: concrete blockers.
+- `### Dependencies`: `Depends on` and `Blocks` wikilinks.
+- `### Perpetual`: recurring review/routine checkbox items.
+- `### Timeline`: `Next review` and `Due date` rows.
+- `### References`: source notes scanned by Action index.
+- `### PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
+
+`## PM Control` is the plugin-readable projection area. `## Working Notes` is the human writing area. Project, Subproject, and Big Action templates have different `Working Notes` sections.
 
 ## Dependencies
 
@@ -141,7 +147,9 @@ Supported fields:
 - done date: `✅ YYYY-MM-DD`
 - priority: `⏫`, `🔼`, `🔽`, `⏬`
 
-Small actions are displayed on board cards according to plugin settings. The default is to show due/scheduled actions through one week, including overdue actions.
+Small actions are displayed on board cards according to plugin settings. The default is to show due/scheduled actions through one week, including overdue actions. Expanded card rows group small actions by their source heading.
+
+Checking a small action from a card updates the original Markdown line to `[x]` and appends today's done date. Unchecking it returns the task to `[ ]` and removes the done date.
 
 ## Validation
 

@@ -104,6 +104,7 @@ export interface SmallAction {
   priority: SmallActionPriority;
   heading: string;
   lineNumber: number;
+  lineText: string;
   raw: string;
 }
 

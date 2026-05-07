@@ -197,6 +197,30 @@ export class CardRepository {
     new Notice('KanbanRPM Current Focus updated from Action index.');
   }
 
+  async toggleSmallAction(action: SmallAction): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(action.cardPath);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split(/\r?\n/);
+    const index = action.lineNumber - 1;
+    const line = lines[index];
+    if (!line || line !== action.lineText) {
+      new Notice('KanbanRPM could not safely update this small action. Refresh and try again.');
+      return;
+    }
+
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const nextLine = action.done
+      ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, '$1[ ]').replace(/\s*\u{2705}\s*\d{4}-\d{2}-\d{2}/u, '')
+      : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ✅ ${todayIso}`);
+
+    lines[index] = nextLine;
+    await this.plugin.app.vault.modify(file, lines.join('\n'));
+    await this.plugin.refreshViews();
+  }
+
   async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
     const parentCard = (await this.loadCards()).find((card) => card.path === action.cardPath);
     const title = action.text.replace(/#todo\b/g, '').trim() || 'Promoted Big Action';
@@ -453,7 +477,7 @@ export class CardRepository {
 
   private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string, parentLine: string): string {
     const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '';
-    const bigAction = values.nextAction.trim() ? `### ${values.nextAction.trim()}\n\n- [ ] ${values.nextAction.trim()}\n\n` : '';
+    const seededSmallAction = values.nextAction.trim() ? `- [ ] ${values.nextAction.trim()}\n` : '';
     const waiting = values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '';
     const blocker = values.blocker.trim() ? `- ${values.blocker.trim()}\n` : '';
     const timelineRows = [
@@ -465,8 +489,21 @@ export class CardRepository {
     const references = textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n');
     const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
     const parentDisplay = values.parent.trim() || title;
+    const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> project: ${parentDisplay}\n\n## Current Focus\n\n${currentFocus}\n## Subprojects\n\n## Big Actions\n\n${bigAction}## Waiting\n\n${waiting}## Blockers\n\n${blocker}## Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n## Perpetual\n\n## Notes\n\n## Decisions\n\n## Timeline\n\n${timelineRows}\n\n## References\n\n${references}\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> parent: ${parentDisplay}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+  }
+
+  private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
+    if (type === 'project') {
+      return `### Project Brief\n\n### Desired Outcomes\n\n### Subprojects\n\n### Big Actions\n\n${seededSmallAction}### Decisions\n\n### Meetings And Communication\n\n### Notes\n`;
+    }
+
+    if (type === 'subproject') {
+      return `### Objective\n\n### Work Plan\n\n### Big Actions\n\n${seededSmallAction}### Progress Notes\n\n### Decisions\n\n### Related Materials\n`;
+    }
+
+    return `### Definition Of Done\n\n### Small Actions\n\n${seededSmallAction}### Progress Notes\n\n### Evidence And Links\n\n### Decisions\n\n### Related Materials\n`;
   }
 
   private parseLivingDocSections(content: string): {
@@ -539,9 +576,10 @@ export class CardRepository {
   private replaceSection(content: string, title: string, body: string): string {
     const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const normalizedBody = body.trimEnd();
-    const replacement = `## ${title}\n\n${normalizedBody}${normalizedBody ? '\n' : ''}`;
-    const pattern = new RegExp(`^##\\s+${escaped}\\s*$[\\s\\S]*?(?=^##\\s+|$)`, 'im');
-    if (pattern.test(content)) return content.replace(pattern, replacement);
+    const existing = this.findHeadingSection(content, title);
+    const level = existing?.level ?? 3;
+    const replacement = `${'#'.repeat(level)} ${title}\n\n${normalizedBody}${normalizedBody ? '\n' : ''}`;
+    if (existing) return `${content.slice(0, existing.start)}${replacement}${content.slice(existing.end)}`;
     return `${content.trimEnd()}\n\n${replacement}`;
   }
 
@@ -552,9 +590,27 @@ export class CardRepository {
   }
 
   private getSection(content: string, title: string): string {
+    const section = this.findHeadingSection(content, title);
+    return section ? content.slice(section.bodyStart, section.end) : '';
+  }
+
+  private findHeadingSection(content: string, title: string): { start: number; bodyStart: number; end: number; level: number } | null {
     const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = content.match(new RegExp(`^##\\s+${escaped}\\s*$([\\s\\S]*?)(?=^##\\s+|$)`, 'im'));
-    return match?.[1] ?? '';
+    const pattern = new RegExp(`^(#{2,6})\\s+${escaped}\\s*$`, 'gim');
+    const match = pattern.exec(content);
+    if (!match || match.index === undefined) return null;
+
+    const level = match[1].length;
+    const bodyStart = match.index + match[0].length;
+    const rest = content.slice(bodyStart);
+    const nextPattern = new RegExp(`^#{1,${level}}\\s+`, 'm');
+    const next = rest.match(nextPattern);
+    return {
+      start: match.index,
+      bodyStart,
+      end: next?.index === undefined ? content.length : bodyStart + next.index,
+      level,
+    };
   }
 
   private parseDependencyList(section: string, label: string): string[] {
@@ -609,6 +665,7 @@ export class CardRepository {
         priority,
         heading,
         lineNumber: index + 1,
+        lineText: line,
         raw: line,
       });
     });

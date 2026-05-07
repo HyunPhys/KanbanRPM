@@ -84,35 +84,46 @@ parent:
 order:
 ```
 
-Project-management context lives in body sections:
+New documents split plugin-readable control data from the free writing area:
 
 ```markdown
-## Current Focus
+# Project Title
 
-## Subprojects
+> [!kanban-rpm]
+> type: Project
+> status: active
+> parent: Project Title
 
-## Big Actions
+## PM Control
 
-## Waiting
+### Current Focus
 
-## Blockers
+### Waiting
 
-## Dependencies
+### Blockers
 
-## Perpetual
+### Dependencies
 
-## Notes
+### Timeline
 
-## Decisions
+### Perpetual
 
-## Timeline
+### References
 
-## References
+### PM Metadata
 
-## PM Metadata
+---
+
+## Working Notes
+
+### Project Brief
+
+### Desired Outcomes
+
+### Decisions
 ```
 
-Use the body as the actual working document: write decisions, meeting summaries, analysis notes, quotes, sample context, and next reasoning there.
+`PM Control` is the projection layer KanbanRPM reads for board fields. `Working Notes` is where you write decisions, meeting summaries, analysis notes, quotes, sample context, and next reasoning. Project, Subproject, and Big Action documents use different `Working Notes` sections suited to their role.
 
 ## Board Use
 
@@ -156,7 +167,9 @@ Supported metadata:
 - `done`: `✅ YYYY-MM-DD`
 - priority: `⏫`, `🔼`, `🔽`, `⏬`
 
-Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse.
+Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
+
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]` and adds today's `✅ YYYY-MM-DD` done date. Unchecking changes `[x]` back to `[ ]` and removes the done date.
 
 Small-action settings:
 

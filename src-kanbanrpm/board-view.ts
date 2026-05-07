@@ -589,20 +589,52 @@ export class KanbanRPMView extends ItemView {
     }
 
     const list = panel.createDiv({ cls: 'kanban-rpm-small-action-list' });
-    for (const action of visibleActions.slice(0, 6)) {
-      const row = list.createDiv({ cls: `kanban-rpm-small-action${action.done ? ' is-done' : ''}` });
-      row.createDiv({ cls: 'kanban-rpm-small-action-text', text: action.text });
-      const meta = row.createDiv({ cls: 'kanban-rpm-small-action-meta' });
-      if (action.scheduledDate) meta.createSpan({ text: `scheduled ${action.scheduledDate}` });
-      if (action.dueDate) meta.createSpan({ text: `due ${action.dueDate}` });
-      if (action.doneDate) meta.createSpan({ text: `done ${action.doneDate}` });
-      if (action.priority !== 'normal') meta.createSpan({ text: action.priority });
-      if (action.heading) meta.createSpan({ text: action.heading });
+    const shown = visibleActions.slice(0, 8);
+    for (const group of this.groupSmallActionsByHeading(shown)) {
+      const groupEl = list.createDiv({ cls: 'kanban-rpm-small-action-group' });
+      groupEl.createDiv({ cls: 'kanban-rpm-small-action-heading', text: group.heading });
+      for (const action of group.actions) this.renderSmallActionRow(groupEl, action);
     }
 
-    if (visibleActions.length > 6) {
-      panel.createDiv({ cls: 'kanban-rpm-small-action-more', text: `+${visibleActions.length - 6} more` });
+    if (visibleActions.length > shown.length) {
+      panel.createDiv({ cls: 'kanban-rpm-small-action-more', text: `+${visibleActions.length - shown.length} more` });
     }
+  }
+
+  private renderSmallActionRow(container: HTMLElement, action: SmallAction): void {
+    const row = container.createDiv({ cls: `kanban-rpm-small-action${action.done ? ' is-done' : ''}` });
+    const checkbox = row.createEl('input', {
+      attr: {
+        type: 'checkbox',
+        'aria-label': `Toggle ${action.text}`,
+      },
+    });
+    checkbox.checked = action.done;
+    checkbox.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    checkbox.addEventListener('change', () => {
+      void this.plugin.toggleSmallAction(action);
+    });
+
+    const body = row.createDiv({ cls: 'kanban-rpm-small-action-body' });
+    body.createDiv({ cls: 'kanban-rpm-small-action-text', text: action.text });
+    const meta = body.createDiv({ cls: 'kanban-rpm-small-action-meta' });
+    if (action.scheduledDate) meta.createSpan({ text: `scheduled ${action.scheduledDate}` });
+    if (action.dueDate) meta.createSpan({ text: `due ${action.dueDate}` });
+    if (action.doneDate) meta.createSpan({ text: `done ${action.doneDate}` });
+    if (action.priority !== 'normal') meta.createSpan({ text: action.priority });
+  }
+
+  private groupSmallActionsByHeading(actions: SmallAction[]): Array<{ heading: string; actions: SmallAction[] }> {
+    const map = new Map<string, SmallAction[]>();
+    for (const action of actions) {
+      const heading = action.heading || 'Small Actions';
+      const existing = map.get(heading) ?? [];
+      existing.push(action);
+      map.set(heading, existing);
+    }
+    return Array.from(map.entries()).map(([heading, groupActions]) => ({ heading, actions: groupActions }));
   }
 
   private isSmallActionsExpanded(card: ProjectCard): boolean {

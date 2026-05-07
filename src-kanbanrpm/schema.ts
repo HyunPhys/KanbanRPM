@@ -34,7 +34,7 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 \`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
 
-Optional planning fields can stay in the document body under sections such as \`## Current Focus\`, \`## Dependencies\`, \`## Timeline\`, and \`## PM Metadata\`.
+Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Dependencies\`, \`### Timeline\`, and \`### PM Metadata\`.
 
 ## Body-Backed Planning Fields
 
@@ -46,12 +46,14 @@ KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the sin
 
 Rich planning data belongs in the document body:
 
-- \`## Current Focus\` for the next visible action.
-- \`## Waiting\` for people or responses you are waiting on.
-- \`## Blockers\` for concrete blockers.
-- \`## Dependencies\` for \`Depends on\` and \`Blocks\` wikilinks.
-- \`## Timeline\` for \`Next review\` and \`Due date\`.
-- \`## References\` for source notes that feed the Action index.
+- \`### Current Focus\` for the next visible action.
+- \`### Waiting\` for people or responses you are waiting on.
+- \`### Blockers\` for concrete blockers.
+- \`### Dependencies\` for \`Depends on\` and \`Blocks\` wikilinks.
+- \`### Timeline\` for \`Next review\` and \`Due date\`.
+- \`### References\` for source notes that feed the Action index.
+
+\`## PM Control\` is the plugin-readable area. \`## Working Notes\` is the human writing area. New Project/Subproject/Big Action documents use different working-note sections.
 
 ## Small Actions
 
@@ -69,7 +71,9 @@ Supported metadata:
 - done date: \`✅ YYYY-MM-DD\`
 - priority: \`⏫\`, \`🔼\`, \`🔽\`, \`⏬\`
 
-Small-action card display is controlled from plugin settings. The default is due/scheduled actions through one week, including overdue actions.
+Small-action card display is controlled from plugin settings. The default is due/scheduled actions through one week, including overdue actions. Expanded card rows group small actions by their source heading.
+
+Checking a small action from a card updates the original Markdown line to \`[x]\` and appends today's done date. Unchecking returns it to \`[ ]\` and removes the done date.
 
 Suggested \`Category\` values:
 

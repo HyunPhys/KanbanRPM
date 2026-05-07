@@ -725,17 +725,39 @@
 
 .kanban-rpm-small-action-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin-top: 7px;
+}
+
+.kanban-rpm-small-action-group {
+  display: grid;
+  gap: 5px;
+}
+
+.kanban-rpm-small-action-heading {
+  color: var(--rpm-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .kanban-rpm-small-action {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 3px;
+  align-items: start;
   padding: 6px;
   border: 1px solid var(--rpm-border);
   border-radius: 6px;
   background: var(--background-secondary-alt);
+}
+
+.kanban-rpm-small-action input {
+  margin: 2px 2px 0 0;
+}
+
+.kanban-rpm-small-action-body {
+  min-width: 0;
 }
 
 .kanban-rpm-small-action.is-done {

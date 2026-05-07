@@ -86,35 +86,46 @@ parent:
 order:
 ```
 
-읽고 써야 하는 PM 정보는 body section에 둡니다.
+새 문서는 plugin이 읽는 control 영역과 사용자가 자유롭게 쓰는 working 영역을 나눕니다.
 
 ```markdown
-## Current Focus
+# Project Title
 
-## Subprojects
+> [!kanban-rpm]
+> type: Project
+> status: active
+> parent: Project Title
 
-## Big Actions
+## PM Control
 
-## Waiting
+### Current Focus
 
-## Blockers
+### Waiting
 
-## Dependencies
+### Blockers
 
-## Perpetual
+### Dependencies
 
-## Notes
+### Timeline
 
-## Decisions
+### Perpetual
 
-## Timeline
+### References
 
-## References
+### PM Metadata
 
-## PM Metadata
+---
+
+## Working Notes
+
+### Project Brief
+
+### Desired Outcomes
+
+### Decisions
 ```
 
-결정, 미팅 요약, sample context, 분석 메모, communication history는 본문에 직접 적습니다. 각 document는 card이면서 동시에 살아있는 프로젝트 노트입니다.
+`PM Control`은 KanbanRPM이 board에 투영하기 위해 읽는 영역입니다. `Working Notes`는 결정, 미팅 요약, sample context, 분석 메모, communication history를 자유롭게 쓰는 영역입니다. Project, Subproject, Big Action은 각 성격에 맞는 다른 `Working Notes` section을 사용합니다.
 
 ## Board
 
@@ -158,7 +169,9 @@ KanbanRPM은 Tasks-style emoji metadata를 읽습니다.
 - `done`: `✅ YYYY-MM-DD`
 - priority: `⏫`, `🔼`, `🔽`, `⏬`
 
-board card에는 small action row가 접힌 상태로 표시됩니다. `▶ Small actions`를 누르면 펼쳐지고, `▼ Small actions`를 누르면 다시 접힙니다.
+board card에는 small action row가 접힌 상태로 표시됩니다. `▶ Small actions`를 누르면 펼쳐지고, `▼ Small actions`를 누르면 다시 접힙니다. 펼쳐진 small action은 원래 문서의 heading별로 묶여 표시됩니다.
+
+card에서 small action을 직접 check/uncheck할 수 있습니다. check하면 원본 Markdown line이 `[ ]`에서 `[x]`로 바뀌고 오늘 날짜의 `✅ YYYY-MM-DD` done date가 추가됩니다. uncheck하면 `[x]`가 `[ ]`로 돌아가고 done date가 제거됩니다.
 
 Small-action settings:
 
