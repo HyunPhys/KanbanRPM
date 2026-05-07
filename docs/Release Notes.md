@@ -131,3 +131,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Kept legacy `project` and `subproject` as read fallback fields.
 - Added a `Subproject` board filter that narrows with the selected Project.
 - Updated Board/Table/List/Timeline filtering to recognize cards linked to multiple Projects/Subprojects.
+
+### Phase 4.4 Hierarchy Folder Placement
+
+- New Project, Subproject, and Big Action documents are created under primary hierarchy folders.
+- Cards with additional hierarchy links keep their primary folder placement.
+- Existing flat files under `cards/` continue to load.
+- Duplicated cards stay next to their source file.

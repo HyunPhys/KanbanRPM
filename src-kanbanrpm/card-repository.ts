@@ -101,12 +101,8 @@ export class CardRepository {
 
     const title = values.title.trim();
     const baseName = sanitizeFileName(title);
-    let path = normalizePath(`${this.plugin.cardsFolder}/${baseName}.md`);
-    let index = 2;
-    while (this.plugin.app.vault.getAbstractFileByPath(path)) {
-      path = normalizePath(`${this.plugin.cardsFolder}/${baseName} ${index}.md`);
-      index += 1;
-    }
+    const folder = await this.getCreationFolder(values);
+    const path = this.getAvailablePath(folder, baseName, 'md');
 
     const content = this.getLivingDocTemplate(values, title, baseName);
 
@@ -316,7 +312,8 @@ export class CardRepository {
     else delete frontmatter.subproject;
     delete frontmatter.parent;
 
-    const copyPath = this.getAvailablePath(this.plugin.cardsFolder, sanitizeFileName(copyTitle), file.extension);
+    const copyFolder = file.parent?.path && file.parent.path.startsWith(this.plugin.cardsFolder) ? file.parent.path : this.plugin.cardsFolder;
+    const copyPath = this.getAvailablePath(copyFolder, sanitizeFileName(copyTitle), file.extension);
     const copyContent = `---\n${stringifyYaml(frontmatter)}---\n${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
     const newFile = await this.plugin.app.vault.create(copyPath, copyContent);
 
@@ -499,6 +496,39 @@ export class CardRepository {
     }
 
     return path;
+  }
+
+  private async getCreationFolder(values: NewCardValues): Promise<string> {
+    const parts = [this.plugin.cardsFolder];
+    if (values.type === 'subproject' || values.type === 'big_action') {
+      parts.push(this.folderNameFromLink(values.project));
+    }
+    if (values.type === 'big_action') {
+      parts.push(this.folderNameFromLink(values.subproject));
+    }
+
+    const folder = normalizePath(parts.filter(Boolean).join('/'));
+    await this.ensureFolder(folder);
+    return folder;
+  }
+
+  private folderNameFromLink(link: string): string {
+    const target = getWikiLinkTarget(link);
+    return sanitizeFileName(target.split('/').pop() || target || 'Unassigned');
+  }
+
+  private async ensureFolder(folder: string): Promise<void> {
+    const normalized = normalizePath(folder);
+    if (this.plugin.app.vault.getAbstractFileByPath(normalized)) return;
+
+    const parts = normalized.split('/');
+    let current = '';
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      if (!this.plugin.app.vault.getAbstractFileByPath(current)) {
+        await this.plugin.app.vault.createFolder(current);
+      }
+    }
   }
 
   private uniqueLinks(values: string[]): string[] {

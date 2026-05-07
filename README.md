@@ -101,6 +101,16 @@ KanbanRPM stores project cards as individual Markdown files under:
 KanbanRPM Workspace/cards/
 ```
 
+New documents are placed by primary hierarchy:
+
+```text
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
+```
+
+Cards with additional Project/Subproject links stay in the primary folder chosen at creation time. Existing flat files under `cards/` are still loaded.
+
 Each card is a research workstream, not a task. The board reads card frontmatter and maps `status` to lanes:
 
 ```text

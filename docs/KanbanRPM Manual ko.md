@@ -31,7 +31,15 @@ KanbanRPM Workspace/
   archive/
 ```
 
-실제 Project/Subproject/Big Action 문서는 `cards/`에 저장됩니다.
+실제 Project/Subproject/Big Action 문서는 `cards/`에 저장됩니다. 새 문서는 primary hierarchy folder를 사용합니다.
+
+```text
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
+```
+
+추가 Project/Subproject link가 있어도 파일은 생성 시 선택한 primary folder에 그대로 둡니다. 기존 flat file도 계속 읽습니다.
 
 ## Status Lanes
 

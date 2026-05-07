@@ -29,7 +29,15 @@ KanbanRPM Workspace/
   archive/
 ```
 
-Active living documents are stored in `cards/`.
+Active living documents are stored in `cards/`. New documents use primary hierarchy folders:
+
+```text
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
+```
+
+If a document has additional Project/Subproject links, the file remains in the primary folder chosen at creation time. Older flat files in `cards/` still load normally.
 
 ## Status Lanes
 
