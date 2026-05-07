@@ -117,3 +117,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added sortable `Table` view with status editing from each row.
 - Added collapsible `List` view for the `Project -> Subproject -> Big Action` hierarchy.
 - Kept Project documents out of board lanes while making them openable from the tree and Project notes strip.
+
+### Phase 4.2 Timeline Strip
+
+- Added `Timeline` to the toolbar view switcher.
+- Added a horizontal timeline window from one week ago through five weeks ahead.
+- Rendered markers for card due dates, review dates, dated unchecked small actions, and `Perpetual` routines.
+- Grouped timeline rows by Project/Subproject context and made markers open their living documents.

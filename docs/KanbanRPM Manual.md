@@ -140,7 +140,7 @@ Project documents are not shown inside status lanes. They appear in a `Project n
 
 Toolbar:
 
-- `Board`, `Table`, `List`
+- `Board`, `Table`, `List`, `Timeline`
 - `New document`
 - `Group by Project`, `Group by Subproject`, or `Flat board`
 - `Refresh`
@@ -167,6 +167,8 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 `Table` view shows the same filtered card set in sortable rows. Click a column header to sort by title, project, type, status, priority, date, dependency count, or action count. Use the `Status` dropdown in a row to move that document without returning to the board.
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
+
+`Timeline` view shows a horizontal strip from one week ago through five weeks ahead. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document.
 
 Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
 

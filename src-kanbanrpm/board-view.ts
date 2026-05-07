@@ -17,6 +17,13 @@ interface PointerDragState {
 
 type TableSortKey = 'title' | 'project' | 'type' | 'status' | 'priority' | 'date' | 'dependencies' | 'actions';
 
+interface TimelineMarker {
+  date: string;
+  label: string;
+  kind: 'due' | 'review' | 'task' | 'recurring';
+  card: ProjectCard;
+}
+
 export class KanbanRPMView extends ItemView {
   private plugin: KanbanRPMPlugin;
   private cards: ProjectCard[] = [];
@@ -163,12 +170,17 @@ export class KanbanRPMView extends ItemView {
       return;
     }
 
+    if (this.viewMode === 'timeline') {
+      this.renderTimelineView(container, visibleBoardCards);
+      return;
+    }
+
     this.renderBoardView(container, visibleBoardCards);
   }
 
   private renderViewSwitcher(container: HTMLElement): void {
     const switcher = container.createDiv({ cls: 'kanban-rpm-view-switcher' });
-    for (const mode of ['board', 'table', 'list'] as ViewMode[]) {
+    for (const mode of ['board', 'table', 'list', 'timeline'] as ViewMode[]) {
       const label = mode[0].toUpperCase() + mode.slice(1);
       const button = switcher.createEl('button', {
         cls: this.viewMode === mode ? 'kanban-rpm-view-button is-active' : 'kanban-rpm-view-button',
@@ -711,6 +723,117 @@ export class KanbanRPMView extends ItemView {
       item.createSpan({ cls: 'kanban-rpm-tree-muted', text: this.cardDateLabel(card) });
       item.createSpan({ cls: 'kanban-rpm-tree-muted', text: `${card.actionCount} tasks` });
     }
+  }
+
+  private renderTimelineView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
+    const days = this.timelineDays();
+    const markers = this.collectTimelineMarkers(visibleBoardCards, new Set(days));
+    const grouped = this.groupTimelineMarkers(markers);
+    const timeline = container.createDiv({ cls: 'kanban-rpm-timeline' });
+    const header = timeline.createDiv({ cls: 'kanban-rpm-timeline-header' });
+    header.createDiv({ cls: 'kanban-rpm-timeline-corner', text: 'Timeline' });
+    const dayHeader = header.createDiv({ cls: 'kanban-rpm-timeline-days' });
+    for (const day of days) {
+      const cell = dayHeader.createDiv({
+        cls: day === this.todayIso() ? 'kanban-rpm-timeline-day is-today' : 'kanban-rpm-timeline-day',
+      });
+      cell.createDiv({ text: this.timelineDayLabel(day) });
+      cell.createDiv({ text: day.slice(5) });
+    }
+
+    if (!markers.length) {
+      timeline.createDiv({ cls: 'kanban-rpm-empty', text: 'No due, review, small-action, or recurring markers in the current window.' });
+      return;
+    }
+
+    for (const group of grouped) {
+      const row = timeline.createDiv({ cls: 'kanban-rpm-timeline-row' });
+      const label = row.createDiv({ cls: 'kanban-rpm-timeline-row-label' });
+      label.style.setProperty('--rpm-project-color', this.projectColor(group.colorKey));
+      this.addProjectToken(label, group.colorKey);
+      label.createSpan({ text: group.label });
+      const cells = row.createDiv({ cls: 'kanban-rpm-timeline-cells' });
+      for (const day of days) {
+        const cell = cells.createDiv({
+          cls: day === this.todayIso() ? 'kanban-rpm-timeline-cell is-today' : 'kanban-rpm-timeline-cell',
+        });
+        const dayMarkers = group.markers.filter((marker) => marker.date === day);
+        for (const marker of dayMarkers.slice(0, 3)) this.renderTimelineMarker(cell, marker);
+        if (dayMarkers.length > 3) cell.createDiv({ cls: 'kanban-rpm-timeline-more', text: `+${dayMarkers.length - 3}` });
+      }
+    }
+  }
+
+  private renderTimelineMarker(container: HTMLElement, marker: TimelineMarker): void {
+    const item = container.createEl('button', {
+      cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind}`,
+      text: marker.label,
+      attr: { title: `${marker.card.title} - ${marker.label}` },
+    });
+    item.addEventListener('click', () => {
+      void this.plugin.openCard(marker.card);
+    });
+  }
+
+  private collectTimelineMarkers(cards: ProjectCard[], daySet: Set<string>): TimelineMarker[] {
+    const markers: TimelineMarker[] = [];
+    for (const card of cards) {
+      if (card.dueDate && daySet.has(card.dueDate)) {
+        markers.push({ date: card.dueDate, label: `due: ${card.title}`, kind: 'due', card });
+      }
+      if (card.nextReview && daySet.has(card.nextReview)) {
+        markers.push({ date: card.nextReview, label: `review: ${card.title}`, kind: 'review', card });
+      }
+      for (const action of card.smallActions) {
+        if (action.done) continue;
+        const date = action.scheduledDate || action.dueDate;
+        if (date && daySet.has(date)) {
+          markers.push({ date, label: `task: ${action.text}`, kind: 'task', card });
+        }
+      }
+      if (card.perpetuals.length && daySet.has(this.todayIso())) {
+        for (const item of card.perpetuals) {
+          markers.push({ date: this.todayIso(), label: `${item.cadence}: ${item.text}`, kind: 'recurring', card });
+        }
+      }
+    }
+    return markers.sort((a, b) => a.date.localeCompare(b.date) || a.card.title.localeCompare(b.card.title));
+  }
+
+  private groupTimelineMarkers(markers: TimelineMarker[]): Array<{ label: string; colorKey: string; markers: TimelineMarker[] }> {
+    const map = new Map<string, { label: string; colorKey: string; markers: TimelineMarker[] }>();
+    for (const marker of markers) {
+      const label = marker.card.breadcrumb || marker.card.projectTitle || 'No project';
+      const key = `${marker.card.projectTitle || 'No project'}>${marker.card.subprojectTitle || ''}`;
+      const existing = map.get(key) ?? {
+        label,
+        colorKey: marker.card.colorKey || marker.card.projectTitle || label,
+        markers: [],
+      };
+      existing.markers.push(marker);
+      map.set(key, existing);
+    }
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  private timelineDays(): string[] {
+    const days: string[] = [];
+    const today = new Date(`${this.todayIso()}T00:00:00`);
+    for (let offset = -7; offset <= 35; offset += 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + offset);
+      days.push(this.formatDate(date));
+    }
+    return days;
+  }
+
+  private timelineDayLabel(day: string): string {
+    const date = new Date(`${day}T00:00:00`);
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+  }
+
+  private formatDate(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
   private renderTreeToggle(container: HTMLElement, key: string, collapsed: boolean): void {

@@ -764,6 +764,118 @@
   width: 24px;
 }
 
+.kanban-rpm-timeline {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: var(--rpm-bg);
+}
+
+.kanban-rpm-timeline-header,
+.kanban-rpm-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  min-width: 1540px;
+}
+
+.kanban-rpm-timeline-corner,
+.kanban-rpm-timeline-row-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--rpm-border);
+  border-right: 0;
+  background: var(--rpm-panel);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kanban-rpm-timeline-corner {
+  z-index: 3;
+}
+
+.kanban-rpm-timeline-days,
+.kanban-rpm-timeline-cells {
+  display: grid;
+  grid-template-columns: repeat(43, minmax(92px, 1fr));
+}
+
+.kanban-rpm-timeline-day,
+.kanban-rpm-timeline-cell {
+  min-height: 42px;
+  padding: 5px;
+  border: 1px solid var(--rpm-border);
+  border-left: 0;
+  background: var(--rpm-panel);
+  font-size: 11px;
+}
+
+.kanban-rpm-timeline-day {
+  color: var(--rpm-muted);
+  font-weight: 650;
+  text-align: center;
+}
+
+.kanban-rpm-timeline-day.is-today,
+.kanban-rpm-timeline-cell.is-today {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--rpm-panel));
+}
+
+.kanban-rpm-timeline-row-label {
+  border-top: 0;
+  border-left: 4px solid var(--rpm-project-color, var(--interactive-accent));
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-timeline-cell {
+  min-height: 72px;
+  border-top: 0;
+}
+
+.kanban-rpm-timeline-marker {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 3px 5px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 5px;
+  background: var(--rpm-panel-alt);
+  color: var(--rpm-normal);
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-rpm-timeline-marker-due {
+  border-color: var(--text-error);
+}
+
+.kanban-rpm-timeline-marker-review {
+  border-color: var(--interactive-accent);
+}
+
+.kanban-rpm-timeline-marker-task {
+  border-color: var(--text-warning);
+}
+
+.kanban-rpm-timeline-marker-recurring {
+  border-style: dashed;
+}
+
+.kanban-rpm-timeline-more {
+  color: var(--rpm-muted);
+  font-size: 10px;
+}
+
 .kanban-rpm-lane {
   min-height: 180px;
   display: flex;
