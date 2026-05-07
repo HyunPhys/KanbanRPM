@@ -548,6 +548,14 @@ export class KanbanRPMView extends ItemView {
     actions.createEl('button', { text: 'Edit' }).addEventListener('click', () => {
       new EditProjectCardModal(this.app, this.plugin, card).open();
     });
+    actions.createEl('button', { text: 'Compact' }).addEventListener('click', () => {
+      new ConfirmCardActionModal(this.app, {
+        title: 'Compact metadata',
+        message: `Move non-empty legacy metadata from "${card.title}" into the document body and remove empty frontmatter fields?`,
+        confirmText: 'Compact',
+        onConfirm: () => this.plugin.compactCardMetadata(card),
+      }).open();
+    });
     actions.createEl('button', { text: 'Duplicate' }).addEventListener('click', () => {
       void this.plugin.duplicateCard(card);
     });

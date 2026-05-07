@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
-import { IMPORTANCE_VALUES, LANES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
+import { IMPORTANCE_VALUES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { DailyPullMode, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
 import { isDueSoon, isPastDate, isStatus } from './utils';
@@ -13,6 +13,8 @@ export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
   private values: NewCardValues = {
     title: '',
+    type: 'project',
+    parent: '',
     status: 'inbox',
     priority: '3',
     area: '',
@@ -45,7 +47,7 @@ export class NewProjectCardModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h2', { text: 'New KanbanRPM project card' });
+    contentEl.createEl('h2', { text: 'New KanbanRPM living document' });
 
     new Setting(contentEl).setName('Title').addText((input) => {
       input.setPlaceholder('TTT Manuscript');
@@ -57,8 +59,8 @@ export class NewProjectCardModal extends Modal {
     const grid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
     this.addCoreFields(grid);
 
-    new Setting(contentEl).setName('Next action').addTextArea((input) => {
-      input.setPlaceholder('Write the next concrete action');
+    new Setting(contentEl).setName('Current focus').addTextArea((input) => {
+      input.setPlaceholder('Write the current focus or first big action');
       input.onChange((value) => {
         this.values.nextAction = value;
       });
@@ -112,7 +114,7 @@ export class NewProjectCardModal extends Modal {
     new Setting(contentEl)
       .addButton((button) => {
         button
-          .setButtonText('Create card')
+          .setButtonText('Create document')
           .setCta()
           .onClick(() => {
             void this.createCard();
@@ -125,10 +127,27 @@ export class NewProjectCardModal extends Modal {
 
   private addCoreFields(grid: HTMLElement): void {
     new Setting(grid).setName('Status').addDropdown((dropdown) => {
-      for (const lane of LANES) dropdown.addOption(lane.id, lane.label);
+      for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
       dropdown.setValue(this.values.status);
       dropdown.onChange((value) => {
         if (isStatus(value)) this.values.status = value;
+      });
+    });
+
+    new Setting(grid).setName('Type').addDropdown((dropdown) => {
+      dropdown.addOption('project', 'Project');
+      dropdown.addOption('subproject', 'Subproject');
+      dropdown.addOption('big_action', 'Big Action');
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (value === 'project' || value === 'subproject' || value === 'big_action') this.values.type = value;
+      });
+    });
+
+    new Setting(grid).setName('Parent').addText((input) => {
+      input.setPlaceholder('[[TTT]]');
+      input.onChange((value) => {
+        this.values.parent = value;
       });
     });
 
@@ -222,6 +241,8 @@ export class EditProjectCardModal extends Modal {
     this.card = card;
     this.values = {
       title: card.title,
+      type: card.type === 'legacy' ? 'project' : card.type,
+      parent: card.parent,
       status: card.status,
       priority: String(card.priority),
       area: card.area,
@@ -249,7 +270,7 @@ export class EditProjectCardModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h2', { text: 'Edit KanbanRPM project card' });
+    contentEl.createEl('h2', { text: 'Edit KanbanRPM living document' });
 
     new Setting(contentEl).setName('Title').addText((input) => {
       input.setValue(this.values.title);
@@ -333,10 +354,28 @@ export class EditProjectCardModal extends Modal {
 
   private addCoreFields(grid: HTMLElement): void {
     new Setting(grid).setName('Status').addDropdown((dropdown) => {
-      for (const lane of LANES) dropdown.addOption(lane.id, lane.label);
+      for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
       dropdown.setValue(this.values.status);
       dropdown.onChange((value) => {
         if (isStatus(value)) this.values.status = value;
+      });
+    });
+
+    new Setting(grid).setName('Type').addDropdown((dropdown) => {
+      dropdown.addOption('project', 'Project');
+      dropdown.addOption('subproject', 'Subproject');
+      dropdown.addOption('big_action', 'Big Action');
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (value === 'project' || value === 'subproject' || value === 'big_action') this.values.type = value;
+      });
+    });
+
+    new Setting(grid).setName('Parent').addText((input) => {
+      input.setPlaceholder('[[TTT]]');
+      input.setValue(this.values.parent);
+      input.onChange((value) => {
+        this.values.parent = value;
       });
     });
 

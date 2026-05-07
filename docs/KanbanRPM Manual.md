@@ -92,54 +92,24 @@ The card body starts with:
 
 You can also use a lane's `+` button to create a card directly in that lane.
 
-## 5. Flexible Card Schema
+## 5. Living Document Schema
 
-Cards use this frontmatter shape:
+KanbanRPM v0.2 uses short frontmatter so each card can work as a real living document.
 
 ```yaml
 kanban_rpm: true
 type: project
-status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+id: example-workstream
+status: active
+parent:
+order:
 ```
 
-Main fields:
+New documents place PM context in readable sections such as `Current Focus`, `Subprojects`, `Big Actions`, `Dependencies`, `Perpetual`, `PM Metadata`, `Notes`, `Decisions`, `Timeline`, and `References`.
 
-- `group`: larger project or operating area, such as `TTT` or `Lab Setup`.
-- `workstream_type`: `research`, `experiment`, `analysis`, `writing`, `setup`, `purchase`, `admin`, or `communication`.
-- `project_kind`: `research`, `lab_setup`, `equipment`, `teaching`, or `admin`.
-- `stage`: procedural stage inside the workstream.
-- `next_action`: the next concrete action.
-- `waiting_for`: who or what you are waiting on.
-- `blocker`: the obstacle stopping progress.
-- `related_samples`: sample/specimen notes related to the card.
-- `related_phenomena`: phenomenon or analysis threads.
-- `related_people`: vendors, collaborators, professors, admins, or students.
-- `related_notes`: other notes connected to the card.
-- `depends_on`: dependency items that should happen first.
-- `blocks`: downstream items blocked by this card.
-- `source_notes`: notes KanbanRPM scans for unchecked checkbox actions and `#todo` lines.
+Allowed `type` values are `project`, `subproject`, and `big_action`. `parent` connects a Subproject or Big Action to its parent Project/Subproject.
+
+Older v0.1 cards with heavy frontmatter still load. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to move non-empty legacy metadata into `PM Metadata` and remove empty frontmatter fields.
 
 ## 6. Groups
 

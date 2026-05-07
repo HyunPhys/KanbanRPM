@@ -68,7 +68,7 @@ export default class KanbanRPMPlugin extends Plugin {
     this.addCommand({
       id: 'compact-card-metadata',
       name: 'Compact card metadata',
-      callback: () => void this.compactVisibleCardMetadata(),
+      callback: () => void this.compactActiveCardMetadata(),
     });
 
     this.addCommand({
@@ -211,14 +211,18 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.compactCardMetadata(card);
   }
 
-  async compactVisibleCardMetadata(): Promise<void> {
-    const cards = await this.loadCards();
-    if (!cards.length) {
-      new Notice('No KanbanRPM cards to compact.');
+  async compactActiveCardMetadata(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file || !this.isCardFile(file)) {
+      new Notice('Open a KanbanRPM card file before compacting metadata.');
       return;
     }
-    await this.repository.compactCardMetadata(cards[0]);
-    new Notice('Compacted the first KanbanRPM card. Use card actions to compact specific cards.');
+    const card = (await this.loadCards()).find((item) => item.path === file.path);
+    if (!card) {
+      new Notice('Active file is not a loaded KanbanRPM card.');
+      return;
+    }
+    await this.repository.compactCardMetadata(card);
   }
 
   async openSchemaReference(): Promise<void> {

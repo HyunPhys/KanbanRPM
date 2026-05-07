@@ -1,96 +1,140 @@
-# KanbanRPM Card Schema
+# KanbanRPM Living Document Schema
 
-KanbanRPM cards are Markdown files in `KanbanRPM Workspace/cards/`. Each card is a workstream, not a single task.
+KanbanRPM v0.2 treats every Project, Subproject, and Big Action as a living Markdown document. Frontmatter is intentionally short; project-management context should live in readable document sections.
 
-## Required Identity
+## Minimal Frontmatter
 
 ```yaml
 kanban_rpm: true
 type: project
-title: Example Workstream
+id: example-workstream
+status: active
+parent:
+order:
 ```
 
-## Execution Fields
-
-```yaml
-status: inbox
-priority: 3
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-rpm_order:
-```
-
-Allowed `status` values:
+Allowed `type` values:
 
 ```text
-inbox | active | waiting | blocked | someday | done
+project | subproject | big_action
 ```
 
-`priority` should be an integer from `1` to `5`, where `1` is highest.
-
-Dates should use `YYYY-MM-DD`.
-
-`rpm_order` is managed by drag/drop and `Normalize order`.
-
-## Flexible Architecture Fields
-
-```yaml
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-importance: normal
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
-```
-
-Suggested `workstream_type` values:
-
-```text
-research | experiment | analysis | writing | setup | purchase | admin | communication
-```
-
-Suggested `project_kind` values:
-
-```text
-research | lab_setup | equipment | teaching | admin
-```
-
-Suggested `importance` values:
-
-```text
-normal | planned | future | urgent | purchase | article
-```
-
-## Lane Customization Decision
-
-KanbanRPM currently keeps lanes fixed:
+`status` uses the global status set from KanbanRPM settings. The default status set is:
 
 ```text
 Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
-This is intentional for the current data-model phase. Fixed lanes keep `status`, validation, Daily review, and Command center behavior predictable. Custom lanes should be reconsidered after more real-vault QA.
+`parent` links a Subproject or Big Action to its parent Project/Subproject. It can be a wikilink such as `[[TTT]]` or a plain title.
+
+`order` is managed by KanbanRPM ordering tools.
+
+## Living Document Sections
+
+New documents use this body shape:
+
+```markdown
+# Project Title
+
+> [!kanban-rpm]
+> type: Project
+> status: active
+> project: Project Title
+
+## Current Focus
+
+## Subprojects
+
+## Big Actions
+
+## Dependencies
+
+Depends on:
+
+Blocks:
+
+## Perpetual
+
+## PM Metadata
+
+## Notes
+
+## Decisions
+
+## Timeline
+
+## References
+```
+
+KanbanRPM reads these sections for Board/Table/List/Timeline/Graph behavior, while keeping the document readable as a normal note.
+
+## Legacy Metadata
+
+v0.1 cards may still contain frontmatter fields such as:
+
+```yaml
+priority:
+area:
+group:
+workstream_type:
+project_kind:
+stage:
+next_action:
+waiting_for:
+blocker:
+next_review:
+due_date:
+importance:
+legacy_links:
+related_samples:
+related_phenomena:
+related_people:
+related_notes:
+depends_on:
+blocks:
+source_notes:
+rpm_order:
+```
+
+KanbanRPM continues to read these fields for compatibility. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to remove empty legacy fields and move non-empty metadata into `## PM Metadata`.
+
+## Dependencies
+
+Preferred v0.2 dependency syntax:
+
+```markdown
+## Dependencies
+
+Depends on:
+- [[TTT Data Processing]]
+
+Blocks:
+- [[TTT Manuscript]]
+```
+
+KanbanRPM also reads legacy `depends_on` and `blocks` frontmatter fields.
+
+## Perpetual
+
+Preferred recurring routine syntax:
+
+```markdown
+## Perpetual
+
+- [ ] Weekly TTT Review @weekly
+- [ ] TEM Data Backup @monthly
+```
+
+KanbanRPM v0.2 displays recurring items in Action index and Timeline-oriented views. It does not automatically generate recurring task copies yet.
 
 ## Validation
 
-The board shows `Data warnings` for:
+KanbanRPM warns about:
 
-- invalid or missing `status`
-- invalid `priority`
-- malformed `next_review` or `due_date`
-- unknown `workstream_type`, `project_kind`, or `importance`
-- non-numeric `rpm_order`
-- broken wikilinks in `source_notes`, `legacy_links`, or `related_notes`
+- unknown status values
+- malformed dates in legacy fields
+- broken dependency/source links
+- circular dependencies
+- non-numeric `order` / `rpm_order`
 
-KanbanRPM tries to display imperfect cards rather than hiding them. Invalid `status` falls back to `Inbox` for display.
+Invalid or unknown status values fall back to the first configured status for display.

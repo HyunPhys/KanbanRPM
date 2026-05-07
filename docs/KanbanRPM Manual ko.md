@@ -56,54 +56,24 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 각 lane의 `+` button을 쓰면 해당 lane에 바로 card를 만들 수 있습니다.
 
-## 5. Flexible card schema
+## 5. Living Document Schema
 
-card는 다음 frontmatter 구조를 사용합니다.
+KanbanRPM v0.2는 card를 실제 living document로 쓰기 위해 짧은 frontmatter를 사용합니다.
 
 ```yaml
 kanban_rpm: true
 type: project
-status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+id: example-workstream
+status: active
+parent:
+order:
 ```
 
-주요 field:
+PM context는 `Current Focus`, `Subprojects`, `Big Actions`, `Dependencies`, `Perpetual`, `PM Metadata`, `Notes`, `Decisions`, `Timeline`, `References` 같은 읽을 수 있는 section에 둡니다.
 
-- `group`: 큰 project 또는 운영 영역입니다. 예: `TTT`, `Lab Setup`.
-- `workstream_type`: `research`, `experiment`, `analysis`, `writing`, `setup`, `purchase`, `admin`, `communication`.
-- `project_kind`: `research`, `lab_setup`, `equipment`, `teaching`, `admin`.
-- `stage`: workstream 안에서의 절차상 위치입니다.
-- `next_action`: 다음에 실제로 할 구체적 행동입니다.
-- `waiting_for`: 기다리는 사람, 답변, 배송, 승인, 조건입니다.
-- `blocker`: 진행을 막는 구체적 장애물입니다.
-- `related_samples`: card와 연결된 sample/specimen note입니다.
-- `related_phenomena`: 현상 또는 analysis thread입니다.
-- `related_people`: vendor, collaborator, professor, admin, student 같은 관련자입니다.
-- `related_notes`: card와 연결된 다른 note입니다.
-- `depends_on`: 먼저 일어나야 하는 dependency입니다.
-- `blocks`: 이 card 때문에 막혀 있는 downstream item입니다.
-- `source_notes`: KanbanRPM이 unchecked checkbox action과 `#todo` line을 읽어올 source note입니다.
+허용되는 `type`은 `project`, `subproject`, `big_action`입니다. `parent`는 Subproject 또는 Big Action을 상위 Project/Subproject와 연결합니다.
+
+기존 v0.1 heavy frontmatter card도 계속 읽습니다. `KanbanRPM: Compact card metadata` command 또는 card의 `Compact` action을 쓰면 non-empty legacy metadata를 `PM Metadata`로 옮기고 빈 frontmatter field를 제거합니다.
 
 ## 6. Groups and filters
 

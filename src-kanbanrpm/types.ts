@@ -66,6 +66,8 @@ export interface ProjectCard {
 
 export interface NewCardValues {
   title: string;
+  type: CardType;
+  parent: string;
   status: Status;
   priority: string;
   area: string;

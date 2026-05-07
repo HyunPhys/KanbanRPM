@@ -105,8 +105,9 @@ export class CardRepository {
       index += 1;
     }
 
-    const parent = values.group ? `\nparent: ${yamlScalar(values.group)}` : '';
-    const content = `---\nkanban_rpm: true\ntype: project\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parent}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> status: ${values.status}\n> project: ${title}\n\n## Current Focus\n\n${values.nextAction ? `- ${values.nextAction}\n` : ''}\n## Subprojects\n\n## Big Actions\n\n${values.nextAction ? `### ${values.nextAction}\n\n- [ ] ${values.nextAction}\n\n` : ''}## Dependencies\n\nDepends on:\n${textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n')}\n\nBlocks:\n${textareaToList(values.blocks).map((item) => `- ${item}`).join('\n')}\n\n## Perpetual\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}\n## Notes\n\n## Decisions\n\n## Timeline\n\n## References\n\n${textareaToList(values.legacyLinks).map((item) => `- ${item}`).join('\n')}\n`;
+    const parent = values.parent.trim() || values.group.trim();
+    const parentLine = parent ? `\nparent: ${yamlScalar(parent)}` : '';
+    const content = this.getLivingDocTemplate(values, title, baseName, parentLine);
 
     const file = await this.plugin.app.vault.create(path, content);
     new Notice(`KanbanRPM card created: ${title}`);
@@ -247,6 +248,8 @@ export class CardRepository {
 
     await this.updateCardFrontmatter(file, {
       title: values.title.trim() || card.title,
+      type: values.type,
+      parent: values.parent.trim(),
       status: values.status,
       priority: parsePriority(values.priority),
       area: values.area.trim(),
@@ -625,6 +628,7 @@ export class CardRepository {
     for (const [label, value] of [
       ['priority', values.priority],
       ['area', values.area],
+      ['group', values.group],
       ['workstream_type', values.workstreamType],
       ['project_kind', values.projectKind],
       ['stage', values.stage],
@@ -647,6 +651,18 @@ export class CardRepository {
       if (list.length) rows.push(`- ${label}: ${list.join(', ')}`);
     }
     return rows.length ? `${rows.join('\n')}\n\n` : '';
+  }
+
+  private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string, parentLine: string): string {
+    const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '';
+    const bigAction = values.nextAction.trim() ? `### ${values.nextAction.trim()}\n\n- [ ] ${values.nextAction.trim()}\n\n` : '';
+    const depends = textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n');
+    const blocks = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
+    const references = textareaToList(values.legacyLinks).map((item) => `- ${item}`).join('\n');
+    const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
+    const parentDisplay = values.parent.trim() || values.group.trim() || title;
+
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${parentLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}\n> project: ${parentDisplay}\n\n## Current Focus\n\n${currentFocus}\n## Subprojects\n\n## Big Actions\n\n${bigAction}## Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n## Perpetual\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}## Notes\n\n## Decisions\n\n## Timeline\n\n## References\n\n${references}\n`;
   }
 
   private parseLivingDocSections(content: string): {
