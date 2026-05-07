@@ -767,9 +767,104 @@
 .kanban-rpm-timeline {
   flex: 1;
   min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(170px, 210px) minmax(0, 1fr);
+  gap: 0;
   overflow: auto;
-  padding: 12px;
   background: var(--rpm-bg);
+}
+
+.kanban-rpm-timeline-sidebar {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  min-height: 100%;
+  border-right: 1px solid var(--rpm-border);
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-timeline-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--rpm-border);
+}
+
+.kanban-rpm-timeline-sidebar-header h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.kanban-rpm-timeline-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--rpm-border);
+}
+
+.kanban-rpm-timeline-tabs button,
+.kanban-rpm-timeline-sidebar-header button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.kanban-rpm-timeline-tabs .is-active {
+  border-color: var(--interactive-accent);
+}
+
+.kanban-rpm-timeline-routines {
+  padding: 8px;
+}
+
+.kanban-rpm-timeline-routine {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 7px;
+  border: 1px solid var(--rpm-border);
+  background: var(--rpm-panel-alt);
+  color: var(--rpm-normal);
+  font-size: 11px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-timeline-main {
+  min-width: 0;
+  overflow: auto;
+}
+
+.kanban-rpm-timeline-controls {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rpm-border);
+  background: var(--rpm-bg);
+  flex-wrap: wrap;
+}
+
+.kanban-rpm-timeline-controls button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.kanban-rpm-timeline-search {
+  min-width: 180px;
+  flex: 1 1 220px;
+}
+
+.kanban-rpm-timeline-scope {
+  max-width: 150px;
+}
+
+.kanban-rpm-timeline-grid {
+  padding: 0 0 12px;
 }
 
 .kanban-rpm-timeline-header,
@@ -836,6 +931,25 @@
 .kanban-rpm-timeline-cell {
   min-height: 72px;
   border-top: 0;
+  position: relative;
+}
+
+.kanban-rpm-timeline-memo-row .kanban-rpm-timeline-row-label {
+  background: var(--rpm-panel-alt);
+}
+
+.kanban-rpm-timeline-memo-button,
+.kanban-rpm-timeline-add {
+  width: 100%;
+  padding: 3px 5px;
+  border: 1px dashed var(--rpm-border);
+  background: transparent;
+  color: var(--rpm-muted);
+  font-size: 10px;
+}
+
+.kanban-rpm-timeline-add {
+  margin-top: 4px;
 }
 
 .kanban-rpm-timeline-marker {
@@ -874,6 +988,24 @@
 .kanban-rpm-timeline-more {
   color: var(--rpm-muted);
   font-size: 10px;
+}
+
+@media (max-width: 760px) {
+  .kanban-rpm-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .kanban-rpm-timeline-sidebar {
+    position: static;
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--rpm-border);
+  }
+
+  .kanban-rpm-timeline-header,
+  .kanban-rpm-timeline-row {
+    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  }
 }
 
 .kanban-rpm-lane {

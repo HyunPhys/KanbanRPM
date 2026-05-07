@@ -1,8 +1,8 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { VIEW_TYPE } from './constants';
 import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
-import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status, ViewMode } from './types';
+import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status, TimelineScope, ViewMode } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
 
 interface PointerDragState {
@@ -36,6 +36,9 @@ export class KanbanRPMView extends ItemView {
   private viewMode: ViewMode = 'board';
   private tableSortKey: TableSortKey = 'priority';
   private tableSortDirection: 'asc' | 'desc' = 'asc';
+  private timelineStartOffset = -7;
+  private timelineSearchQuery = '';
+  private timelineScope: TimelineScope = 'all';
   private groupByProject = true;
   private toolbarExpanded = false;
   private showDataWarnings = false;
@@ -751,11 +754,16 @@ export class KanbanRPMView extends ItemView {
 
   private renderTimelineView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
     const days = this.timelineDays();
-    const markers = this.collectTimelineMarkers(visibleBoardCards, new Set(days));
+    const markers = this.filterTimelineMarkers(this.collectTimelineMarkers(visibleBoardCards, new Set(days)));
     const grouped = this.groupTimelineMarkers(markers);
     const timeline = container.createDiv({ cls: 'kanban-rpm-timeline' });
-    const header = timeline.createDiv({ cls: 'kanban-rpm-timeline-header' });
-    header.createDiv({ cls: 'kanban-rpm-timeline-corner', text: 'Timeline' });
+    this.renderTimelineSidebar(timeline, visibleBoardCards);
+    const main = timeline.createDiv({ cls: 'kanban-rpm-timeline-main' });
+    this.renderTimelineControls(main);
+
+    const grid = main.createDiv({ cls: 'kanban-rpm-timeline-grid' });
+    const header = grid.createDiv({ cls: 'kanban-rpm-timeline-header' });
+    header.createDiv({ cls: 'kanban-rpm-timeline-corner', text: 'Scope' });
     const dayHeader = header.createDiv({ cls: 'kanban-rpm-timeline-days' });
     for (const day of days) {
       const cell = dayHeader.createDiv({
@@ -765,13 +773,15 @@ export class KanbanRPMView extends ItemView {
       cell.createDiv({ text: day.slice(5) });
     }
 
+    this.renderTimelineMemoRow(grid, days);
+
     if (!markers.length) {
-      timeline.createDiv({ cls: 'kanban-rpm-empty', text: 'No due, review, small-action, or recurring markers in the current window.' });
+      grid.createDiv({ cls: 'kanban-rpm-empty', text: 'No due, review, small-action, or recurring markers in the current window.' });
       return;
     }
 
     for (const group of grouped) {
-      const row = timeline.createDiv({ cls: 'kanban-rpm-timeline-row' });
+      const row = grid.createDiv({ cls: 'kanban-rpm-timeline-row' });
       const label = row.createDiv({ cls: 'kanban-rpm-timeline-row-label' });
       label.style.setProperty('--rpm-project-color', this.projectColor(group.colorKey));
       this.addProjectToken(label, group.colorKey);
@@ -784,7 +794,98 @@ export class KanbanRPMView extends ItemView {
         const dayMarkers = group.markers.filter((marker) => marker.date === day);
         for (const marker of dayMarkers.slice(0, 3)) this.renderTimelineMarker(cell, marker);
         if (dayMarkers.length > 3) cell.createDiv({ cls: 'kanban-rpm-timeline-more', text: `+${dayMarkers.length - 3}` });
+        cell.createEl('button', { cls: 'kanban-rpm-timeline-add', text: '+' }).addEventListener('click', () => {
+          void this.openTimelineMemo(day);
+        });
       }
+    }
+  }
+
+  private renderTimelineSidebar(container: HTMLElement, cards: ProjectCard[]): void {
+    const sidebar = container.createDiv({ cls: 'kanban-rpm-timeline-sidebar' });
+    const header = sidebar.createDiv({ cls: 'kanban-rpm-timeline-sidebar-header' });
+    header.createEl('h3', { text: 'Perpetual' });
+    header.createEl('button', { text: '<' }).addEventListener('click', () => {
+      this.viewMode = 'board';
+      this.render();
+    });
+
+    const tabs = sidebar.createDiv({ cls: 'kanban-rpm-timeline-tabs' });
+    tabs.createEl('button', { cls: 'is-active', text: 'General' });
+    tabs.createEl('button', { text: '+' }).addEventListener('click', () => {
+      void this.openTimelineMemo(this.todayIso());
+    });
+
+    const routines = cards.flatMap((card) => card.perpetuals.map((item) => ({ item, card })));
+    const list = sidebar.createDiv({ cls: 'kanban-rpm-timeline-routines' });
+    if (!routines.length) {
+      list.createDiv({ cls: 'kanban-rpm-empty', text: 'No perpetual routines yet' });
+    }
+    for (const { item, card } of routines.slice(0, 16)) {
+      const row = list.createEl('button', { cls: 'kanban-rpm-timeline-routine', text: `${item.cadence}: ${item.text}` });
+      row.addEventListener('click', () => {
+        void this.plugin.openCard(card);
+      });
+    }
+  }
+
+  private renderTimelineControls(container: HTMLElement): void {
+    const controls = container.createDiv({ cls: 'kanban-rpm-timeline-controls' });
+    controls.createEl('button', { text: 'Today' }).addEventListener('click', () => {
+      this.timelineStartOffset = -7;
+      this.render();
+    });
+    controls.createEl('button', { text: '-7' }).addEventListener('click', () => {
+      this.timelineStartOffset -= 7;
+      this.render();
+    });
+    controls.createEl('button', { text: '+7' }).addEventListener('click', () => {
+      this.timelineStartOffset += 7;
+      this.render();
+    });
+
+    const search = controls.createEl('input', {
+      cls: 'kanban-rpm-timeline-search',
+      attr: {
+        type: 'search',
+        placeholder: 'Timeline search',
+        value: this.timelineSearchQuery,
+      },
+    });
+    search.addEventListener('input', () => {
+      this.timelineSearchQuery = search.value;
+      this.render();
+    });
+
+    const scope = controls.createEl('select', { cls: 'kanban-rpm-timeline-scope' });
+    for (const [value, label] of [
+      ['all', 'Scope: All'],
+      ['review', 'Review'],
+      ['due', 'Due'],
+      ['tasks', 'Tasks'],
+      ['recurring', 'Recurring'],
+    ] as Array<[TimelineScope, string]>) {
+      scope.createEl('option', { value, text: label });
+    }
+    scope.value = this.timelineScope;
+    scope.addEventListener('change', () => {
+      this.timelineScope = scope.value as TimelineScope;
+      this.render();
+    });
+  }
+
+  private renderTimelineMemoRow(container: HTMLElement, days: string[]): void {
+    const row = container.createDiv({ cls: 'kanban-rpm-timeline-row kanban-rpm-timeline-memo-row' });
+    const label = row.createDiv({ cls: 'kanban-rpm-timeline-row-label' });
+    label.createSpan({ text: 'Memo' });
+    const cells = row.createDiv({ cls: 'kanban-rpm-timeline-cells' });
+    for (const day of days) {
+      const cell = cells.createDiv({
+        cls: day === this.todayIso() ? 'kanban-rpm-timeline-cell is-today' : 'kanban-rpm-timeline-cell',
+      });
+      cell.createEl('button', { cls: 'kanban-rpm-timeline-memo-button', text: 'Memo' }).addEventListener('click', () => {
+        void this.openTimelineMemo(day);
+      });
     }
   }
 
@@ -824,6 +925,20 @@ export class KanbanRPMView extends ItemView {
     return markers.sort((a, b) => a.date.localeCompare(b.date) || a.card.title.localeCompare(b.card.title));
   }
 
+  private filterTimelineMarkers(markers: TimelineMarker[]): TimelineMarker[] {
+    const query = this.timelineSearchQuery.trim().toLowerCase();
+    return markers.filter((marker) => {
+      if (this.timelineScope !== 'all' && marker.kind !== this.timelineScope && !(this.timelineScope === 'tasks' && marker.kind === 'task')) {
+        return false;
+      }
+      if (!query) return true;
+      return [marker.label, marker.card.title, marker.card.breadcrumb, marker.card.workstreamType]
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }
+
   private groupTimelineMarkers(markers: TimelineMarker[]): Array<{ label: string; colorKey: string; markers: TimelineMarker[] }> {
     const map = new Map<string, { label: string; colorKey: string; markers: TimelineMarker[] }>();
     for (const marker of markers) {
@@ -845,7 +960,7 @@ export class KanbanRPMView extends ItemView {
   private timelineDays(): string[] {
     const days: string[] = [];
     const today = new Date(`${this.todayIso()}T00:00:00`);
-    for (let offset = -7; offset <= 35; offset += 1) {
+    for (let offset = this.timelineStartOffset; offset <= this.timelineStartOffset + 42; offset += 1) {
       const date = new Date(today);
       date.setDate(today.getDate() + offset);
       days.push(this.formatDate(date));
@@ -860,6 +975,20 @@ export class KanbanRPMView extends ItemView {
 
   private formatDate(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private async openTimelineMemo(day: string): Promise<void> {
+    await this.plugin.ensureWorkspace();
+    const folder = normalizePath(`${this.plugin.workspaceFolder}/timeline`);
+    if (!this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+    const path = normalizePath(`${folder}/${day}.md`);
+    let file: TFile | null = null;
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) file = existing;
+    if (!(file instanceof TFile)) {
+      file = await this.app.vault.create(path, `# ${day} Timeline Memo\n\n## Memo\n\n## Notes\n`);
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
   }
 
   private renderTreeToggle(container: HTMLElement, key: string, collapsed: boolean): void {

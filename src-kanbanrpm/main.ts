@@ -157,6 +157,7 @@ export default class KanbanRPMPlugin extends Plugin {
       this.archiveFolder,
       this.arrowsFolder,
       `${this.workspaceFolder}/perpetual`,
+      `${this.workspaceFolder}/timeline`,
       `${this.workspaceFolder}/attachments`,
     ].map(normalizePath);
 

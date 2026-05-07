@@ -25,6 +25,7 @@ KanbanRPM Workspace/
   cards/
   arrows/
   perpetual/
+  timeline/
   attachments/
   archive/
 ```
@@ -182,7 +183,7 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-`Timeline` view shows a horizontal strip from one week ago through five weeks ahead. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document.
+`Timeline` view uses a Laminar-style layout: a left `Perpetual` sidebar, top range/search/scope controls, horizontal date columns, and a `Memo` row. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document. Click `Memo` or a day-cell `+` to create/open `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`.
 
 Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
 

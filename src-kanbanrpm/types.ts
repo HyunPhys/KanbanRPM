@@ -103,6 +103,8 @@ export interface RecurringItem {
   cadence: 'daily' | 'weekly' | 'monthly';
 }
 
+export type TimelineScope = 'all' | 'review' | 'due' | 'tasks' | 'recurring';
+
 export type SmallActionPriority = 'highest' | 'high' | 'medium' | 'normal' | 'low' | 'lowest';
 
 export interface SmallAction {

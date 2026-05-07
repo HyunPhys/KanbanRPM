@@ -138,3 +138,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Cards with additional hierarchy links keep their primary folder placement.
 - Existing flat files under `cards/` continue to load.
 - Duplicated cards stay next to their source file.
+
+### Phase 4.5 Laminar-Style Timeline Layout
+
+- Reworked `Timeline` into a Laminar-style layout with a `Perpetual` sidebar and horizontal date grid.
+- Added `Today`, previous/next week, timeline search, and scope controls.
+- Added a `Memo` row and day-cell `+` buttons that create/open date notes in `KanbanRPM Workspace/timeline/`.
+- Kept due, review, small-action, and recurring markers in the new layout.
