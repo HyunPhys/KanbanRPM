@@ -167,6 +167,9 @@ KanbanRPM Workspace/archive/
 - Show compact card relation rows for `Depends on`, `Blocks`, and `References`.
 - Export dependency sections to Laminar-style `arrows/` notes with `Export arrows`.
 - Configure which board-card fields are visible from plugin settings.
+- Configure Category values from plugin settings.
+- Show Project documents in a dedicated `Project notes` strip above the board instead of inside status lanes.
+- Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
 - Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.

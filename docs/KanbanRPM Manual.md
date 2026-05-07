@@ -71,6 +71,8 @@ Optional fields are under `Advanced metadata`:
 
 `Category` is stored as `workstream_type`. It is the only broad classification field; KanbanRPM no longer uses separate `area`, `project_kind`, `importance`, or `stage` fields.
 
+Edit the global `Category set` in plugin settings. The Category dropdown, Category filter, card display, and validation all use that configured list.
+
 ## Living Document Template
 
 New documents keep frontmatter short:
@@ -129,10 +131,12 @@ New documents split plugin-readable control data from the free writing area:
 
 Cards show a `Project > Subproject` breadcrumb and a project color token, so the board stays readable even when many projects are visible.
 
+Project documents are not shown inside status lanes. They appear in a `Project notes` strip directly above the board. Click a project name to open the living Project document. When the `Project` filter is `All`, the strip shows all Project notes. When one Project is selected, it shows only that Project note.
+
 Toolbar:
 
 - `New document`
-- `Group by Project` / `Flat board`
+- `Group by Project`, `Group by Subproject`, or `Flat board`
 - `Refresh`
 - `More`
 
@@ -144,6 +148,11 @@ Secondary actions under `More`:
 - `Normalize order`
 
 Use `Search cards`, `Project`, and `Category` filters to narrow the board.
+
+The default grouped board adapts to the Project filter:
+
+- `Project: All`: lanes group cards by Project.
+- one selected Project: lanes group cards by Subproject.
 
 Drag a card to another lane to update `status`. Drag within a lane to update `order`. Card buttons do not start drag.
 

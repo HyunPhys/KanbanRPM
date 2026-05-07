@@ -164,6 +164,79 @@
   flex-wrap: wrap;
 }
 
+.kanban-rpm-project-strip {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rpm-border);
+  background: var(--background-primary);
+}
+
+.kanban-rpm-project-strip-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.kanban-rpm-project-strip-header h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.kanban-rpm-project-strip-header span {
+  color: var(--rpm-muted);
+  font-size: 12px;
+}
+
+.kanban-rpm-project-note-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.kanban-rpm-project-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  padding: 9px;
+  border: 1px solid var(--rpm-border);
+  border-left: 4px solid var(--rpm-project-color, var(--interactive-accent));
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.kanban-rpm-project-note-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-accent);
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-project-note-meta,
+.kanban-rpm-project-note-focus {
+  grid-column: 2;
+  color: var(--rpm-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-project-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.kanban-rpm-project-note-meta span {
+  padding: 2px 5px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 999px;
+}
+
 .kanban-rpm-filter {
   display: flex;
   align-items: center;

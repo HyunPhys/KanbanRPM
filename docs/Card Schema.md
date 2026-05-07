@@ -38,11 +38,13 @@ workstream_type: experiment
 
 KanbanRPM shows `workstream_type` as `Category`. It is the single broad classification field.
 
-Suggested `Category` values:
+Default `Category` values:
 
 ```text
 research | experiment | analysis | writing | setup | purchase | admin | communication
 ```
+
+The active Category set is editable in plugin settings and is used by create/edit dropdowns, filters, card display, and validation.
 
 ## Living Document Sections
 

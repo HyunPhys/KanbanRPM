@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type KanbanRPMPlugin from './main';
-import { parseStatuses, serializeStatuses } from './utils';
+import { parseCategories, parseStatuses, serializeCategories, serializeStatuses } from './utils';
 
 export class KanbanRPMSettingTab extends PluginSettingTab {
   private plugin: KanbanRPMPlugin;
@@ -78,6 +78,22 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             const statuses = parseStatuses(value);
             this.plugin.settings.statuses = statuses.length ? statuses : DEFAULT_SETTINGS.statuses;
+            await this.plugin.saveSettings();
+            await this.plugin.refreshViews();
+          });
+        input.inputEl.rows = 8;
+      });
+
+    new Setting(containerEl)
+      .setName('Category set')
+      .setDesc('One category per line. Used by card create/edit, filters, board display, and validation.')
+      .addTextArea((input) => {
+        input
+          .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.categories))
+          .setValue(serializeCategories(this.plugin.settings.categories))
+          .onChange(async (value) => {
+            const categories = parseCategories(value);
+            this.plugin.settings.categories = categories.length ? categories : DEFAULT_SETTINGS.categories;
             await this.plugin.saveSettings();
             await this.plugin.refreshViews();
           });

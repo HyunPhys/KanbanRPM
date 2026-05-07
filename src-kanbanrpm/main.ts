@@ -84,6 +84,7 @@ export default class KanbanRPMPlugin extends Plugin {
       ...DEFAULT_SETTINGS,
       ...saved,
       statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
+      categories: saved.categories?.length ? saved.categories : DEFAULT_SETTINGS.categories,
       cardDisplayFields: {
         ...DEFAULT_SETTINGS.cardDisplayFields,
         ...(saved.cardDisplayFields ?? {}),

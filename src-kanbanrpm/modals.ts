@@ -1,5 +1,4 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
-import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { DailyPullMode, NewCardValues, ProjectCard, Status } from './types';
 import { isDueSoon, isPastDate, isStatus } from './utils';
@@ -119,7 +118,7 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
+    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', this.plugin.settings.categories);
 
     new Setting(details).setName('Waiting for').addText((input) => {
       input.onChange((value) => {
@@ -347,7 +346,7 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', WORKSTREAM_TYPES);
+    this.addVocabularyDropdown(grid, 'Category', 'workstreamType', this.plugin.settings.categories);
 
     new Setting(details).setName('Waiting for').addText((input) => {
       input.setValue(this.values.waitingFor);

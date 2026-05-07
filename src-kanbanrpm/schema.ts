@@ -42,7 +42,7 @@ Optional planning fields stay in the document body under \`## PM Control\` subse
 workstream_type:
 \`\`\`
 
-KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field.
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The active Category set is editable in plugin settings.
 
 Rich planning data belongs in the document body:
 
@@ -75,7 +75,7 @@ Small-action card display is controlled from plugin settings. The default is due
 
 Checking a small action from a card updates the original Markdown line to \`[x]\` and appends today's done date. Unchecking returns it to \`[ ]\` and removes the done date.
 
-Suggested \`Category\` values:
+Default \`Category\` values:
 
 \`\`\`text
 ${WORKSTREAM_TYPES.join(' | ')}

@@ -89,3 +89,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Reworked new document templates around `PM Control`, a horizontal rule, and `Working Notes`.
 - Added separate Project, Subproject, and Big Action working-note templates.
 - Updated section parsing so KanbanRPM reads both older `##` sections and newer nested `###` control sections.
+
+### Phase 3.10 Category Settings And Project Strip
+
+- Added a configurable `Category set` in plugin settings.
+- Updated card create/edit dropdowns, Category filter, and validation to use configured categories.
+- Removed Project documents from board lanes and rendered them in a dedicated `Project notes` strip above the board.
+- Made grouped board behavior depend on the Project filter: all projects group by Project, one Project groups by Subproject.

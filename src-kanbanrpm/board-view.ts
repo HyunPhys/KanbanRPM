@@ -23,7 +23,7 @@ export class KanbanRPMView extends ItemView {
   private searchQuery = '';
   private projectFilter = '';
   private workstreamTypeFilter = '';
-  private groupByProject = false;
+  private groupByProject = true;
   private toolbarExpanded = false;
   private dataWarningsCollapsed = true;
   private commandCenterCollapsed = false;
@@ -66,13 +66,14 @@ export class KanbanRPMView extends ItemView {
     container.addClass('kanban-rpm-view');
 
     const visibleCards = this.filterCards(this.cards);
+    const visibleBoardCards = visibleCards.filter((card) => card.type !== 'project');
 
     const toolbar = container.createDiv({ cls: 'kanban-rpm-toolbar' });
     const title = toolbar.createDiv({ cls: 'kanban-rpm-title' });
     title.createEl('h2', { text: 'KanbanRPM' });
     title.createSpan({
       cls: 'kanban-rpm-count',
-      text: this.searchQuery ? `${visibleCards.length} of ${this.cards.length} cards` : `${this.cards.length} cards`,
+      text: this.searchQuery ? `${visibleBoardCards.length} of ${this.cards.length} cards` : `${visibleBoardCards.length} cards`,
     });
 
     const actions = toolbar.createDiv({ cls: 'kanban-rpm-actions' });
@@ -101,7 +102,7 @@ export class KanbanRPMView extends ItemView {
       new NewProjectCardModal(this.app, this.plugin).open();
     });
     actions
-      .createEl('button', { text: this.groupByProject ? 'Flat board' : 'Group by Project' })
+      .createEl('button', { text: this.groupByProject ? 'Flat board' : this.getGroupingLabel() })
       .addEventListener('click', () => {
         this.groupByProject = !this.groupByProject;
         this.render();
@@ -119,13 +120,13 @@ export class KanbanRPMView extends ItemView {
     if (this.toolbarExpanded) {
       const secondary = container.createDiv({ cls: 'kanban-rpm-toolbar-secondary' });
       secondary.createEl('button', { text: 'Pull Daily' }).addEventListener('click', () => {
-        new DailyPullModal(this.app, this.plugin, visibleCards).open();
+        new DailyPullModal(this.app, this.plugin, visibleBoardCards).open();
       });
       secondary.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
-        void this.plugin.openWeeklyReview(visibleCards);
+        void this.plugin.openWeeklyReview(visibleBoardCards);
       });
       secondary.createEl('button', { text: 'Export arrows' }).addEventListener('click', () => {
-        void this.plugin.writeDependencyArrows(visibleCards);
+        void this.plugin.writeDependencyArrows(visibleBoardCards);
       });
       secondary.createEl('button', { text: 'Normalize order' }).addEventListener('click', () => {
         void this.plugin.normalizeCardOrder();
@@ -135,13 +136,18 @@ export class KanbanRPMView extends ItemView {
     this.renderFilters(container);
 
     this.renderDataWarnings(container, visibleCards);
-    this.renderCommandCenter(container, visibleCards);
-    this.renderActionIndexGrouped(container, visibleCards);
+    this.renderCommandCenter(container, visibleBoardCards);
+    this.renderActionIndexGrouped(container, visibleBoardCards);
+    this.renderProjectNotes(container);
 
     const board = container.createDiv({ cls: 'kanban-rpm-board' });
     for (const lane of this.plugin.settings.statuses) {
-      this.renderLane(board, lane, visibleCards.filter((card) => card.status === lane.id).sort(compareCards));
+      this.renderLane(board, lane, visibleBoardCards.filter((card) => card.status === lane.id).sort(compareCards));
     }
+  }
+
+  private getGroupingLabel(): string {
+    return this.projectFilter ? 'Group by Subproject' : 'Group by Project';
   }
 
   private filterCards(cards: ProjectCard[]): ProjectCard[] {
@@ -218,6 +224,38 @@ export class KanbanRPMView extends ItemView {
     return Array.from(new Set(this.cards.map((card) => card[field]).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b)
     );
+  }
+
+  private renderProjectNotes(container: HTMLElement): void {
+    const projects = this.cards
+      .filter((card) => card.type === 'project')
+      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitle === this.projectFilter)
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    const panel = container.createDiv({ cls: 'kanban-rpm-project-strip' });
+    const header = panel.createDiv({ cls: 'kanban-rpm-project-strip-header' });
+    header.createEl('h3', { text: this.projectFilter ? 'Project note' : 'Project notes' });
+    header.createSpan({ text: `${projects.length} project${projects.length === 1 ? '' : 's'}` });
+
+    if (!projects.length) {
+      panel.createDiv({ cls: 'kanban-rpm-empty', text: 'No project notes match the current Project filter.' });
+      return;
+    }
+
+    const list = panel.createDiv({ cls: 'kanban-rpm-project-note-list' });
+    for (const project of projects) {
+      const note = list.createDiv({ cls: 'kanban-rpm-project-note' });
+      note.style.setProperty('--rpm-project-color', this.projectColor(project.colorKey));
+      this.addProjectToken(note, project.colorKey);
+      const title = note.createEl('button', { cls: 'kanban-rpm-project-note-title', text: project.title });
+      title.addEventListener('click', () => {
+        void this.plugin.openCard(project);
+      });
+      const meta = note.createDiv({ cls: 'kanban-rpm-project-note-meta' });
+      if (project.status) meta.createSpan({ text: project.status });
+      if (project.workstreamType) meta.createSpan({ text: project.workstreamType });
+      if (project.nextAction) note.createDiv({ cls: 'kanban-rpm-project-note-focus', text: project.nextAction });
+    }
   }
 
   private renderDataWarnings(container: HTMLElement, visibleCards: ProjectCard[]): void {
@@ -454,7 +492,7 @@ export class KanbanRPMView extends ItemView {
       return;
     }
 
-    for (const group of this.groupCardsByProject(cards)) {
+    for (const group of this.groupCardsForCurrentFilter(cards)) {
       const groupEl = list.createDiv({ cls: 'kanban-rpm-project-group' });
       const header = groupEl.createDiv({ cls: 'kanban-rpm-project-group-header' });
       this.addProjectToken(header, group.project);
@@ -811,10 +849,10 @@ export class KanbanRPMView extends ItemView {
     return undefined;
   }
 
-  private groupCardsByProject(cards: ProjectCard[]): Array<{ project: string; cards: ProjectCard[] }> {
+  private groupCardsForCurrentFilter(cards: ProjectCard[]): Array<{ project: string; cards: ProjectCard[] }> {
     const map = new Map<string, ProjectCard[]>();
     for (const card of cards) {
-      const project = card.projectTitle || 'No project';
+      const project = this.projectFilter ? card.subprojectTitle || 'No subproject' : card.projectTitle || 'No project';
       const existing = map.get(project) ?? [];
       existing.push(card);
       map.set(project, existing);

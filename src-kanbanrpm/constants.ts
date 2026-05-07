@@ -11,12 +11,15 @@ export const DEFAULT_STATUSES: StatusDefinition[] = [
   { id: 'done', label: 'Done' },
 ];
 
+export const DEFAULT_CATEGORIES = ['research', 'experiment', 'analysis', 'writing', 'setup', 'purchase', 'admin', 'communication'];
+
 export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   workspaceFolder: 'KanbanRPM Workspace',
   dailyFolder: '100. \uAC1C\uC778/110. \uB2E4\uC774\uC5B4\uB9AC/111. Daily',
   dailySection: 'KanbanRPM',
   weeklyReviewFolder: 'KanbanRPM Workspace/perpetual',
   statuses: DEFAULT_STATUSES,
+  categories: DEFAULT_CATEGORIES,
   cardDisplayFields: {
     breadcrumb: true,
     type: true,
@@ -40,5 +43,5 @@ export const DEFAULT_SETTINGS: KanbanRPMSettings = {
 
 export const LANES: Lane[] = DEFAULT_STATUSES;
 
-export const WORKSTREAM_TYPES = ['research', 'experiment', 'analysis', 'writing', 'setup', 'purchase', 'admin', 'communication'];
+export const WORKSTREAM_TYPES = DEFAULT_CATEGORIES;
 export const WEEKDAYS_KO = ['\uC77C', '\uC6D4', '\uD654', '\uC218', '\uBAA9', '\uAE08', '\uD1A0'];

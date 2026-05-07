@@ -6,6 +6,7 @@ export interface KanbanRPMSettings {
   dailySection: string;
   weeklyReviewFolder: string;
   statuses: StatusDefinition[];
+  categories: string[];
   cardDisplayFields: CardDisplaySettings;
   smallActionDisplay: SmallActionDisplaySettings;
 }

@@ -1,5 +1,4 @@
 import { Notice, TFile, normalizePath, stringifyYaml } from 'obsidian';
-import { WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, CardIssueLevel, NewCardValues, ProjectCard, SmallAction, SmallActionPriority, Status } from './types';
 import {
@@ -368,8 +367,8 @@ export class CardRepository {
       }
 
       const category = text(fm.workstream_type).trim();
-      if (category && !WORKSTREAM_TYPES.includes(category)) {
-        add('warning', 'workstream_type', `category is not in the suggested vocabulary: ${WORKSTREAM_TYPES.join(', ')}.`);
+      if (category && !this.plugin.settings.categories.includes(category)) {
+        add('warning', 'workstream_type', `category is not in the configured vocabulary: ${this.plugin.settings.categories.join(', ')}.`);
       }
 
       const order = text(fm.order).trim();

@@ -73,6 +73,8 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 `Category`는 내부적으로 `workstream_type`에 저장됩니다. KanbanRPM은 더 이상 `area`, `project_kind`, `importance`, `stage`를 쓰지 않습니다.
 
+plugin settings의 `Category set`에서 Category 목록을 수정할 수 있습니다. Category dropdown, Category filter, card display, validation은 모두 이 설정값을 사용합니다.
+
 ## Living Document Template
 
 새 문서의 frontmatter는 짧게 유지합니다.
@@ -131,10 +133,12 @@ order:
 
 card에는 `Project > Subproject` breadcrumb와 project color token이 표시됩니다. 전체 card를 한 번에 띄워도 어떤 Project/Subproject에 속하는지 바로 볼 수 있습니다.
 
+Project document는 status lane 안에 표시하지 않습니다. 대신 board 바로 위의 `Project notes` strip에 따로 표시합니다. Project 이름을 클릭하면 해당 living Project document를 엽니다. `Project` filter가 `All`이면 모든 Project note를 보여주고, 특정 Project를 선택하면 해당 Project note만 보여줍니다.
+
 상단 toolbar의 primary action:
 
 - `New document`
-- `Group by Project` / `Flat board`
+- `Group by Project`, `Group by Subproject`, `Flat board`
 - `Refresh`
 - `More`
 
@@ -146,6 +150,11 @@ card에는 `Project > Subproject` breadcrumb와 project color token이 표시됩
 - `Normalize order`
 
 `Search cards`, `Project`, `Category` filter로 board를 좁힐 수 있습니다.
+
+기본 grouped board는 Project filter에 따라 자동으로 grouping 기준을 바꿉니다.
+
+- `Project: All`: lane 안에서 Project별로 group합니다.
+- 특정 Project 선택: lane 안에서 Subproject별로 group합니다.
 
 card를 다른 lane으로 drag하면 `status`가 바뀝니다. 같은 lane 안에서 drag하면 `order`가 바뀝니다. card 안의 button click은 drag로 오작동하지 않도록 분리되어 있습니다.
 

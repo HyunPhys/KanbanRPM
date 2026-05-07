@@ -84,6 +84,24 @@ export function serializeStatuses(statuses: StatusDefinition[]): string {
   return statuses.map((status) => `${status.id} | ${status.label}`).join('\n');
 }
 
+export function parseCategories(value: string): string[] {
+  const seen = new Set<string>();
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''))
+    .filter((category) => {
+      if (!category || seen.has(category)) return false;
+      seen.add(category);
+      return true;
+    });
+}
+
+export function serializeCategories(categories: string[]): string {
+  return categories.join('\n');
+}
+
 export function isValidDateString(value: string): boolean {
   if (!value) return true;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
