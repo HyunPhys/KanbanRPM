@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './constants';
-import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, LegacyImportModal, NewGroupModal, NewProjectCardModal } from './modals';
+import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, LegacyImportModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, Status } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
@@ -26,6 +26,8 @@ export class KanbanRPMView extends ItemView {
   private projectKindFilter = '';
   private workstreamTypeFilter = '';
   private groupByProject = false;
+  private toolbarExpanded = false;
+  private dataWarningsCollapsed = true;
   private commandCenterCollapsed = false;
   private actionIndexCollapsed = false;
   private pointerDrag?: PointerDragState;
@@ -95,36 +97,43 @@ export class KanbanRPMView extends ItemView {
       });
     }
 
-    actions.createEl('button', { text: 'New card' }).addEventListener('click', () => {
+    actions.createEl('button', { text: 'New document' }).addEventListener('click', () => {
       new NewProjectCardModal(this.app, this.plugin).open();
     });
     actions
-      .createEl('button', { text: this.groupByProject ? 'Ungroup projects' : 'Group projects' })
+      .createEl('button', { text: this.groupByProject ? 'Flat board' : 'Group by Project' })
       .addEventListener('click', () => {
         this.groupByProject = !this.groupByProject;
         this.render();
       });
-    actions.createEl('button', { text: 'New group' }).addEventListener('click', () => {
-      new NewGroupModal(this.app, this.plugin).open();
-    });
-    actions.createEl('button', { text: 'Import legacy' }).addEventListener('click', () => {
-      new LegacyImportModal(this.app, this.plugin).open();
-    });
-    actions.createEl('button', { text: 'Pull Daily' }).addEventListener('click', () => {
-      new DailyPullModal(this.app, this.plugin, visibleCards).open();
-    });
-    actions.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
-      void this.plugin.openWeeklyReview(visibleCards);
-    });
-    actions.createEl('button', { text: 'Write arrows' }).addEventListener('click', () => {
-      void this.plugin.writeDependencyArrows(visibleCards);
-    });
-    actions.createEl('button', { text: 'Normalize order' }).addEventListener('click', () => {
-      void this.plugin.normalizeCardOrder();
-    });
     actions.createEl('button', { text: 'Refresh' }).addEventListener('click', () => {
       void this.refresh();
     });
+    actions
+      .createEl('button', { text: this.toolbarExpanded ? 'Less' : 'More' })
+      .addEventListener('click', () => {
+        this.toolbarExpanded = !this.toolbarExpanded;
+        this.render();
+      });
+
+    if (this.toolbarExpanded) {
+      const secondary = container.createDiv({ cls: 'kanban-rpm-toolbar-secondary' });
+      secondary.createEl('button', { text: 'Pull Daily' }).addEventListener('click', () => {
+        new DailyPullModal(this.app, this.plugin, visibleCards).open();
+      });
+      secondary.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
+        void this.plugin.openWeeklyReview(visibleCards);
+      });
+      secondary.createEl('button', { text: 'Import legacy' }).addEventListener('click', () => {
+        new LegacyImportModal(this.app, this.plugin).open();
+      });
+      secondary.createEl('button', { text: 'Export arrows' }).addEventListener('click', () => {
+        void this.plugin.writeDependencyArrows(visibleCards);
+      });
+      secondary.createEl('button', { text: 'Normalize order' }).addEventListener('click', () => {
+        void this.plugin.normalizeCardOrder();
+      });
+    }
 
     this.renderFilters(container);
 
@@ -190,7 +199,7 @@ export class KanbanRPMView extends ItemView {
       this.projectFilter = value;
       this.render();
     });
-    this.renderSelectFilter(filters, 'Group', this.groupFilter, this.uniqueValues('group'), (value) => {
+    this.renderSelectFilter(filters, 'Legacy group', this.groupFilter, this.uniqueValues('group'), (value) => {
       this.groupFilter = value;
       this.render();
     });
@@ -246,7 +255,16 @@ export class KanbanRPMView extends ItemView {
     const panel = container.createDiv({ cls: 'kanban-rpm-data-warnings' });
     const header = panel.createDiv({ cls: 'kanban-rpm-data-warnings-header' });
     header.createEl('h3', { text: 'Data warnings' });
-    header.createSpan({ text: `${errors} errors - ${warnings} warnings` });
+    const headerActions = header.createDiv({ cls: 'kanban-rpm-panel-actions' });
+    headerActions.createSpan({ text: `${errors} errors - ${warnings} warnings` });
+    headerActions
+      .createEl('button', { text: this.dataWarningsCollapsed ? 'Expand' : 'Collapse' })
+      .addEventListener('click', () => {
+        this.dataWarningsCollapsed = !this.dataWarningsCollapsed;
+        this.render();
+      });
+
+    if (this.dataWarningsCollapsed) return;
 
     for (const issue of issues.slice(0, 8)) {
       const row = panel.createDiv({ cls: `kanban-rpm-issue kanban-rpm-issue-${issue.level}` });
@@ -432,55 +450,6 @@ export class KanbanRPMView extends ItemView {
     row.setAttr('tabindex', '0');
   }
 
-  private renderActionIndex(container: HTMLElement, visibleCards: ProjectCard[]): void {
-    const visiblePaths = new Set(visibleCards.map((card) => card.path));
-    const actions = this.actions.filter((action) => visiblePaths.has(action.cardPath)).slice(0, 30);
-    const panel = container.createDiv({ cls: 'kanban-rpm-action-index' });
-    const header = panel.createDiv({ cls: 'kanban-rpm-action-index-header' });
-    header.createEl('h3', { text: 'Action index' });
-    header.createSpan({ text: `${actions.length}${this.actions.length > actions.length ? '+' : ''} actions` });
-
-    if (!actions.length) {
-      panel.createDiv({ cls: 'kanban-rpm-empty', text: 'No linked unchecked actions found.' });
-      return;
-    }
-
-    for (const action of actions) {
-      const row = panel.createDiv({ cls: 'kanban-rpm-action-row' });
-      row.createDiv({ cls: 'kanban-rpm-action-text', text: action.text });
-      row.createDiv({
-        cls: 'kanban-rpm-action-source',
-        text: `${action.cardTitle} - ${action.sourceLabel}:${action.lineNumber}`,
-      });
-    }
-
-    for (const row of Array.from(panel.querySelectorAll<HTMLElement>('.kanban-rpm-action-row'))) {
-      const index = Array.from(panel.querySelectorAll<HTMLElement>('.kanban-rpm-action-row')).indexOf(row);
-      const action = actions[index];
-      if (!action) continue;
-      const source = row.querySelector<HTMLElement>('.kanban-rpm-action-source');
-      source?.setText(`${action.cardTitle} - ${action.sourceLabel}:${action.lineNumber}`);
-      const rowActions = row.createDiv({ cls: 'kanban-rpm-action-buttons' });
-      rowActions.createEl('button', { text: 'Open source' }).addEventListener('click', (event) => {
-        event.stopPropagation();
-        void this.plugin.openFilePath(action.sourcePath);
-      });
-      rowActions.createEl('button', { text: 'Set next' }).addEventListener('click', (event) => {
-        event.stopPropagation();
-        void this.plugin.setNextAction(action.cardPath, action.text);
-      });
-      row.addClass('is-clickable');
-      row.addEventListener('click', () => {
-        void this.plugin.openFilePath(action.sourcePath);
-      });
-      row.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') void this.plugin.openFilePath(action.sourcePath);
-      });
-      row.setAttr('role', 'button');
-      row.setAttr('tabindex', '0');
-    }
-  }
-
   private renderLane(board: HTMLElement, lane: Lane, cards: ProjectCard[]): void {
     const laneEl = board.createDiv({ cls: 'kanban-rpm-lane' });
     laneEl.dataset.status = lane.id;
@@ -549,7 +518,7 @@ export class KanbanRPMView extends ItemView {
     const meta = cardEl.createDiv({ cls: 'kanban-rpm-meta' });
     this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
     this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
-    this.addMeta(meta, card.group, 'group', 'kanban-rpm-meta-group');
+    this.addMeta(meta, card.group, 'legacy group', 'kanban-rpm-meta-group');
     this.addMeta(meta, card.area, 'area', 'kanban-rpm-meta-area');
     this.addMeta(meta, card.projectKind, 'kind', 'kanban-rpm-meta-kind');
     this.addMeta(meta, card.workstreamType, 'type', 'kanban-rpm-meta-kind');

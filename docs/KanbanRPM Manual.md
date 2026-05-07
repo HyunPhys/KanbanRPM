@@ -64,10 +64,10 @@ status: active
 ## 4. Create a Card
 
 1. Open the KanbanRPM board.
-2. Click `New card`.
+2. Click `New document`.
 3. Fill the required fields marked with a red `*`: `Title`, `Status`, and `Type`.
 4. If `Type` is `Subproject` or `Big Action`, fill `Parent` as the parent Project/Subproject.
-5. Optionally add `Group`, `Workstream type`, `Project kind`, `Stage`, and `Next action`.
+5. Optionally open `Advanced metadata` for compatibility fields such as `Legacy group`, `Workstream type`, `Project kind`, and `Stage`.
 6. Click `Create document`.
 
 KanbanRPM creates a Markdown file in:
@@ -111,17 +111,21 @@ Allowed `type` values are `project`, `subproject`, and `big_action`. `parent` co
 
 Older v0.1 cards with heavy frontmatter still load. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to move non-empty legacy metadata into `PM Metadata` and remove empty frontmatter fields.
 
-## 6. Groups
+## 6. Project Terms
 
-Use `Group` for a large project or operating area, such as `TTT`, `Lab Setup`, or `Teaching`.
+KanbanRPM v0.2 uses these terms:
 
-Run `KanbanRPM: New group note` or click `New group` on the board. KanbanRPM creates a group note in:
+- `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
+- `Subproject`: a workstream under a Project, such as `TTT Experiment` or `Glove Box Setup`.
+- `Big Action`: a trackable chunk of work under a Project or Subproject.
+- `Checkbox task`: the small execution item that stays inside source notes.
+- `Legacy group`: an older optional grouping label kept for imported v0.1 cards and compatibility.
+
+The active hierarchy should use `Parent`, not `group`. Legacy group notes, if used, live in:
 
 ```text
 KanbanRPM Workspace/groups/
 ```
-
-Cards are connected to a group by their `group` field.
 
 ## 7. Board Filters
 
@@ -130,7 +134,7 @@ Use `Search cards` to search visible card text and metadata.
 Use the filter bar to narrow the board by:
 
 - `Project`
-- `Group`
+- `Legacy group`
 - `Project kind`
 - `Workstream type`
 
@@ -138,11 +142,11 @@ Click `Clear filters` to reset the structured filters. Click `Clear` to reset se
 
 Cards show their `Project > Subproject` breadcrumb above the title. The colored token and left stripe are derived from the project identity, so an all-cards board still shows which project each item belongs to.
 
-Click `Group projects` in the toolbar to group cards inside each lane by project. Click `Ungroup projects` to return to the flat lane view.
+Click `Group by Project` in the toolbar to group cards inside each lane by project. Click `Flat board` to return to the flat lane view.
 
 ## 8. Import Legacy Project Notes
 
-Run `KanbanRPM: Import legacy project notes` or click `Import legacy` on the board toolbar.
+Run `KanbanRPM: Import legacy project notes` or open `More` and click `Import legacy`.
 
 KanbanRPM scans existing Markdown notes for likely project notes. Current candidate signals include:
 
@@ -166,7 +170,7 @@ Duplicate prevention is based on existing card `legacy_links`. Running the impor
 
 ## 9. Data Warnings
 
-If KanbanRPM finds card metadata that should be fixed, it shows a `Data warnings` panel above the board.
+If KanbanRPM finds card metadata that should be fixed, it shows a collapsible `Data warnings` panel above the board.
 
 Current checks:
 
@@ -252,7 +256,7 @@ Cards also show compact dependency/context rows when available:
 
 Wikilinks in these relation rows can be clicked to open the linked note.
 
-Click `Write arrows` in the board toolbar, or run `KanbanRPM: Write dependency arrows`, to export `depends_on` and `blocks` metadata into Laminar-style arrow notes under:
+Open `More` and click `Export arrows`, or run `KanbanRPM: Export dependency arrows`, to export `depends_on` and `blocks` metadata into Laminar-style arrow notes under:
 
 ```text
 KanbanRPM Workspace/arrows/
@@ -364,6 +368,8 @@ Available settings:
 - `Statuses`: global Board/List/Table status definitions, one per line as `id | Label`.
 
 Changing the workspace folder does not move existing cards. Changing `Statuses` does not rewrite existing cards; cards with unknown status values appear in `Data warnings` and fall back to the first configured status for display.
+
+The board toolbar keeps only primary actions visible: `New document`, `Group by Project` / `Flat board`, `Refresh`, and `More`. Secondary actions such as `Pull Daily`, `Weekly review`, `Import legacy`, `Export arrows`, and `Normalize order` live under `More`.
 
 ## 17. Troubleshooting
 

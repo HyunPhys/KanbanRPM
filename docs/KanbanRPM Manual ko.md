@@ -294,6 +294,16 @@ board가 비어 있다면 `cards/` 위치, `kanban_rpm: true`, search/filter, ar
 - manual ordering은 새 living document 기준으로 `order` field를 사용합니다. 기존 `rpm_order`는 legacy card 호환용으로 계속 읽습니다.
 - `Settings`의 `Statuses`는 한 줄에 `id | Label` 형식으로 입력합니다. 알 수 없는 `status`는 `Data warnings`에 표시되고 첫 번째 status로 fallback 표시됩니다.
 
+## Phase 3.5 cleanup update
+
+- board toolbar는 primary action만 바로 보여줍니다: `New document`, `Group by Project` / `Flat board`, `Refresh`, `More`.
+- `Pull Daily`, `Weekly review`, `Import legacy`, `Export arrows`, `Normalize order`는 `More` 안으로 이동했습니다.
+- `Data warnings` panel은 collapse/expand가 가능합니다.
+- `New document` / `Edit` modal의 optional field는 `Advanced metadata` 아래로 접었습니다.
+- command palette 용어도 `New document`, `New legacy group note`, `Export dependency arrows`로 정리했습니다.
+- 새 hierarchy의 중심 용어는 `Project`, `Subproject`, `Big Action`, `Checkbox task`입니다.
+- 기존 `group` field는 `Legacy group`으로 표현합니다. 새 구조에서는 Project/Subproject 연결에 `Parent`를 우선 사용합니다.
+
 ## 18. Developer note
 
 KanbanRPM의 user-facing behavior가 바뀌면 이 한국어 manual과 `docs/KanbanRPM Manual.md`를 같은 change에서 함께 업데이트합니다.

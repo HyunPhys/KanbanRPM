@@ -11,12 +11,12 @@ KanbanRPM keeps the upstream Kanban source tree for reference and attribution, b
 ```text
 src-kanbanrpm/main.ts             Plugin lifecycle and command orchestration
 src-kanbanrpm/board-view.ts       Board UI, toolbar, lanes, cards, and drag/drop
-src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, groups, and action indexing
+src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, hierarchy, and action indexing
 src-kanbanrpm/daily.ts            Daily note integration
 src-kanbanrpm/types.ts            Shared TypeScript interfaces
 src-kanbanrpm/constants.ts        Shared constants and vocabularies
 src-kanbanrpm/utils.ts            Pure helper functions
-src-kanbanrpm/modals.ts           Card, group, and confirmation modals
+src-kanbanrpm/modals.ts           Document, legacy group, and confirmation modals
 src-kanbanrpm/schema.ts           Schema reference content
 src-kanbanrpm/settings-tab.ts     Settings tab
 src-kanbanrpm/styles.css          Board and modal styles
@@ -139,8 +139,11 @@ source_notes: []
 
 Flexible architecture terms:
 
-- `group`: the larger project or operating area, such as `TTT` or `Lab Setup`.
-- `card`: the workstream unit, such as `TTT Analysis` or `Glove Box Setup`.
+- `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
+- `Subproject`: a workstream under a Project, such as `TTT Analysis` or `Glove Box Setup`.
+- `Big Action`: a trackable chunk of work under a Project/Subproject.
+- `Checkbox task`: a detailed action that stays inside source notes.
+- `Legacy group`: the older optional `group` field kept for compatibility.
 - `depends_on` and `blocks`: lightweight dependency metadata inspired by Laminar arrows.
 - `source_notes`: notes to scan for unchecked checkbox actions and `#todo` lines.
 - `related_samples`, `related_phenomena`, and `related_people`: research/operations context that should stay connected to the card.
@@ -159,10 +162,10 @@ KanbanRPM Workspace/archive/
 
 - Open the KanbanRPM board from the command palette or ribbon.
 - Search/filter cards from the board toolbar.
-- Filter cards by `Group`, `Project kind`, and `Workstream type`.
-- Show `Data warnings` for invalid card frontmatter, unusual dates, invalid priority values, unknown vocabulary values, and broken source links.
+- Filter cards by `Project`, `Legacy group`, `Project kind`, and `Workstream type`.
+- Show collapsible `Data warnings` for invalid card frontmatter, unusual dates, invalid priority values, unknown vocabulary values, and broken source links.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
-- Create project cards from a modal.
+- Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
 - Create group notes in `KanbanRPM Workspace/groups/`.
 - Import legacy project notes with a preview-only scan and selected card seeding.
 - Create cards directly in a lane with the lane `+` quick add button.
@@ -170,22 +173,22 @@ KanbanRPM Workspace/archive/
 - Duplicate existing cards.
 - Archive cards to `KanbanRPM Workspace/archive/`.
 - Delete cards through a confirmation modal.
-- Show visual badges for status, group, type, kind, stage, dependencies, priority, importance, and overdue dates.
+- Show visual badges for status, legacy group, type, kind, stage, dependencies, priority, importance, and overdue dates.
 - Show an `Action index` that collects unchecked checkboxes and `#todo` lines from linked source notes without modifying the original notes.
 - Open source notes from the `Action index`.
 - Promote an indexed action into a card's `next_action` with `Set next`.
 - Group `Action index` entries by card.
 - Show a `Command center` panel for review queue, waiting cards, blocked cards, and dependency-heavy cards.
-- Collapse or expand `Command center` and `Action index`.
-- Send review queue actions to Daily in a batch with `Daily review`.
+- Collapse or expand `Data warnings`, `Command center`, and `Action index`.
+- Keep secondary board actions under `More`, including `Pull Daily`, `Weekly review`, `Import legacy`, `Export arrows`, and `Normalize order`.
 - Select review/active/waiting/blocked/all-visible cards with `Pull Daily`.
 - Append Daily actions under a configurable `Daily section`.
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
 - Show compact card relation rows for `depends_on`, `blocks`, and `source_notes`.
 - Move cards quickly with inline `Active`, `Waiting`, `Blocked`, and `Done` status buttons.
-- Write dependency metadata to Laminar-style `arrows/` notes with `Write arrows`.
+- Export dependency metadata to Laminar-style `arrows/` notes with `Export arrows`.
 - Drag cards between lanes to update `status`.
-- Drag cards within a lane to set `rpm_order`.
+- Drag cards within a lane to set `order`.
 - Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.
 - Refresh automatically when card files change.
 - Send a card's `next_action` to today's existing Daily note.

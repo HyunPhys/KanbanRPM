@@ -47,6 +47,16 @@
   justify-content: flex-end;
 }
 
+.kanban-rpm-toolbar-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rpm-border);
+  background: var(--rpm-panel);
+}
+
 .kanban-rpm-search {
   width: min(260px, 38vw);
   min-width: 150px;
@@ -61,6 +71,19 @@
 .kanban-rpm-required {
   color: var(--text-error);
   font-weight: 700;
+}
+
+.kanban-rpm-modal-advanced {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.kanban-rpm-modal-advanced summary {
+  cursor: pointer;
+  font-weight: 650;
 }
 
 .kanban-rpm-legacy-modal {

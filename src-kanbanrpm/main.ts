@@ -37,13 +37,13 @@ export default class KanbanRPMPlugin extends Plugin {
 
     this.addCommand({
       id: 'new-project-card',
-      name: 'New project card',
+      name: 'New document',
       callback: () => new NewProjectCardModal(this.app, this).open(),
     });
 
     this.addCommand({
       id: 'new-group-note',
-      name: 'New group note',
+      name: 'New legacy group note',
       callback: () => new NewGroupModal(this.app, this).open(),
     });
 
@@ -55,7 +55,7 @@ export default class KanbanRPMPlugin extends Plugin {
 
     this.addCommand({
       id: 'write-dependency-arrows',
-      name: 'Write dependency arrows',
+      name: 'Export dependency arrows',
       callback: () => void this.writeDependencyArrows(),
     });
 

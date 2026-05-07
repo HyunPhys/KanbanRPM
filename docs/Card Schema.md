@@ -31,6 +31,14 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 In the create/edit modal, required fields are marked with a red `*`: `Title`, `Status`, `Type`, and conditionally `Parent` for Subproject/Big Action documents.
 
+Terminology:
+
+- `Project` is the top-level living document.
+- `Subproject` is a workstream under a Project.
+- `Big Action` is a trackable chunk of work under a Project/Subproject.
+- `Checkbox task` remains inside source notes.
+- `group` is legacy compatibility metadata and appears in the UI as `Legacy group`.
+
 KanbanRPM computes a display breadcrumb from `parent` relationships:
 
 ```text

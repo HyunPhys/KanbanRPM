@@ -139,6 +139,27 @@ Done when:
 - Board/Table/List use the same status set.
 - Drag/drop works reliably in Obsidian panes.
 
+## Phase 3.5. Model Pruning And UI Cleanup
+
+Status: Implemented.
+
+Goal: reduce terminology confusion and keep Phase 4 from building on noisy v0.1/v0.2 transition UI.
+
+Implemented:
+
+- Keep the board toolbar focused on primary actions.
+- Move secondary actions under `More`: `Pull Daily`, `Weekly review`, `Import legacy`, `Export arrows`, and `Normalize order`.
+- Make `Data warnings` collapsible.
+- Move optional card fields into `Advanced metadata` in create/edit modals.
+- Rename visible `Group` UI to `Legacy group`.
+- Clarify Project terminology around `Project`, `Subproject`, `Big Action`, and `Checkbox task`.
+- Remove the unused older Action index render path.
+
+Deferred:
+
+- Deeper TypeScript model split between persisted schema, derived index state, and legacy compatibility fields.
+- Full removal of legacy `group` and `rpm_order` aliases, which still need compatibility support.
+
 ## Phase 4. Board, Table, And List Views
 
 Goal: support the core Kanban plugin style views while keeping KanbanRPM PM semantics.

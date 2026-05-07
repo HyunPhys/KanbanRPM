@@ -49,3 +49,13 @@ npm run build
 ### License And Attribution
 
 KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license material for reference and attribution. This derivative implementation is treated as GPL-3.0-or-later compatible unless upstream clarifies the package/license mismatch.
+
+## v0.2 Development Notes
+
+### Phase 3.5 Cleanup
+
+- Simplified the board toolbar around primary actions and moved secondary actions under `More`.
+- Made `Data warnings` collapsible.
+- Folded optional card fields under `Advanced metadata`.
+- Clarified terminology: `Project`, `Subproject`, `Big Action`, `Checkbox task`, and `Legacy group`.
+- Renamed visible dependency export language from `Write arrows` to `Export arrows` / `Export dependency arrows`.

@@ -66,50 +66,7 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(contentEl).setName('Waiting for').addText((input) => {
-      input.onChange((value) => {
-        this.values.waitingFor = value;
-      });
-    });
-
-    new Setting(contentEl).setName('Blocker').addText((input) => {
-      input.onChange((value) => {
-        this.values.blocker = value;
-      });
-    });
-
-    const dateGrid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
-    new Setting(dateGrid).setName('Next review').addText((input) => {
-      input.setPlaceholder('YYYY-MM-DD');
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Due date').addText((input) => {
-      input.setPlaceholder('YYYY-MM-DD');
-      input.onChange((value) => {
-        this.values.dueDate = value;
-      });
-    });
-
-    new Setting(contentEl)
-      .setName('Legacy links')
-      .setDesc('Comma or newline separated wikilinks')
-      .addTextArea((input) => {
-        input.setPlaceholder('[[old project note]]');
-        input.onChange((value) => {
-          this.values.legacyLinks = value;
-        });
-      });
-
-    this.addListField(contentEl, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
-    this.addListField(contentEl, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
-    this.addListField(contentEl, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
-    this.addListField(contentEl, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
-    this.addListField(contentEl, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
-    this.addListField(contentEl, 'Depends on', 'drawing\nquotation', 'dependsOn');
-    this.addListField(contentEl, 'Blocks', 'missing quote', 'blocks');
+    this.addAdvancedFields(contentEl);
 
     new Setting(contentEl)
       .addButton((button) => {
@@ -151,6 +108,17 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
+  }
+
+  private addAdvancedFields(container: HTMLElement): void {
+    const details = container.createEl('details', { cls: 'kanban-rpm-modal-advanced' });
+    details.createEl('summary', { text: 'Advanced metadata' });
+    details.createDiv({
+      cls: 'kanban-rpm-modal-help',
+      text: 'Optional compatibility and planning fields. Prefer writing context in the document body when possible.',
+    });
+    const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+
     new Setting(grid).setName('Priority').addDropdown((dropdown) => {
       for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
       dropdown.setValue(this.values.priority);
@@ -166,12 +134,15 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Group').addText((input) => {
-      input.setPlaceholder('TTT');
-      input.onChange((value) => {
-        this.values.group = value;
+    new Setting(grid)
+      .setName('Legacy group')
+      .setDesc('Optional old grouping label. New hierarchy should use Parent.')
+      .addText((input) => {
+        input.setPlaceholder('TTT');
+        input.onChange((value) => {
+          this.values.group = value;
+        });
       });
-    });
 
     this.addVocabularyDropdown(grid, 'Workstream type', 'workstreamType', WORKSTREAM_TYPES);
     this.addVocabularyDropdown(grid, 'Project kind', 'projectKind', PROJECT_KINDS);
@@ -184,6 +155,51 @@ export class NewProjectCardModal extends Modal {
     });
 
     this.addVocabularyDropdown(grid, 'Importance', 'importance', IMPORTANCE_VALUES, 'normal');
+
+    new Setting(details).setName('Waiting for').addText((input) => {
+      input.onChange((value) => {
+        this.values.waitingFor = value;
+      });
+    });
+
+    new Setting(details).setName('Blocker').addText((input) => {
+      input.onChange((value) => {
+        this.values.blocker = value;
+      });
+    });
+
+    const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    new Setting(dateGrid).setName('Next review').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.onChange((value) => {
+        this.values.nextReview = value;
+      });
+    });
+
+    new Setting(dateGrid).setName('Due date').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.onChange((value) => {
+        this.values.dueDate = value;
+      });
+    });
+
+    new Setting(details)
+      .setName('Legacy links')
+      .setDesc('Comma or newline separated wikilinks')
+      .addTextArea((input) => {
+        input.setPlaceholder('[[old project note]]');
+        input.onChange((value) => {
+          this.values.legacyLinks = value;
+        });
+      });
+
+    this.addListField(details, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
+    this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
+    this.addListField(details, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
+    this.addListField(details, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
+    this.addListField(details, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
+    this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
+    this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
 
   private addVocabularyDropdown(
@@ -299,54 +315,7 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(contentEl).setName('Waiting for').addText((input) => {
-      input.setValue(this.values.waitingFor);
-      input.onChange((value) => {
-        this.values.waitingFor = value;
-      });
-    });
-
-    new Setting(contentEl).setName('Blocker').addText((input) => {
-      input.setValue(this.values.blocker);
-      input.onChange((value) => {
-        this.values.blocker = value;
-      });
-    });
-
-    const dateGrid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
-    new Setting(dateGrid).setName('Next review').addText((input) => {
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.nextReview);
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Due date').addText((input) => {
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.dueDate);
-      input.onChange((value) => {
-        this.values.dueDate = value;
-      });
-    });
-
-    new Setting(contentEl)
-      .setName('Legacy links')
-      .setDesc('Comma or newline separated wikilinks')
-      .addTextArea((input) => {
-        input.setValue(this.values.legacyLinks);
-        input.onChange((value) => {
-          this.values.legacyLinks = value;
-        });
-      });
-
-    this.addListField(contentEl, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
-    this.addListField(contentEl, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
-    this.addListField(contentEl, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
-    this.addListField(contentEl, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
-    this.addListField(contentEl, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
-    this.addListField(contentEl, 'Depends on', 'drawing\nquotation', 'dependsOn');
-    this.addListField(contentEl, 'Blocks', 'missing quote', 'blocks');
+    this.addAdvancedFields(contentEl);
 
     new Setting(contentEl)
       .addButton((button) => {
@@ -389,6 +358,17 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
+  }
+
+  private addAdvancedFields(container: HTMLElement): void {
+    const details = container.createEl('details', { cls: 'kanban-rpm-modal-advanced' });
+    details.createEl('summary', { text: 'Advanced metadata' });
+    details.createDiv({
+      cls: 'kanban-rpm-modal-help',
+      text: 'Optional compatibility and planning fields. Prefer writing context in the document body when possible.',
+    });
+    const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+
     new Setting(grid).setName('Priority').addDropdown((dropdown) => {
       for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
       dropdown.setValue(this.values.priority);
@@ -404,13 +384,16 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Group').addText((input) => {
-      input.setPlaceholder('TTT');
-      input.setValue(this.values.group);
-      input.onChange((value) => {
-        this.values.group = value;
+    new Setting(grid)
+      .setName('Legacy group')
+      .setDesc('Optional old grouping label. New hierarchy should use Parent.')
+      .addText((input) => {
+        input.setPlaceholder('TTT');
+        input.setValue(this.values.group);
+        input.onChange((value) => {
+          this.values.group = value;
+        });
       });
-    });
 
     this.addVocabularyDropdown(grid, 'Workstream type', 'workstreamType', WORKSTREAM_TYPES);
     this.addVocabularyDropdown(grid, 'Project kind', 'projectKind', PROJECT_KINDS);
@@ -424,6 +407,55 @@ export class EditProjectCardModal extends Modal {
     });
 
     this.addVocabularyDropdown(grid, 'Importance', 'importance', IMPORTANCE_VALUES, 'normal');
+
+    new Setting(details).setName('Waiting for').addText((input) => {
+      input.setValue(this.values.waitingFor);
+      input.onChange((value) => {
+        this.values.waitingFor = value;
+      });
+    });
+
+    new Setting(details).setName('Blocker').addText((input) => {
+      input.setValue(this.values.blocker);
+      input.onChange((value) => {
+        this.values.blocker = value;
+      });
+    });
+
+    const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    new Setting(dateGrid).setName('Next review').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.nextReview);
+      input.onChange((value) => {
+        this.values.nextReview = value;
+      });
+    });
+
+    new Setting(dateGrid).setName('Due date').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.dueDate);
+      input.onChange((value) => {
+        this.values.dueDate = value;
+      });
+    });
+
+    new Setting(details)
+      .setName('Legacy links')
+      .setDesc('Comma or newline separated wikilinks')
+      .addTextArea((input) => {
+        input.setValue(this.values.legacyLinks);
+        input.onChange((value) => {
+          this.values.legacyLinks = value;
+        });
+      });
+
+    this.addListField(details, 'Related people', 'vendor\nprofessor\ndepartment admin', 'relatedPeople');
+    this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
+    this.addListField(details, 'Related samples', '[[(24.09.11) TTT Sample 4]]', 'relatedSamples');
+    this.addListField(details, 'Related phenomena', 'asymmetry\nsaturation', 'relatedPhenomena');
+    this.addListField(details, 'Related notes', '[[TTT Analysis]]', 'relatedNotes');
+    this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
+    this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
 
   private addVocabularyDropdown(
@@ -500,9 +532,9 @@ export class NewGroupModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h2', { text: 'New KanbanRPM group' });
+    contentEl.createEl('h2', { text: 'New KanbanRPM legacy group' });
 
-    new Setting(contentEl).setName('Group name').addText((input) => {
+    new Setting(contentEl).setName('Legacy group name').addText((input) => {
       input.setPlaceholder('TTT');
       input.onChange((value) => {
         this.groupName = value;
@@ -512,7 +544,7 @@ export class NewGroupModal extends Modal {
     new Setting(contentEl)
       .addButton((button) => {
         button
-          .setButtonText('Create group')
+            .setButtonText('Create legacy group')
           .setCta()
           .onClick(() => {
             void this.createGroup();
@@ -525,7 +557,7 @@ export class NewGroupModal extends Modal {
 
   private async createGroup(): Promise<void> {
     if (!this.groupName.trim()) {
-      new Notice('KanbanRPM group needs a name.');
+      new Notice('KanbanRPM legacy group needs a name.');
       return;
     }
 
