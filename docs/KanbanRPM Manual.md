@@ -65,10 +65,10 @@ status: active
 
 1. Open the KanbanRPM board.
 2. Click `New card`.
-3. Fill in at least `Title`.
-4. Choose `Status` and `Priority`.
+3. Fill the required fields marked with a red `*`: `Title`, `Status`, and `Type`.
+4. If `Type` is `Subproject` or `Big Action`, fill `Parent` as the parent Project/Subproject.
 5. Optionally add `Group`, `Workstream type`, `Project kind`, `Stage`, and `Next action`.
-6. Click `Create card`.
+6. Click `Create document`.
 
 KanbanRPM creates a Markdown file in:
 
@@ -107,7 +107,7 @@ order:
 
 New documents place PM context in readable sections such as `Current Focus`, `Subprojects`, `Big Actions`, `Dependencies`, `Perpetual`, `PM Metadata`, `Notes`, `Decisions`, `Timeline`, and `References`.
 
-Allowed `type` values are `project`, `subproject`, and `big_action`. `parent` connects a Subproject or Big Action to its parent Project/Subproject.
+Allowed `type` values are `project`, `subproject`, and `big_action`. `parent` connects a Subproject or Big Action to its parent Project/Subproject. In the modal, required fields are marked with a red `*`.
 
 Older v0.1 cards with heavy frontmatter still load. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to move non-empty legacy metadata into `PM Metadata` and remove empty frontmatter fields.
 
@@ -225,21 +225,21 @@ Use `Collapse` / `Expand` to hide or show the `Action index`.
 
 Click `Edit` to update card metadata. Click `Open` to edit the Markdown body.
 
-Drag a card to another lane to update `status`.
+Drag a card to another lane to update `status`. KanbanRPM uses pointer-based drag so card buttons, links, and inputs do not accidentally start a drag.
 
-You can also use the inline `Active`, `Waiting`, `Blocked`, and `Done` buttons on a card to change `status` without dragging.
+You can also use the inline status buttons on a card to change `status` without dragging. These buttons follow your custom status set.
 
 Drag a card within the same lane to set manual order:
 
 ```yaml
-rpm_order:
+order:
 ```
 
-Click `Normalize order` in the board toolbar, or run `KanbanRPM: Normalize card order`, to rewrite each lane's `rpm_order` values as `1000`, `2000`, `3000`, and so on. This keeps manual ordering stable after many drag/drop operations.
+Click `Normalize order` in the board toolbar, or run `KanbanRPM: Normalize card order`, to rewrite each lane's `order` values as `1000`, `2000`, `3000`, and so on. This keeps manual ordering stable after many drag/drop operations.
 
 Sorting behavior:
 
-1. Cards with `rpm_order` follow manual order.
+1. Cards with `order` follow manual order.
 2. Cards without manual order are sorted by `priority`.
 3. Then by `due_date` or `next_review`.
 4. Then by `title`.
@@ -361,8 +361,9 @@ Available settings:
 - `Daily folder`: where `Send to Daily` looks for today's Daily note.
 - `Daily section`: heading where Daily actions are inserted.
 - `Weekly review folder`: where weekly review notes are created.
+- `Statuses`: global Board/List/Table status definitions, one per line as `id | Label`.
 
-Changing the workspace folder does not move existing cards.
+Changing the workspace folder does not move existing cards. Changing `Statuses` does not rewrite existing cards; cards with unknown status values appear in `Data warnings` and fall back to the first configured status for display.
 
 ## 17. Troubleshooting
 

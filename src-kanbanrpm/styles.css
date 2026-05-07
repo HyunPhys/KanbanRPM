@@ -58,6 +58,11 @@
   margin: 4px 0 12px;
 }
 
+.kanban-rpm-required {
+  color: var(--text-error);
+  font-weight: 700;
+}
+
 .kanban-rpm-legacy-modal {
   max-width: min(860px, 92vw);
 }
@@ -506,6 +511,8 @@
 
 .kanban-rpm-card.is-dragging {
   opacity: 0.55;
+  pointer-events: none;
+  transform: scale(0.995);
 }
 
 .kanban-rpm-card-title-row {

@@ -64,7 +64,7 @@ export async function openWeeklyReview(app: App, settings: KanbanRPMSettings, ca
   let weeklyFile = app.vault.getAbstractFileByPath(weeklyPath);
 
   if (!(weeklyFile instanceof TFile)) {
-    weeklyFile = await app.vault.create(weeklyPath, getWeeklyReviewContent(cards));
+    weeklyFile = await app.vault.create(weeklyPath, getWeeklyReviewContent(cards, settings));
     new Notice(`KanbanRPM weekly review created: ${weeklyPath}`);
   }
 
@@ -92,15 +92,19 @@ function appendLinesToDailyContent(content: string, lines: string[], section: st
   return `${content.slice(0, insertAt)}${block}${content.slice(insertAt)}`;
 }
 
-function getWeeklyReviewContent(cards: ProjectCard[]): string {
+function getWeeklyReviewContent(cards: ProjectCard[], settings: KanbanRPMSettings): string {
   const { year, week } = getIsoWeek();
   const date = getIsoDate();
+  const doneStatus = settings.statuses.find((status) => status.id === 'done')?.id ?? 'done';
+  const activeStatus = settings.statuses.find((status) => status.id === 'active')?.id ?? 'active';
+  const waitingStatus = settings.statuses.find((status) => status.id === 'waiting')?.id ?? 'waiting';
+  const blockedStatus = settings.statuses.find((status) => status.id === 'blocked')?.id ?? 'blocked';
   const reviewCards = cards
-    .filter((card) => card.status !== 'done')
+    .filter((card) => card.status !== doneStatus)
     .sort((a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title));
-  const active = reviewCards.filter((card) => card.status === 'active');
-  const waiting = reviewCards.filter((card) => card.status === 'waiting' || card.waitingFor);
-  const blocked = reviewCards.filter((card) => card.status === 'blocked' || card.blocker);
+  const active = reviewCards.filter((card) => card.status === activeStatus);
+  const waiting = reviewCards.filter((card) => card.status === waitingStatus || card.waitingFor);
+  const blocked = reviewCards.filter((card) => card.status === blockedStatus || card.blocker || card.blockedBy.length);
 
   return `---\nkanban_rpm: true\ntype: weekly_review\nweek: ${year}-W${String(week).padStart(2, '0')}\ncreated: ${date}\n---\n\n# KanbanRPM Weekly Review ${year}-W${String(week).padStart(2, '0')}\n\n## Review Queue\n\n${renderCardChecklist(reviewCards.slice(0, 20))}\n\n## Active\n\n${renderCardChecklist(active)}\n\n## Waiting\n\n${renderCardChecklist(waiting)}\n\n## Blocked\n\n${renderCardChecklist(blocked)}\n\n## Decisions\n\n## Next Week Focus\n\n`;
 }

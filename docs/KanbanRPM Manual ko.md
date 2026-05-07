@@ -284,6 +284,16 @@ board가 비어 있다면 `cards/` 위치, `kanban_rpm: true`, search/filter, ar
 
 `Weekly review`가 예상과 다른 위치에 만들어지면 `Weekly review folder` setting을 확인합니다.
 
+## Phase 3 update
+
+- `New card` / `Edit` modal에서 required field는 빨간색 `*`로 표시됩니다.
+- 항상 필요한 field는 `Title`, `Status`, `Type`입니다.
+- `Type`이 `Subproject` 또는 `Big Action`이면 `Parent`도 required입니다.
+- card drag/drop은 pointer-based drag로 동작합니다. card 안의 button, input, link를 클릭해도 drag가 시작되지 않도록 분리했습니다.
+- inline status button은 `Settings`의 custom `Statuses`를 따라갑니다.
+- manual ordering은 새 living document 기준으로 `order` field를 사용합니다. 기존 `rpm_order`는 legacy card 호환용으로 계속 읽습니다.
+- `Settings`의 `Statuses`는 한 줄에 `id | Label` 형식으로 입력합니다. 알 수 없는 `status`는 `Data warnings`에 표시되고 첫 번째 status로 fallback 표시됩니다.
+
 ## 18. Developer note
 
 KanbanRPM의 user-facing behavior가 바뀌면 이 한국어 manual과 `docs/KanbanRPM Manual.md`를 같은 change에서 함께 업데이트합니다.

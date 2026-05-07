@@ -4,6 +4,17 @@ import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, LegacyImp
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, Status } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
+
+interface PointerDragState {
+  cardPath: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  dragging: boolean;
+  cardEl: HTMLElement;
+  activeLaneEl?: HTMLElement;
+}
+
 export class KanbanRPMView extends ItemView {
   private plugin: KanbanRPMPlugin;
   private cards: ProjectCard[] = [];
@@ -17,6 +28,7 @@ export class KanbanRPMView extends ItemView {
   private groupByProject = false;
   private commandCenterCollapsed = false;
   private actionIndexCollapsed = false;
+  private pointerDrag?: PointerDragState;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanRPMPlugin) {
     super(leaf);
@@ -276,12 +288,14 @@ export class KanbanRPMView extends ItemView {
     if (this.commandCenterCollapsed) return;
 
     const grid = panel.createDiv({ cls: 'kanban-rpm-command-grid' });
+    const waitingStatus = this.getConfiguredStatusId('waiting');
+    const blockedStatus = this.getConfiguredStatusId('blocked');
     const waitingCards = visibleCards
-      .filter((card) => card.status === 'waiting' || Boolean(card.waitingFor))
+      .filter((card) => card.status === waitingStatus || Boolean(card.waitingFor))
       .sort(compareCards)
       .slice(0, 6);
     const blockedCards = visibleCards
-      .filter((card) => card.status === 'blocked' || Boolean(card.blocker))
+      .filter((card) => card.status === blockedStatus || Boolean(card.blocker) || card.blockedBy.length)
       .sort(compareCards)
       .slice(0, 6);
     const dependencyCards = visibleCards
@@ -471,20 +485,6 @@ export class KanbanRPMView extends ItemView {
     const laneEl = board.createDiv({ cls: 'kanban-rpm-lane' });
     laneEl.dataset.status = lane.id;
 
-    laneEl.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      laneEl.addClass('is-drag-over');
-    });
-    laneEl.addEventListener('dragleave', () => laneEl.removeClass('is-drag-over'));
-    laneEl.addEventListener('drop', (event) => {
-      event.preventDefault();
-      laneEl.removeClass('is-drag-over');
-      const cardPath = event.dataTransfer?.getData('text/plain');
-      if (!cardPath) return;
-      const beforePath = this.findDropBeforePath(laneEl, event.clientY, cardPath);
-      void this.plugin.moveCard(cardPath, lane.id, beforePath);
-    });
-
     const header = laneEl.createDiv({ cls: 'kanban-rpm-lane-header' });
     header.createSpan({ cls: 'kanban-rpm-lane-title', text: lane.label });
     const laneActions = header.createDiv({ cls: 'kanban-rpm-lane-actions' });
@@ -529,17 +529,9 @@ export class KanbanRPMView extends ItemView {
       .filter(Boolean)
       .join(' ');
     const cardEl = list.createDiv({ cls: cardClasses });
-    cardEl.draggable = true;
     cardEl.dataset.path = card.path;
     cardEl.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
-
-    cardEl.addEventListener('dragstart', (event) => {
-      if (!event.dataTransfer) return;
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', card.path);
-      cardEl.addClass('is-dragging');
-    });
-    cardEl.addEventListener('dragend', () => cardEl.removeClass('is-dragging'));
+    this.attachPointerDrag(cardEl, card);
 
     const titleRow = cardEl.createDiv({ cls: 'kanban-rpm-card-title-row' });
     const titleWrap = titleRow.createDiv({ cls: 'kanban-rpm-card-title-wrap' });
@@ -631,9 +623,7 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderStatusActions(container: HTMLElement, card: ProjectCard): void {
-    const targets: Array<[Status, string]> = [
-      ...this.plugin.settings.statuses.map((status) => [status.id, status.label] as [Status, string]),
-    ].slice(0, 6);
+    const targets: Array<[Status, string]> = this.plugin.settings.statuses.map((status) => [status.id, status.label]);
 
     for (const [status, label] of targets) {
       if (card.status === status) continue;
@@ -641,6 +631,77 @@ export class KanbanRPMView extends ItemView {
         void this.plugin.setCardStatus(card, status);
       });
     }
+  }
+
+  private attachPointerDrag(cardEl: HTMLElement, card: ProjectCard): void {
+    cardEl.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || this.isInteractiveTarget(event.target)) return;
+      this.pointerDrag = {
+        cardPath: card.path,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dragging: false,
+        cardEl,
+      };
+      cardEl.setPointerCapture(event.pointerId);
+    });
+
+    cardEl.addEventListener('pointermove', (event) => {
+      if (!this.pointerDrag || this.pointerDrag.pointerId !== event.pointerId) return;
+      const distance = Math.hypot(event.clientX - this.pointerDrag.startX, event.clientY - this.pointerDrag.startY);
+      if (!this.pointerDrag.dragging && distance < 6) return;
+
+      this.pointerDrag.dragging = true;
+      this.pointerDrag.cardEl.addClass('is-dragging');
+      this.setActiveDragLane(this.findLaneAtPoint(event.clientX, event.clientY));
+    });
+
+    cardEl.addEventListener('pointerup', (event) => {
+      if (!this.pointerDrag || this.pointerDrag.pointerId !== event.pointerId) return;
+      const drag = this.pointerDrag;
+      const laneEl = this.findLaneAtPoint(event.clientX, event.clientY) ?? drag.activeLaneEl;
+      this.clearPointerDrag();
+
+      if (!drag.dragging || !laneEl) return;
+      const status = laneEl.dataset.status;
+      if (!status) return;
+      const beforePath = this.findDropBeforePath(laneEl, event.clientY, drag.cardPath);
+      void this.plugin.moveCard(drag.cardPath, status, beforePath);
+    });
+
+    cardEl.addEventListener('pointercancel', () => this.clearPointerDrag());
+    cardEl.addEventListener('lostpointercapture', () => {
+      if (this.pointerDrag?.cardEl === cardEl) this.clearPointerDrag();
+    });
+  }
+
+  private isInteractiveTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest('button, input, textarea, select, a, .is-link'));
+  }
+
+  private findLaneAtPoint(clientX: number, clientY: number): HTMLElement | undefined {
+    for (const element of document.elementsFromPoint(clientX, clientY)) {
+      if (!(element instanceof HTMLElement)) continue;
+      const laneEl = element.closest<HTMLElement>('.kanban-rpm-lane');
+      if (laneEl) return laneEl;
+    }
+    return undefined;
+  }
+
+  private setActiveDragLane(laneEl?: HTMLElement): void {
+    if (this.pointerDrag?.activeLaneEl === laneEl) return;
+    this.pointerDrag?.activeLaneEl?.removeClass('is-drag-over');
+    if (this.pointerDrag) this.pointerDrag.activeLaneEl = laneEl;
+    laneEl?.addClass('is-drag-over');
+  }
+
+  private clearPointerDrag(): void {
+    if (!this.pointerDrag) return;
+    this.pointerDrag.cardEl.removeClass('is-dragging');
+    this.pointerDrag.activeLaneEl?.removeClass('is-drag-over');
+    this.pointerDrag = undefined;
   }
 
   private renderCardRelations(cardEl: HTMLElement, card: ProjectCard): void {
@@ -706,6 +767,10 @@ export class KanbanRPMView extends ItemView {
   private addProjectToken(container: HTMLElement, key: string): void {
     const token = container.createSpan({ cls: 'kanban-rpm-project-token' });
     token.style.setProperty('--rpm-project-color', this.projectColor(key));
+  }
+
+  private getConfiguredStatusId(preferredId: string): Status {
+    return this.plugin.settings.statuses.find((status) => status.id === preferredId)?.id ?? preferredId;
   }
 
   private projectColor(key: string): string {

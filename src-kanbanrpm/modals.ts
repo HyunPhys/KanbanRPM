@@ -49,7 +49,7 @@ export class NewProjectCardModal extends Modal {
     contentEl.empty();
     contentEl.createEl('h2', { text: 'New KanbanRPM living document' });
 
-    new Setting(contentEl).setName('Title').addText((input) => {
+    this.markRequired(new Setting(contentEl).setName('Title')).addText((input) => {
       input.setPlaceholder('TTT Manuscript');
       input.onChange((value) => {
         this.values.title = value;
@@ -126,7 +126,7 @@ export class NewProjectCardModal extends Modal {
   }
 
   private addCoreFields(grid: HTMLElement): void {
-    new Setting(grid).setName('Status').addDropdown((dropdown) => {
+    this.markRequired(new Setting(grid).setName('Status')).addDropdown((dropdown) => {
       for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
       dropdown.setValue(this.values.status);
       dropdown.onChange((value) => {
@@ -134,7 +134,7 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Type').addDropdown((dropdown) => {
+    this.markRequired(new Setting(grid).setName('Type')).addDropdown((dropdown) => {
       dropdown.addOption('project', 'Project');
       dropdown.addOption('subproject', 'Subproject');
       dropdown.addOption('big_action', 'Big Action');
@@ -144,7 +144,7 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Parent').addText((input) => {
+    this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action').addText((input) => {
       input.setPlaceholder('[[TTT]]');
       input.onChange((value) => {
         this.values.parent = value;
@@ -208,9 +208,19 @@ export class NewProjectCardModal extends Modal {
       new Notice('KanbanRPM card needs a title.');
       return;
     }
+    if (this.values.type !== 'project' && !this.values.parent.trim()) {
+      new Notice('Subproject and Big Action documents need a parent.');
+      return;
+    }
 
     await this.plugin.createCard(this.values);
     this.close();
+  }
+
+  private markRequired(setting: Setting, desc?: string): Setting {
+    setting.nameEl.createSpan({ cls: 'kanban-rpm-required', text: ' *' });
+    if (desc) setting.setDesc(desc);
+    return setting;
   }
 
   private addListField(container: HTMLElement, name: string, placeholder: string, key: ListFieldKey): void {
@@ -272,7 +282,7 @@ export class EditProjectCardModal extends Modal {
     contentEl.empty();
     contentEl.createEl('h2', { text: 'Edit KanbanRPM living document' });
 
-    new Setting(contentEl).setName('Title').addText((input) => {
+    this.markRequired(new Setting(contentEl).setName('Title')).addText((input) => {
       input.setValue(this.values.title);
       input.onChange((value) => {
         this.values.title = value;
@@ -353,7 +363,7 @@ export class EditProjectCardModal extends Modal {
   }
 
   private addCoreFields(grid: HTMLElement): void {
-    new Setting(grid).setName('Status').addDropdown((dropdown) => {
+    this.markRequired(new Setting(grid).setName('Status')).addDropdown((dropdown) => {
       for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
       dropdown.setValue(this.values.status);
       dropdown.onChange((value) => {
@@ -361,7 +371,7 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Type').addDropdown((dropdown) => {
+    this.markRequired(new Setting(grid).setName('Type')).addDropdown((dropdown) => {
       dropdown.addOption('project', 'Project');
       dropdown.addOption('subproject', 'Subproject');
       dropdown.addOption('big_action', 'Big Action');
@@ -371,7 +381,7 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
-    new Setting(grid).setName('Parent').addText((input) => {
+    this.markRequired(new Setting(grid).setName('Parent'), 'Required for Subproject and Big Action').addText((input) => {
       input.setPlaceholder('[[TTT]]');
       input.setValue(this.values.parent);
       input.onChange((value) => {
@@ -438,9 +448,19 @@ export class EditProjectCardModal extends Modal {
       new Notice('KanbanRPM card needs a title.');
       return;
     }
+    if (this.values.type !== 'project' && !this.values.parent.trim()) {
+      new Notice('Subproject and Big Action documents need a parent.');
+      return;
+    }
 
     await this.plugin.updateCard(this.card, this.values);
     this.close();
+  }
+
+  private markRequired(setting: Setting, desc?: string): Setting {
+    setting.nameEl.createSpan({ cls: 'kanban-rpm-required', text: ' *' });
+    if (desc) setting.setDesc(desc);
+    return setting;
   }
 
   private addListField(container: HTMLElement, name: string, placeholder: string, key: ListFieldKey): void {
@@ -777,19 +797,28 @@ export class DailyPullModal extends Modal {
   }
 
   private getCandidates(): ProjectCard[] {
+    const activeStatus = this.getConfiguredStatusId('active');
+    const waitingStatus = this.getConfiguredStatusId('waiting');
+    const blockedStatus = this.getConfiguredStatusId('blocked');
+    const doneStatus = this.getConfiguredStatusId('done');
+
     switch (this.mode) {
       case 'active':
-        return this.cards.filter((card) => card.status === 'active');
+        return this.cards.filter((card) => card.status === activeStatus);
       case 'waiting':
-        return this.cards.filter((card) => card.status === 'waiting' || Boolean(card.waitingFor));
+        return this.cards.filter((card) => card.status === waitingStatus || Boolean(card.waitingFor));
       case 'blocked':
-        return this.cards.filter((card) => card.status === 'blocked' || Boolean(card.blocker));
+        return this.cards.filter((card) => card.status === blockedStatus || Boolean(card.blocker) || card.blockedBy.length);
       case 'all-visible':
-        return this.cards.filter((card) => card.status !== 'done');
+        return this.cards.filter((card) => card.status !== doneStatus);
       case 'review':
       default:
         return this.cards.filter((card) => isPastDate(card.nextReview) || isDueSoon(card.nextReview) || isPastDate(card.dueDate) || isDueSoon(card.dueDate));
     }
+  }
+
+  private getConfiguredStatusId(preferredId: string): Status {
+    return this.plugin.settings.statuses.find((status) => status.id === preferredId)?.id ?? preferredId;
   }
 
   private renderCardOption(container: HTMLElement, card: ProjectCard): void {

@@ -29,6 +29,8 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 
 `order` is managed by KanbanRPM ordering tools.
 
+In the create/edit modal, required fields are marked with a red `*`: `Title`, `Status`, `Type`, and conditionally `Parent` for Subproject/Big Action documents.
+
 KanbanRPM computes a display breadcrumb from `parent` relationships:
 
 ```text
@@ -104,7 +106,7 @@ source_notes:
 rpm_order:
 ```
 
-KanbanRPM continues to read these fields for compatibility. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to remove empty legacy fields and move non-empty metadata into `## PM Metadata`.
+KanbanRPM continues to read these fields for compatibility. Legacy `rpm_order` is treated as `order` when loading older cards. Use `KanbanRPM: Compact card metadata` or the card `Compact` action to remove empty legacy fields and move non-empty metadata into `## PM Metadata`.
 
 ## Dependencies
 

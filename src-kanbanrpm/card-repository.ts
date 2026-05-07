@@ -1,5 +1,5 @@
 import { Notice, TFile, normalizePath, stringifyYaml } from 'obsidian';
-import { IMPORTANCE_VALUES, LANES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
+import { IMPORTANCE_VALUES, PROJECT_KINDS, WORKSTREAM_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, CardIssueLevel, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
 import {
@@ -307,8 +307,8 @@ export class CardRepository {
     const cards = await this.loadCards();
     let updated = 0;
 
-    for (const lane of LANES) {
-      const laneCards = cards.filter((card) => card.status === lane.id).sort(compareCards);
+    for (const status of this.plugin.settings.statuses) {
+      const laneCards = cards.filter((card) => card.status === status.id).sort(compareCards);
 
       for (const [index, card] of laneCards.entries()) {
         const nextOrder = (index + 1) * 1000;
@@ -774,17 +774,18 @@ export class CardRepository {
   }
 
   private applyBlockedBy(cards: ProjectCard[]): void {
+    const doneStatus = this.plugin.settings.statuses.find((status) => status.id === 'done')?.id ?? 'done';
     for (const card of cards) card.blockedBy = [];
     for (const card of cards) {
       for (const dependency of card.dependsOn) {
         const dependencyFile = this.resolveLinkedFile(dependency, card.path);
         const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : undefined;
-        if (dependencyCard && dependencyCard.status !== 'done') card.blockedBy.push(dependencyCard.title);
+        if (dependencyCard && dependencyCard.status !== doneStatus) card.blockedBy.push(dependencyCard.title);
       }
       for (const blocked of card.blocks) {
         const blockedFile = this.resolveLinkedFile(blocked, card.path);
         const blockedCard = blockedFile ? cards.find((item) => item.path === blockedFile.path) : undefined;
-        if (blockedCard && card.status !== 'done') blockedCard.blockedBy.push(card.title);
+        if (blockedCard && card.status !== doneStatus) blockedCard.blockedBy.push(card.title);
       }
     }
   }

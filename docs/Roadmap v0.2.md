@@ -111,9 +111,11 @@ Done when:
 
 ## Phase 3. Status Customization And Reliable Drag/Drop
 
+Status: Implemented.
+
 Goal: make statuses editable and card movement reliable.
 
-Tasks:
+Implemented:
 
 - Add global status editor in settings.
 - Store statuses as ordered `id | Label` definitions.
@@ -124,6 +126,12 @@ Tasks:
 - Lane movement changes only `status`.
 - Same-lane reorder changes only `order`.
 - Keep inline status buttons as fallback.
+- Mark required create/edit modal fields with a red `*`.
+
+Deferred:
+
+- Manual Obsidian pane QA for long drag sessions and custom status edge cases.
+- Table/List status rendering, because those views start in Phase 4.
 
 Done when:
 
