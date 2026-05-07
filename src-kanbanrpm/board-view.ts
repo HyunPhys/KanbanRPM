@@ -31,6 +31,7 @@ export class KanbanRPMView extends ItemView {
   private issues: CardIssue[] = [];
   private searchQuery = '';
   private projectFilter = '';
+  private subprojectFilter = '';
   private workstreamTypeFilter = '';
   private viewMode: ViewMode = 'board';
   private tableSortKey: TableSortKey = 'priority';
@@ -201,7 +202,8 @@ export class KanbanRPMView extends ItemView {
   private filterCards(cards: ProjectCard[]): ProjectCard[] {
     const query = this.searchQuery.trim().toLowerCase();
     return cards.filter((card) => {
-      if (this.projectFilter && card.projectTitle !== this.projectFilter) return false;
+      if (this.projectFilter && !card.projectTitles.includes(this.projectFilter)) return false;
+      if (this.subprojectFilter && !card.subprojectTitles.includes(this.subprojectFilter)) return false;
       if (this.workstreamTypeFilter && card.workstreamType !== this.workstreamTypeFilter) return false;
       if (!query) return true;
 
@@ -215,6 +217,8 @@ export class KanbanRPMView extends ItemView {
       card.breadcrumb,
       card.projectTitle,
       card.subprojectTitle,
+      ...card.projectTitles,
+      ...card.subprojectTitles,
       card.status,
       `p${card.priority}`,
       String(card.priority),
@@ -236,6 +240,11 @@ export class KanbanRPMView extends ItemView {
     const filters = container.createDiv({ cls: 'kanban-rpm-filters' });
     this.renderSelectFilter(filters, 'Project', this.projectFilter, this.uniqueValues('projectTitle'), (value) => {
       this.projectFilter = value;
+      this.subprojectFilter = '';
+      this.render();
+    });
+    this.renderSelectFilter(filters, 'Subproject', this.subprojectFilter, this.subprojectFilterValues(), (value) => {
+      this.subprojectFilter = value;
       this.render();
     });
     this.renderSelectFilter(filters, 'Category', this.workstreamTypeFilter, this.uniqueValues('workstreamType'), (value) => {
@@ -243,9 +252,10 @@ export class KanbanRPMView extends ItemView {
       this.render();
     });
 
-    if (this.projectFilter || this.workstreamTypeFilter) {
+    if (this.projectFilter || this.subprojectFilter || this.workstreamTypeFilter) {
       filters.createEl('button', { text: 'Clear filters' }).addEventListener('click', () => {
         this.projectFilter = '';
+        this.subprojectFilter = '';
         this.workstreamTypeFilter = '';
         this.render();
       });
@@ -303,7 +313,19 @@ export class KanbanRPMView extends ItemView {
   }
 
   private uniqueValues(field: 'projectTitle' | 'workstreamType'): string[] {
+    if (field === 'projectTitle') {
+      return Array.from(new Set(this.cards.flatMap((card) => card.projectTitles).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b)
+      );
+    }
     return Array.from(new Set(this.cards.map((card) => card[field]).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }
+
+  private subprojectFilterValues(): string[] {
+    const cards = this.projectFilter ? this.cards.filter((card) => card.projectTitles.includes(this.projectFilter)) : this.cards;
+    return Array.from(new Set(cards.flatMap((card) => card.subprojectTitles).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b)
     );
   }
@@ -311,7 +333,7 @@ export class KanbanRPMView extends ItemView {
   private renderProjectNotes(container: HTMLElement): void {
     const projects = this.cards
       .filter((card) => card.type === 'project')
-      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitle === this.projectFilter)
+      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitles.includes(this.projectFilter))
       .sort((a, b) => a.title.localeCompare(b.title));
 
     const panel = container.createDiv({ cls: 'kanban-rpm-project-strip' });
@@ -629,14 +651,16 @@ export class KanbanRPMView extends ItemView {
     const list = container.createDiv({ cls: 'kanban-rpm-tree' });
     const projects = this.cards
       .filter((card) => card.type === 'project')
-      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitle === this.projectFilter)
+      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitles.includes(this.projectFilter))
       .sort((a, b) => a.title.localeCompare(b.title));
 
     const projectNames = new Set(projects.map((project) => project.title));
     for (const card of visibleBoardCards) {
-      if (card.projectTitle && !projectNames.has(card.projectTitle)) {
-        projectNames.add(card.projectTitle);
-        projects.push(card);
+      for (const projectTitle of card.projectTitles) {
+        if (projectTitle && !projectNames.has(projectTitle)) {
+          projectNames.add(projectTitle);
+          projects.push(card);
+        }
       }
     }
 
@@ -654,7 +678,7 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderProjectTree(container: HTMLElement, projectTitle: string, visibleBoardCards: ProjectCard[]): void {
-    const projectCards = visibleBoardCards.filter((card) => card.projectTitle === projectTitle);
+    const projectCards = visibleBoardCards.filter((card) => card.projectTitles.includes(projectTitle));
     const nodeKey = `project:${projectTitle}`;
     const collapsed = this.collapsedListNodes.has(nodeKey);
     const projectEl = container.createDiv({ cls: 'kanban-rpm-tree-project' });
@@ -674,7 +698,7 @@ export class KanbanRPMView extends ItemView {
     const subprojectCards = projectCards.filter((card) => card.type === 'subproject').sort(compareCards);
     const subprojectTitles = new Set<string>();
     for (const subproject of subprojectCards) subprojectTitles.add(subproject.title);
-    for (const card of projectCards) if (card.subprojectTitle) subprojectTitles.add(card.subprojectTitle);
+    for (const card of projectCards) for (const subprojectTitle of card.subprojectTitles) subprojectTitles.add(subprojectTitle);
     if (!subprojectTitles.size) subprojectTitles.add('No subproject');
 
     for (const subprojectTitle of Array.from(subprojectTitles).sort((a, b) => a.localeCompare(b))) {
@@ -691,7 +715,7 @@ export class KanbanRPMView extends ItemView {
     const subprojectCard = projectCards.find((card) => card.type === 'subproject' && card.title === subprojectTitle);
     const bigActions = projectCards
       .filter((card) => card.type === 'big_action')
-      .filter((card) => (subprojectTitle === 'No subproject' ? !card.subprojectTitle : card.subprojectTitle === subprojectTitle))
+      .filter((card) => (subprojectTitle === 'No subproject' ? !card.subprojectTitles.length : card.subprojectTitles.includes(subprojectTitle)))
       .sort(compareCards);
     if (!subprojectCard && !bigActions.length) return;
 
@@ -803,8 +827,10 @@ export class KanbanRPMView extends ItemView {
   private groupTimelineMarkers(markers: TimelineMarker[]): Array<{ label: string; colorKey: string; markers: TimelineMarker[] }> {
     const map = new Map<string, { label: string; colorKey: string; markers: TimelineMarker[] }>();
     for (const marker of markers) {
-      const label = marker.card.breadcrumb || marker.card.projectTitle || 'No project';
-      const key = `${marker.card.projectTitle || 'No project'}>${marker.card.subprojectTitle || ''}`;
+      const project = this.projectFilter || marker.card.projectTitle || marker.card.projectTitles[0] || 'No project';
+      const subproject = this.subprojectFilter || marker.card.subprojectTitle || marker.card.subprojectTitles[0] || '';
+      const label = [project, subproject].filter(Boolean).join(' > ');
+      const key = `${project}>${subproject}`;
       const existing = map.get(key) ?? {
         label,
         colorKey: marker.card.colorKey || marker.card.projectTitle || label,
@@ -1278,7 +1304,7 @@ export class KanbanRPMView extends ItemView {
   private groupCardsForCurrentFilter(cards: ProjectCard[]): Array<{ project: string; cards: ProjectCard[] }> {
     const map = new Map<string, ProjectCard[]>();
     for (const card of cards) {
-      const project = this.projectFilter ? card.subprojectTitle || 'No subproject' : card.projectTitle || 'No project';
+      const project = this.projectFilter ? card.subprojectTitle || card.subprojectTitles[0] || 'No subproject' : card.projectTitle || card.projectTitles[0] || 'No project';
       const existing = map.get(project) ?? [];
       existing.push(card);
       map.set(project, existing);

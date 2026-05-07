@@ -12,8 +12,12 @@ kanban_rpm: true
 type: big_action
 id: example-workstream
 status: active
-project: "[[TTT]]"
-subproject: "[[TTT Experiment]]"
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
 \`\`\`
 
 New living documents keep frontmatter intentionally short. The plugin treats \`Title\`, \`Type\`, and \`Status\` as required in the create/edit modal. \`Project\` is required for Subproject and Big Action documents. \`Subproject\` is also required for Big Action documents.
@@ -22,8 +26,10 @@ New living documents keep frontmatter intentionally short. The plugin treats \`T
 
 \`\`\`yaml
 status: inbox
-project:
-subproject:
+primary_project:
+primary_subproject:
+projects: []
+subprojects: []
 order:
 \`\`\`
 
@@ -37,7 +43,7 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 \`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
 
-\`project\` and \`subproject\` are explicit hierarchy links. Current levels are Project and Subproject; future hierarchy levels should be added as additional explicit level fields rather than overloading one generic parent field.
+\`projects\` and \`subprojects\` are multi-link hierarchy arrays. \`primary_project\` and \`primary_subproject\` define the default breadcrumb and future hierarchy folder placement. Legacy \`project\` and \`subproject\` fields are read as fallback only.
 
 Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Dependencies\`, \`### Timeline\`, and \`### PM Metadata\`.
 

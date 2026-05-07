@@ -11,6 +11,8 @@ import {
   splitFrontmatter,
   text,
   textareaToList,
+  toStringList,
+  yamlArray,
   yamlScalar,
 } from './utils';
 
@@ -33,8 +35,12 @@ export class CardRepository {
       const sectionData = this.parseLivingDocSections(content);
       const type = this.normalizeCardType(text(fm.type));
       const parent = text(fm.parent);
-      const project = text(fm.project);
-      const subproject = text(fm.subproject);
+      const legacyProject = text(fm.project);
+      const legacySubproject = text(fm.subproject);
+      const projects = this.uniqueLinks([text(fm.primary_project), ...toStringList(fm.projects), legacyProject]);
+      const subprojects = this.uniqueLinks([text(fm.primary_subproject), ...toStringList(fm.subprojects), legacySubproject]);
+      const project = text(fm.primary_project) || projects[0] || legacyProject;
+      const subproject = text(fm.primary_subproject) || subprojects[0] || legacySubproject;
       const order = parseOrder(fm.order);
 
       cards.push({
@@ -47,6 +53,8 @@ export class CardRepository {
         parent,
         parentPath: '',
         parentTitle: '',
+        projectTitles: [],
+        subprojectTitles: [],
         projectTitle: '',
         subprojectTitle: '',
         breadcrumb: '',
@@ -54,6 +62,10 @@ export class CardRepository {
         priority: parsePriority(fm.priority),
         project,
         subproject,
+        projects,
+        subprojects,
+        primaryProject: project,
+        primarySubproject: subproject,
         workstreamType: text(fm.workstream_type),
         nextAction: sectionData.currentFocus,
         waitingFor: sectionData.waitingFor,
@@ -123,8 +135,12 @@ export class CardRepository {
 
     await this.updateCardFrontmatter(file, {
       type: values.type,
-      project: values.project.trim() || undefined,
-      subproject: values.subproject.trim() || undefined,
+      primary_project: values.project.trim() || undefined,
+      primary_subproject: values.subproject.trim() || undefined,
+      projects: this.uniqueLinks([values.project, ...textareaToList(values.projects)]),
+      subprojects: this.uniqueLinks([values.subproject, ...textareaToList(values.subprojects)]),
+      project: undefined,
+      subproject: undefined,
       parent: undefined,
       status: values.status,
       priority: parsePriority(values.priority),
@@ -230,8 +246,10 @@ export class CardRepository {
     const file = await this.createCard({
       title,
       type: 'big_action',
-      project: parentCard?.project || (parentCard?.type === 'project' ? `[[${parentCard.file.basename}]]` : ''),
-      subproject: parentCard?.subproject || (parentCard?.type === 'subproject' ? `[[${parentCard.file.basename}]]` : ''),
+      project: parentCard?.primaryProject || (parentCard?.type === 'project' ? `[[${parentCard.file.basename}]]` : ''),
+      subproject: parentCard?.primarySubproject || (parentCard?.type === 'subproject' ? `[[${parentCard.file.basename}]]` : ''),
+      projects: parentCard?.projects.join('\n') ?? '',
+      subprojects: parentCard?.subprojects.join('\n') ?? '',
       status: this.plugin.settings.statuses[0]?.id ?? 'inbox',
       priority: parentCard ? String(parentCard.priority) : '3',
       workstreamType: parentCard?.workstreamType ?? '',
@@ -367,18 +385,18 @@ export class CardRepository {
       if (cardType && !['project', 'subproject', 'big_action'].includes(cardType)) {
         add('warning', 'type', `Expected project, subproject, or big_action; current value is "${cardType}".`);
       }
-      if (card.type === 'subproject' && !card.project) {
-        add('warning', 'project', 'Subproject documents should declare a project link.');
+      if (card.type === 'subproject' && !card.projects.length) {
+        add('warning', 'projects', 'Subproject documents should declare at least one project link.');
       }
       if (card.type === 'big_action') {
-        if (!card.project) add('warning', 'project', 'Big Action documents should declare a project link.');
-        if (!card.subproject) add('warning', 'subproject', 'Big Action documents should declare a subproject link.');
-        if (card.project && card.subproject) {
-          const projectFile = this.resolveLinkedFile(card.project, card.path);
-          const subprojectFile = this.resolveLinkedFile(card.subproject, card.path);
+        if (!card.projects.length) add('warning', 'projects', 'Big Action documents should declare at least one project link.');
+        if (!card.subprojects.length) add('warning', 'subprojects', 'Big Action documents should declare at least one subproject link.');
+        if (card.primaryProject && card.primarySubproject) {
+          const projectFile = this.resolveLinkedFile(card.primaryProject, card.path);
+          const subprojectFile = this.resolveLinkedFile(card.primarySubproject, card.path);
           const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path) : undefined;
           const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path) : undefined;
-          if (projectCard && subprojectCard && subprojectCard.projectTitle !== projectCard.title) {
+          if (projectCard && subprojectCard && !subprojectCard.projectTitles.includes(projectCard.title)) {
             add('warning', 'hierarchy', `Subproject "${subprojectCard.title}" does not belong to Project "${projectCard.title}".`);
           }
         }
@@ -400,7 +418,7 @@ export class CardRepository {
       const order = text(fm.order).trim();
       if (order && !Number.isFinite(Number(order))) add('warning', 'order', `order should be numeric; current value is "${order}".`);
 
-      const refs = [card.project, card.subproject, ...card.sourceNotes, ...card.dependsOn, ...card.blocks].filter(Boolean);
+      const refs = [card.primaryProject, card.primarySubproject, ...card.projects, ...card.subprojects, ...card.sourceNotes, ...card.dependsOn, ...card.blocks].filter(Boolean);
       for (const ref of refs) {
         if (ref.includes('[[') && !this.resolveLinkedFile(ref, card.path)) {
           add('warning', 'links', `Could not resolve linked note ${ref}.`);
@@ -483,6 +501,18 @@ export class CardRepository {
     return path;
   }
 
+  private uniqueLinks(values: string[]): string[] {
+    const seen = new Set<string>();
+    const links: string[] = [];
+    for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+      const key = getWikiLinkTarget(value) || value;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push(value);
+    }
+    return links;
+  }
+
   private renderNonEmptyMetadata(values: NewCardValues): string {
     const rows: string[] = [];
     for (const [label, value] of [
@@ -513,15 +543,19 @@ export class CardRepository {
     const blocks = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
     const references = textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n');
     const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
-    const projectLine = values.project.trim() ? `\nproject: ${yamlScalar(values.project.trim())}` : '';
-    const subprojectLine = values.subproject.trim() ? `\nsubproject: ${yamlScalar(values.subproject.trim())}` : '';
+    const projects = this.uniqueLinks([values.project, ...textareaToList(values.projects)]);
+    const subprojects = this.uniqueLinks([values.subproject, ...textareaToList(values.subprojects)]);
+    const projectLine = values.project.trim() ? `\nprimary_project: ${yamlScalar(values.project.trim())}` : '';
+    const subprojectLine = values.subproject.trim() ? `\nprimary_subproject: ${yamlScalar(values.subproject.trim())}` : '';
+    const projectsLine = projects.length ? `\nprojects:${yamlArray(projects)}` : '';
+    const subprojectsLine = subprojects.length ? `\nsubprojects:${yamlArray(subprojects)}` : '';
     const hierarchyRows = [
       values.project.trim() ? `> project: ${values.project.trim()}` : '',
       values.subproject.trim() ? `> subproject: ${values.subproject.trim()}` : '',
     ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
@@ -731,32 +765,52 @@ export class CardRepository {
 
   private applyHierarchy(cards: ProjectCard[]): void {
     for (const card of cards) {
-      const projectFile = card.project ? this.resolveLinkedFile(card.project, card.path) : null;
-      const subprojectFile = card.subproject ? this.resolveLinkedFile(card.subproject, card.path) : null;
+      const projectFile = card.primaryProject ? this.resolveLinkedFile(card.primaryProject, card.path) : null;
+      const subprojectFile = card.primarySubproject ? this.resolveLinkedFile(card.primarySubproject, card.path) : null;
       const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path || item.file.basename === projectFile.basename) : undefined;
       const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path || item.file.basename === subprojectFile.basename) : undefined;
       const parentFile = card.parent ? this.resolveLinkedFile(card.parent, card.path) : null;
       const parentCard = parentFile ? cards.find((item) => item.path === parentFile.path || item.file.basename === parentFile.basename) : undefined;
+      const projectTitles = this.resolveHierarchyTitles(card.projects, card.path, cards);
+      const subprojectTitles = this.resolveHierarchyTitles(card.subprojects, card.path, cards);
       card.parentPath = subprojectCard?.path ?? projectCard?.path ?? parentCard?.path ?? subprojectFile?.path ?? projectFile?.path ?? parentFile?.path ?? '';
       card.parentTitle = subprojectCard?.title ?? projectCard?.title ?? parentCard?.title ?? subprojectFile?.basename ?? projectFile?.basename ?? parentFile?.basename ?? text(card.subproject || card.project || card.parent);
       if (card.type === 'project') {
         card.projectTitle = card.title;
+        card.projectTitles = [card.title];
         card.subprojectTitle = '';
+        card.subprojectTitles = [];
       } else if (card.type === 'subproject') {
         card.projectTitle = (projectCard?.title ?? projectFile?.basename ?? parentCard?.title ?? parentFile?.basename ?? text(card.project || card.parent)) || 'No project';
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle];
         card.subprojectTitle = card.title;
+        card.subprojectTitles = [card.title];
       } else if (card.type === 'big_action') {
         card.projectTitle = (projectCard?.title ?? projectFile?.basename ?? subprojectCard?.projectTitle ?? parentCard?.projectTitle ?? text(card.project)) || 'No project';
         card.subprojectTitle = subprojectCard?.title ?? subprojectFile?.basename ?? (parentCard?.type === 'subproject' ? parentCard.title : '') ?? text(card.subproject);
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle].filter(Boolean);
+        card.subprojectTitles = subprojectTitles.length ? subprojectTitles : [card.subprojectTitle].filter(Boolean);
       } else {
         card.projectTitle = (projectCard?.title ?? text(card.project)) || card.title;
         card.subprojectTitle = subprojectCard?.title ?? text(card.subproject);
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle].filter(Boolean);
+        card.subprojectTitles = subprojectTitles.length ? subprojectTitles : [card.subprojectTitle].filter(Boolean);
       }
       card.breadcrumb = [card.projectTitle, card.subprojectTitle && card.subprojectTitle !== card.title ? card.subprojectTitle : '']
         .filter(Boolean)
         .join(' > ');
       card.colorKey = card.projectTitle || card.title;
     }
+  }
+
+  private resolveHierarchyTitles(links: string[], sourcePath: string, cards: ProjectCard[]): string[] {
+    const titles: string[] = [];
+    for (const link of links) {
+      const file = this.resolveLinkedFile(link, sourcePath);
+      const card = file ? cards.find((item) => item.path === file.path || item.file.basename === file.basename) : undefined;
+      titles.push(card?.title ?? file?.basename ?? getWikiLinkTarget(link) ?? link);
+    }
+    return this.uniqueLinks(titles);
   }
 
   private applyBlockedBy(cards: ProjectCard[]): void {

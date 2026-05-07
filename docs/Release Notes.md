@@ -124,3 +124,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added a horizontal timeline window from one week ago through five weeks ahead.
 - Rendered markers for card due dates, review dates, dated unchecked small actions, and `Perpetual` routines.
 - Grouped timeline rows by Project/Subproject context and made markers open their living documents.
+
+### Phase 4.3 Multi-Link Hierarchy And Subproject Filter
+
+- Added `projects`, `subprojects`, `primary_project`, and `primary_subproject` schema support.
+- Kept legacy `project` and `subproject` as read fallback fields.
+- Added a `Subproject` board filter that narrows with the selected Project.
+- Updated Board/Table/List/Timeline filtering to recognize cards linked to multiple Projects/Subprojects.

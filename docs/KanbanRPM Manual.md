@@ -83,12 +83,16 @@ kanban_rpm: true
 type: big_action
 id: example-big-action
 status: active
-project: "[[TTT]]"
-subproject: "[[TTT Experiment]]"
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
 order:
 ```
 
-Hierarchy is stored explicitly. A `Subproject` stores its `project`; a `Big Action` stores both `project` and `subproject`. This keeps the document readable and leaves room for future explicit levels such as `pro_project` or `sub_subproject`.
+Hierarchy is stored as multi-link arrays. `projects` and `subprojects` can contain more than one linked document. `primary_project` and `primary_subproject` define the default breadcrumb and future folder placement. Legacy `project` and `subproject` fields are read as fallback only.
 
 New documents split plugin-readable control data from the free writing area:
 
@@ -153,7 +157,7 @@ Secondary actions under `More`:
 - `Export arrows`
 - `Normalize order`
 
-Use `Search cards`, `Project`, and `Category` filters to narrow the board.
+Use `Search cards`, `Project`, `Subproject filter`, and `Category` filters to narrow the board.
 
 Next to the filter controls, use the panel buttons to show or hide `Data warnings`, `Command center`, and `Action index`. When a panel is off, it is removed from the board area entirely.
 
@@ -161,6 +165,8 @@ The default grouped board adapts to the Project filter:
 
 - `Project: All`: lanes group cards by Project.
 - one selected Project: lanes group cards by Subproject.
+
+Cards with multiple Project/Subproject links can appear under each matching filter. The visible breadcrumb still uses the primary hierarchy.
 
 Drag a card to another lane to update `status`. Drag within a lane to update `order`. Card buttons do not start drag.
 

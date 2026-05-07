@@ -3,7 +3,7 @@ import type KanbanRPMPlugin from './main';
 import type { DailyPullMode, NewCardValues, ProjectCard, Status } from './types';
 import { isDueSoon, isPastDate, isStatus } from './utils';
 
-type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes'>;
+type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
 
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
@@ -13,6 +13,8 @@ export class NewProjectCardModal extends Modal {
     type: 'project',
     project: '',
     subproject: '',
+    projects: '',
+    subprojects: '',
     status: 'inbox',
     priority: '3',
     workstreamType: '',
@@ -156,6 +158,8 @@ export class NewProjectCardModal extends Modal {
     });
 
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
+    this.addListField(details, 'Additional projects', '[[TTT]]\n[[Lab Setup]]', 'projects');
+    this.addListField(details, 'Additional subprojects', '[[TTT Experiment]]\n[[Furnace Setup]]', 'subprojects');
     this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
     this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
@@ -221,7 +225,7 @@ export class NewProjectCardModal extends Modal {
     const selectedProject = this.findCardByValue(this.values.project);
     if (!selectedProject) return [];
     return this.parentOptions
-      .filter((card) => card.type === 'subproject' && card.projectTitle === selectedProject.title)
+      .filter((card) => card.type === 'subproject' && card.projectTitles.includes(selectedProject.title))
       .sort((a, b) => a.title.localeCompare(b.title));
   }
 
@@ -290,6 +294,8 @@ export class EditProjectCardModal extends Modal {
       type: card.type,
       project: card.project || (card.type === 'subproject' ? card.parent : ''),
       subproject: card.subproject || (card.type === 'big_action' ? card.parent : ''),
+      projects: card.projects.filter((link) => link !== card.project).join('\n'),
+      subprojects: card.subprojects.filter((link) => link !== card.subproject).join('\n'),
       status: card.status,
       priority: String(card.priority),
       workstreamType: card.workstreamType,
@@ -433,6 +439,8 @@ export class EditProjectCardModal extends Modal {
     });
 
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
+    this.addListField(details, 'Additional projects', '[[TTT]]\n[[Lab Setup]]', 'projects');
+    this.addListField(details, 'Additional subprojects', '[[TTT Experiment]]\n[[Furnace Setup]]', 'subprojects');
     this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
     this.addListField(details, 'Blocks', 'missing quote', 'blocks');
   }
@@ -502,7 +510,7 @@ export class EditProjectCardModal extends Modal {
     const selectedProject = this.findCardByValue(this.values.project);
     if (!selectedProject) return [];
     return this.parentOptions
-      .filter((card) => card.type === 'subproject' && card.projectTitle === selectedProject.title)
+      .filter((card) => card.type === 'subproject' && card.projectTitles.includes(selectedProject.title))
       .sort((a, b) => a.title.localeCompare(b.title));
   }
 

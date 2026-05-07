@@ -114,8 +114,12 @@ kanban_rpm: true
 type: big_action
 id: example-big-action
 status: inbox
-project: "[[TTT]]"
-subproject: "[[TTT Experiment]]"
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
 order:
 ```
 
@@ -126,7 +130,8 @@ Flexible architecture terms:
 - `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
 - `Subproject`: a workstream under a Project, such as `TTT Analysis` or `Glove Box Setup`.
 - `Big Action`: a trackable chunk of work under a Project/Subproject.
-- `project` / `subproject`: explicit hierarchy links stored in frontmatter. Future hierarchy levels should be added as explicit level fields.
+- `projects` / `subprojects`: multi-link hierarchy arrays stored in frontmatter.
+- `primary_project` / `primary_subproject`: the default breadcrumb and future folder placement anchors.
 - `Checkbox task`: a detailed action that stays inside source notes.
 - `Depends on` and `Blocks`: lightweight dependency sections inspired by Laminar arrows.
 - `References`: notes to scan for unchecked checkbox actions and `#todo` lines.
@@ -146,11 +151,11 @@ KanbanRPM Workspace/archive/
 - Open the KanbanRPM board from the command palette or ribbon.
 - Switch between `Board`, `Table`, `List`, and `Timeline` views from the toolbar.
 - Search/filter cards from the board toolbar.
-- Filter cards by `Project` and `Category`.
+- Filter cards by `Project`, `Subproject`, and `Category`.
 - Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
 - Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
-- Select `Project` and, for Big Actions, `Subproject` from existing documents instead of typing links manually.
+- Select primary `Project` and, for Big Actions, primary `Subproject` from existing documents, with optional additional Project/Subproject links.
 - Create cards directly in a lane with the lane `+` quick add button.
 - Edit card metadata from the board.
 - Duplicate existing cards.
