@@ -184,6 +184,8 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 
 - Replaced prompt-based Timeline Memo add/edit with inline multi-line editing and save toggles.
 - Rendered simple Markdown headings, bullet lists, paragraphs, and clickable checkboxes in Timeline Memo preview.
+- Stopped creating date memo files when Timeline ranges are only viewed; files are created when a memo is saved.
+- Added strikethrough styling for checked Timeline Memo checkboxes.
 - Kept Timeline `Statuses` collapsed by default.
 - Made today's Timeline column visually distinct.
 - Restored the previous board card visual tone while keeping the requested right-side icon action rail.

@@ -1007,14 +1007,15 @@ export class KanbanRPMView extends ItemView {
   private startInlineTimelineMemoAdd(container: HTMLElement, day: string, checkbox: boolean): void {
     container.empty();
     const row = container.createDiv({ cls: 'kanban-rpm-timeline-memo-card is-editing' });
-    const input = row.createEl('input', {
+    const input = row.createEl('textarea', {
       cls: 'kanban-rpm-timeline-memo-edit-input',
       attr: {
-        type: 'text',
         placeholder: checkbox ? 'New todo' : 'New memo',
       },
     });
+    if (checkbox) input.value = '- [ ] ';
     input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
 
     let saved = false;
     const save = async (): Promise<void> => {
@@ -1026,7 +1027,7 @@ export class KanbanRPMView extends ItemView {
         return;
       }
       const memo = await this.readTimelineMemo(day);
-      const line = checkbox ? `- [ ] ${value}` : value;
+      const line = checkbox && !/^\s*[-*]\s+\[[ xX]\]\s+/.test(value) ? `- [ ] ${value}` : value;
       const next = memo.trimEnd() ? `${memo.trimEnd()}\n${line}` : line;
       await this.saveTimelineMemo(day, next);
       this.render();
@@ -1089,9 +1090,10 @@ export class KanbanRPMView extends ItemView {
       const checkbox = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
       if (checkbox) {
         list = null;
-        const row = container.createEl('label', { cls: 'kanban-rpm-timeline-memo-checkbox' });
+        const done = checkbox[1].toLowerCase() === 'x';
+        const row = container.createEl('label', { cls: done ? 'kanban-rpm-timeline-memo-checkbox is-done' : 'kanban-rpm-timeline-memo-checkbox' });
         const input = row.createEl('input', { attr: { type: 'checkbox' } });
-        input.checked = checkbox[1].toLowerCase() === 'x';
+        input.checked = done;
         input.addEventListener('change', () => onCheckbox(lineIndex, input.checked));
         row.createSpan({ text: checkbox[2] });
         continue;
@@ -1255,26 +1257,28 @@ export class KanbanRPMView extends ItemView {
 
   private async readTimelineMemo(day: string): Promise<string> {
     const file = await this.ensureTimelineMemoFile(day);
+    if (!file) return '';
     const content = await this.app.vault.read(file);
     return this.extractMemoBody(content);
   }
 
   private async saveTimelineMemo(day: string, memo: string): Promise<void> {
-    const file = await this.ensureTimelineMemoFile(day);
+    const file = await this.ensureTimelineMemoFile(day, true);
+    if (!file) return;
     const content = await this.app.vault.read(file);
     const next = this.replaceMemoBody(content, memo);
     if (next !== content) await this.app.vault.modify(file, next);
   }
 
-  private async ensureTimelineMemoFile(day: string): Promise<TFile> {
+  private async ensureTimelineMemoFile(day: string, create = false): Promise<TFile | null> {
     await this.plugin.ensureWorkspace();
     const folder = normalizePath(`${this.plugin.workspaceFolder}/timeline`);
-    if (!this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+    if (create && !this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
     const path = normalizePath(`${folder}/${day}.md`);
     let file: TFile | null = null;
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) file = existing;
-    if (!(file instanceof TFile)) {
+    if (!(file instanceof TFile) && create) {
       file = await this.app.vault.create(path, `# ${day} Timeline Memo\n\n## Memo\n\n## Notes\n`);
     }
     return file;
@@ -1426,16 +1430,16 @@ export class KanbanRPMView extends ItemView {
     if (!primaryMeta.childElementCount) primaryMeta.remove();
 
     if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
-    if (fields.waiting && card.waitingFor) {
+    if (fields.waiting && card.status === this.getConfiguredStatusId('waiting') && card.waitingFor) {
       cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-waiting', text: `Waiting: ${card.waitingFor}` });
     }
-    if (fields.blockers && card.blocker) {
+    if (fields.blockers && card.status === this.getConfiguredStatusId('blocked') && card.blocker) {
       cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-blocker', text: `Blocked: ${card.blocker}` });
     }
     const dateMeta = cardEl.createDiv({ cls: 'kanban-rpm-meta kanban-rpm-card-date-meta' });
     if (fields.dates) {
-      this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-      this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+      this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), '◷', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+      this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), '↻', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
     }
     if (!dateMeta.childElementCount) dateMeta.remove();
 
@@ -1488,6 +1492,8 @@ export class KanbanRPMView extends ItemView {
     const fields = this.plugin.settings.cardDisplayFields;
     if (fields.status) this.addMeta(body, card.status, 'status', `kanban-rpm-status-${card.status}`);
     if (fields.type) this.addMeta(body, this.cardTypeLabel(card.type), 'type', 'kanban-rpm-meta-kind');
+    if (fields.waiting && card.status !== this.getConfiguredStatusId('waiting')) this.addMeta(body, card.waitingFor, 'waiting', 'kanban-rpm-meta-kind');
+    if (fields.blockers && card.status !== this.getConfiguredStatusId('blocked')) this.addMeta(body, card.blocker, 'blocker', 'kanban-rpm-meta-dependency');
     if (fields.dependencies || fields.sources) this.renderCardRelations(body, card);
   }
 
@@ -1495,7 +1501,7 @@ export class KanbanRPMView extends ItemView {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
     const date = new Date(`${value}T00:00:00`);
     const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-    return `${value.slice(5)} (${day})`;
+    return `${value.slice(5)} ${day}`;
   }
 
   private addMeta(container: HTMLElement, value: string, label: string, cls?: string): void {
