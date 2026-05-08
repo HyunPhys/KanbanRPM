@@ -1,4 +1,4 @@
-import { ItemView, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
+import { ItemView, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 import { VIEW_TYPE } from './constants';
 import { ConfirmCardActionModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
@@ -942,10 +942,11 @@ export class KanbanRPMView extends ItemView {
       this.render();
     });
 
-    const statusWrap = controls.createDiv({ cls: 'kanban-rpm-timeline-status-filter' });
-    statusWrap.createSpan({ text: 'Statuses' });
+    const statusWrap = controls.createEl('details', { cls: 'kanban-rpm-timeline-status-filter' });
+    statusWrap.createEl('summary', { text: `Statuses: ${this.timelineStatusFilter.size}` });
+    const statusList = statusWrap.createDiv({ cls: 'kanban-rpm-timeline-status-list' });
     for (const status of this.plugin.settings.statuses) {
-      const label = statusWrap.createEl('label');
+      const label = statusList.createEl('label');
       const checkbox = label.createEl('input', { attr: { type: 'checkbox' } });
       checkbox.checked = this.timelineStatusFilter.has(status.id);
       checkbox.addEventListener('change', () => {
@@ -962,14 +963,14 @@ export class KanbanRPMView extends ItemView {
     const header = section.createDiv({ cls: 'kanban-rpm-timeline-section-label' });
     header.createSpan({ text: 'Memo' });
     const controls = header.createDiv({ cls: 'kanban-rpm-timeline-memo-controls' });
+    const list = section.createDiv({ cls: 'kanban-rpm-timeline-memo-list' });
     controls.createEl('button', { text: '+ todo' }).addEventListener('click', () => {
-      void this.addTimelineMemoLine(day, true);
+      this.startInlineTimelineMemoAdd(list, day, true);
     });
     controls.createEl('button', { text: '+ text' }).addEventListener('click', () => {
-      void this.addTimelineMemoLine(day, false);
+      this.startInlineTimelineMemoAdd(list, day, false);
     });
 
-    const list = section.createDiv({ cls: 'kanban-rpm-timeline-memo-list' });
     void this.readTimelineMemo(day).then((memo) => {
       list.empty();
       const items = this.parseTimelineMemoItems(memo);
@@ -1003,9 +1004,10 @@ export class KanbanRPMView extends ItemView {
       });
     }
 
-    row.createSpan({ text: item.text || item.raw });
-    row.createEl('button', { cls: 'kanban-rpm-icon-button', text: 'Edit' }).addEventListener('click', () => {
-      void this.editTimelineMemoItem(day, memo, item);
+    const body = row.createSpan({ cls: 'kanban-rpm-timeline-memo-text', text: item.text || item.raw });
+    const edit = this.createIconButton(row, 'pencil', `Edit memo ${item.text || item.raw}`);
+    edit.addEventListener('click', () => {
+      this.startInlineTimelineMemoEdit(body, day, memo, item);
     });
   }
 
@@ -1041,25 +1043,71 @@ export class KanbanRPMView extends ItemView {
     this.render();
   }
 
-  private async addTimelineMemoLine(day: string, checkbox: boolean): Promise<void> {
-    const value = window.prompt(checkbox ? 'New timeline todo' : 'New timeline memo');
-    if (!value?.trim()) return;
-    const memo = await this.readTimelineMemo(day);
-    const line = checkbox ? `- [ ] ${value.trim()}` : value.trim();
-    const next = memo.trimEnd() ? `${memo.trimEnd()}\n${line}` : line;
-    await this.saveTimelineMemo(day, next);
-    this.render();
+  private startInlineTimelineMemoAdd(container: HTMLElement, day: string, checkbox: boolean): void {
+    container.empty();
+    const row = container.createDiv({ cls: 'kanban-rpm-timeline-memo-card is-editing' });
+    const input = row.createEl('input', {
+      cls: 'kanban-rpm-timeline-memo-edit-input',
+      attr: {
+        type: 'text',
+        placeholder: checkbox ? 'New todo' : 'New memo',
+      },
+    });
+    input.focus();
+
+    let saved = false;
+    const save = async (): Promise<void> => {
+      if (saved) return;
+      saved = true;
+      const value = input.value.trim();
+      if (!value) {
+        this.render();
+        return;
+      }
+      const memo = await this.readTimelineMemo(day);
+      const line = checkbox ? `- [ ] ${value}` : value;
+      const next = memo.trimEnd() ? `${memo.trimEnd()}\n${line}` : line;
+      await this.saveTimelineMemo(day, next);
+      this.render();
+    };
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') void save();
+      if (event.key === 'Escape') this.render();
+    });
+    input.addEventListener('blur', () => {
+      void save();
+    });
   }
 
-  private async editTimelineMemoItem(day: string, memo: string, item: TimelineMemoItem): Promise<void> {
-    const value = window.prompt('Edit timeline memo', item.text || item.raw);
-    if (value === null) return;
-    const lines = memo.split(/\r?\n/);
-    const trimmed = value.trim();
-    if (!trimmed) lines.splice(item.lineIndex, 1);
-    else lines[item.lineIndex] = item.checkbox ? `- [${item.done ? 'x' : ' '}] ${trimmed}` : trimmed;
-    await this.saveTimelineMemo(day, lines.join('\n'));
-    this.render();
+  private startInlineTimelineMemoEdit(body: HTMLElement, day: string, memo: string, item: TimelineMemoItem): void {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'kanban-rpm-timeline-memo-edit-input';
+    input.value = item.text || item.raw;
+    body.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let saved = false;
+    const save = async (): Promise<void> => {
+      if (saved) return;
+      saved = true;
+      const lines = memo.split(/\r?\n/);
+      const trimmed = input.value.trim();
+      if (!trimmed) lines.splice(item.lineIndex, 1);
+      else lines[item.lineIndex] = item.checkbox ? `- [${item.done ? 'x' : ' '}] ${trimmed}` : trimmed;
+      await this.saveTimelineMemo(day, lines.join('\n'));
+      this.render();
+    };
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') void save();
+      if (event.key === 'Escape') this.render();
+    });
+    input.addEventListener('blur', () => {
+      void save();
+    });
   }
 
   private renderTimelineMarker(container: HTMLElement, marker: TimelineMarker): void {
@@ -1354,59 +1402,46 @@ export class KanbanRPMView extends ItemView {
     const titleRow = cardEl.createDiv({ cls: 'kanban-rpm-card-title-row' });
     const titleWrap = titleRow.createDiv({ cls: 'kanban-rpm-card-title-wrap' });
     if (this.plugin.settings.cardDisplayFields.breadcrumb) {
-      const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-context' });
+      const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-block kanban-rpm-card-context' });
       this.addProjectToken(context, card.colorKey);
       context.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
     }
-    titleWrap.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
+    titleWrap.createDiv({ cls: 'kanban-rpm-card-block kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
       void this.plugin.openCard(card);
     });
     const titleActions = titleRow.createDiv({ cls: 'kanban-rpm-card-title-actions' });
-    titleActions
-      .createEl('button', { cls: 'kanban-rpm-icon-button', text: 'Edit', attr: { 'aria-label': `Edit ${card.title}` } })
-      .addEventListener('click', () => {
-        new EditProjectCardModal(this.app, this.plugin, card).open();
-      });
-    this.renderCardMoreMenu(titleActions, card);
     if (this.plugin.settings.cardDisplayFields.priority) {
-      titleRow.createSpan({
+      titleActions.createSpan({
         cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
         text: `P${card.priority}`,
       });
     }
+    this.createIconButton(titleActions, 'pencil', `Edit ${card.title}`).addEventListener('click', () => {
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+    this.renderCardMoreMenu(titleActions, card);
 
-    const meta = cardEl.createDiv({ cls: 'kanban-rpm-meta' });
     const fields = this.plugin.settings.cardDisplayFields;
-    if (fields.status) this.addMeta(meta, card.status, 'status', `kanban-rpm-status-${card.status}`);
-    if (fields.type) this.addMeta(meta, card.type, 'type', 'kanban-rpm-meta-kind');
-    if (fields.category) this.addMeta(meta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
-    if (fields.dates) {
-      this.addMeta(meta, card.dueDate, 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-      this.addMeta(meta, card.nextReview, 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-    }
-    if (fields.dependencies) {
-      this.addCountMeta(meta, card.dependsOn.length, 'depends', 'kanban-rpm-meta-dependency');
-      this.addCountMeta(meta, card.blocks.length, 'blocks', 'kanban-rpm-meta-dependency');
-      this.addCountMeta(meta, card.blockedBy.length, 'blocked by', 'kanban-rpm-meta-dependency');
-    }
-    if (fields.sources) this.addCountMeta(meta, card.sourceNotes.length, 'sources', 'kanban-rpm-meta-source');
-    if (fields.smallActionSummary) this.addCountMeta(meta, card.actionCount, 'tasks', 'kanban-rpm-meta-source');
-    if (!meta.childElementCount) meta.remove();
+    if (fields.category && card.workstreamType) this.addCardInfoBlock(cardEl, card.workstreamType, 'tag', 'Category');
 
-    if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
+    if (fields.currentFocus && card.nextAction) this.addCardInfoBlock(cardEl, card.nextAction, 'list-checks', 'Next action');
     if (fields.waiting && card.waitingFor) {
-      cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-waiting', text: `Waiting: ${card.waitingFor}` });
+      this.addCardInfoBlock(cardEl, `Waiting: ${card.waitingFor}`, 'pause-circle', 'Waiting', 'kanban-rpm-waiting');
     }
     if (fields.blockers && card.blocker) {
-      cardEl.createDiv({ cls: 'kanban-rpm-next kanban-rpm-blocker', text: `Blocked: ${card.blocker}` });
+      this.addCardInfoBlock(cardEl, `Blocked: ${card.blocker}`, 'octagon-alert', 'Blocked', 'kanban-rpm-blocker');
     }
-    if (fields.dependencies || fields.sources) this.renderCardRelations(cardEl, card);
+    if (fields.dates && card.dueDate) this.addCardInfoBlock(cardEl, this.shortDateLabel(card.dueDate), 'calendar-days', 'Due date', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : '');
+    if (fields.dates && card.nextReview) this.addCardInfoBlock(cardEl, this.shortDateLabel(card.nextReview), 'calendar-clock', 'Next review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : '');
+
     if (fields.smallActionSummary) this.renderSmallActions(cardEl, card);
+    if (fields.dependencies || fields.sources || fields.status || fields.type) this.renderCardDetails(cardEl, card);
   }
 
   private renderCardMoreMenu(container: HTMLElement, card: ProjectCard): void {
     const menu = container.createEl('details', { cls: 'kanban-rpm-card-more' });
-    menu.createEl('summary', { text: '...', attr: { 'aria-label': `More actions for ${card.title}` } });
+    const summary = menu.createEl('summary', { attr: { 'aria-label': `More actions for ${card.title}` } });
+    setIcon(summary, 'ellipsis-vertical');
     const actions = menu.createDiv({ cls: 'kanban-rpm-card-more-menu' });
     actions.createEl('button', { text: 'Duplicate' }).addEventListener('click', () => {
       void this.plugin.duplicateCard(card);
@@ -1430,6 +1465,40 @@ export class KanbanRPMView extends ItemView {
       }).open();
       menu.removeAttribute('open');
     });
+  }
+
+  private addCardInfoBlock(container: HTMLElement, value: string, icon: string, label: string, cls = ''): void {
+    if (!value) return;
+    const block = container.createDiv({ cls: ['kanban-rpm-card-block', cls].filter(Boolean).join(' ') });
+    const iconEl = block.createSpan({ cls: 'kanban-rpm-card-block-icon', attr: { 'aria-label': label } });
+    setIcon(iconEl, icon);
+    block.createSpan({ text: value });
+  }
+
+  private createIconButton(container: HTMLElement, icon: string, label: string, cls = ''): HTMLButtonElement {
+    const button = container.createEl('button', {
+      cls: ['kanban-rpm-icon-button', cls].filter(Boolean).join(' '),
+      attr: { 'aria-label': label, title: label },
+    });
+    setIcon(button, icon);
+    return button;
+  }
+
+  private renderCardDetails(container: HTMLElement, card: ProjectCard): void {
+    const details = container.createEl('details', { cls: 'kanban-rpm-card-details' });
+    details.createEl('summary', { text: 'Details' });
+    const body = details.createDiv({ cls: 'kanban-rpm-card-details-body' });
+    const fields = this.plugin.settings.cardDisplayFields;
+    if (fields.status) this.addMeta(body, card.status, 'status', `kanban-rpm-status-${card.status}`);
+    if (fields.type) this.addMeta(body, this.cardTypeLabel(card.type), 'type', 'kanban-rpm-meta-kind');
+    if (fields.dependencies || fields.sources) this.renderCardRelations(body, card);
+  }
+
+  private shortDateLabel(value: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const date = new Date(`${value}T00:00:00`);
+    const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+    return `${value.slice(5)} (${day})`;
   }
 
   private addMeta(container: HTMLElement, value: string, label: string, cls?: string): void {
@@ -1615,7 +1684,7 @@ export class KanbanRPMView extends ItemView {
 
   private isInteractiveTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
-    return Boolean(target.closest('button, input, textarea, select, a, .is-link'));
+    return Boolean(target.closest('button, input, textarea, select, a, summary, details, .is-link'));
   }
 
   private findLaneAtPoint(clientX: number, clientY: number): HTMLElement | undefined {

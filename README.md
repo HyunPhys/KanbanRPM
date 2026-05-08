@@ -193,6 +193,7 @@ KanbanRPM Workspace/archive/
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
 - Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.
+- Use compact board cards with title-to-open behavior, icon edit actions, overflow menus, and collapsed details.
 - Drag cards between lanes to update `status`.
 - Drag cards within a lane to set `order`.
 - Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.

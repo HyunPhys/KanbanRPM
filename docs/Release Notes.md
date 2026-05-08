@@ -179,3 +179,12 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added Timeline status checkboxes, defaulting to `Active`.
 - Added status dropdowns and compact small-action controls to Timeline markers.
 - Expanded recurring `Perpetual` display across visible days for `@daily`, `@weekly`, and `@monthly`.
+
+### Phase 4.10 Inline Memo Editing And Card Layout
+
+- Replaced prompt-based Timeline Memo add/edit with inline entry fields.
+- Kept Timeline `Statuses` collapsed by default.
+- Made today's Timeline column visually distinct.
+- Reworked board card layout around compact stacked information blocks and a right-side icon action rail.
+- Switched card edit and overflow actions to icons while keeping existing visual tone.
+- Moved status, type, dependency, and source details behind the card `Details` toggle.
