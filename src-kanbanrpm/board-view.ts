@@ -604,7 +604,7 @@ export class KanbanRPMView extends ItemView {
     const active = this.tableSortKey === key;
     const button = th.createEl('button', {
       cls: active ? 'kanban-rpm-table-sort is-active' : 'kanban-rpm-table-sort',
-      text: `${label}${active ? (this.tableSortDirection === 'asc' ? ' ▲' : ' ▼') : ''}`,
+      text: `${label}${active ? (this.tableSortDirection === 'asc' ? ' ↑' : ' ↓') : ''}`,
     });
     button.addEventListener('click', () => {
       if (this.tableSortKey === key) {
@@ -1402,17 +1402,13 @@ export class KanbanRPMView extends ItemView {
     cardEl.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
     this.attachPointerDrag(cardEl, card);
 
-    const titleRow = cardEl.createDiv({ cls: 'kanban-rpm-card-title-row' });
-    const titleWrap = titleRow.createDiv({ cls: 'kanban-rpm-card-title-wrap' });
+    const toolbar = cardEl.createDiv({ cls: 'kanban-rpm-card-toolbar' });
     if (this.plugin.settings.cardDisplayFields.breadcrumb) {
-      const context = titleWrap.createDiv({ cls: 'kanban-rpm-card-context' });
+      const context = toolbar.createDiv({ cls: 'kanban-rpm-card-context' });
       this.addProjectToken(context, card.colorKey);
-      context.createSpan({ text: card.breadcrumb || card.projectTitle || 'No project' });
+      this.renderCardBreadcrumb(context, card);
     }
-    titleWrap.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
-      void this.plugin.openCard(card);
-    });
-    const titleActions = titleRow.createDiv({ cls: 'kanban-rpm-card-title-actions' });
+    const titleActions = toolbar.createDiv({ cls: 'kanban-rpm-card-title-actions' });
     if (this.plugin.settings.cardDisplayFields.priority) {
       titleActions.createSpan({
         cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
@@ -1423,6 +1419,10 @@ export class KanbanRPMView extends ItemView {
       new EditProjectCardModal(this.app, this.plugin, card).open();
     });
     this.renderCardMoreMenu(titleActions, card);
+
+    cardEl.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
+      void this.plugin.openCard(card);
+    });
 
     const fields = this.plugin.settings.cardDisplayFields;
     const primaryMeta = cardEl.createDiv({ cls: 'kanban-rpm-meta kanban-rpm-card-primary-meta' });
@@ -1438,8 +1438,8 @@ export class KanbanRPMView extends ItemView {
     }
     const dateMeta = cardEl.createDiv({ cls: 'kanban-rpm-meta kanban-rpm-card-date-meta' });
     if (fields.dates) {
-      this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), '◷', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
-      this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), '↻', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+      this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), 'due', isPastDate(card.dueDate) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
+      this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), 'review', isPastDate(card.nextReview) ? 'kanban-rpm-overdue' : 'kanban-rpm-meta-date');
     }
     if (!dateMeta.childElementCount) dateMeta.remove();
 
@@ -1474,6 +1474,14 @@ export class KanbanRPMView extends ItemView {
       }).open();
       menu.removeAttribute('open');
     });
+  }
+
+  private renderCardBreadcrumb(container: HTMLElement, card: ProjectCard): void {
+    const project = card.projectTitle || card.projectTitles[0] || 'No project';
+    const subproject = card.subprojectTitle || card.subprojectTitles[0] || '';
+    const text = container.createSpan({ cls: 'kanban-rpm-card-breadcrumb-text' });
+    text.createSpan({ text: project });
+    if (subproject) text.createSpan({ text: `> ${subproject}` });
   }
 
   private createIconButton(container: HTMLElement, icon: string, label: string, cls = ''): HTMLButtonElement {
@@ -1524,7 +1532,7 @@ export class KanbanRPMView extends ItemView {
     const panel = cardEl.createDiv({ cls: 'kanban-rpm-small-actions' });
     const header = panel.createEl('button', {
       cls: 'kanban-rpm-small-actions-toggle',
-      text: `${expanded ? '▼' : '▶'} Small actions: ${open} open${overdue ? ` - ${overdue} overdue` : ''}${dueSoon ? ` - ${dueSoon} due soon` : ''}`,
+      text: `${expanded ? 'v' : '>'} Small actions: ${open} open${overdue ? ` - ${overdue} overdue` : ''}${dueSoon ? ` - ${dueSoon} due soon` : ''}`,
     });
     header.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -1790,5 +1798,4 @@ export class KanbanRPMView extends ItemView {
     return `hsl(${hash} 62% 48%)`;
   }
 }
-
 

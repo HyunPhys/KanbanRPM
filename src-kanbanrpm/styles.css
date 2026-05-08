@@ -1150,7 +1150,7 @@
 
 .kanban-rpm-card {
   margin-bottom: 8px;
-  padding: 10px;
+  padding: 6px;
   background: var(--rpm-panel-alt);
   border: 1px solid var(--rpm-border);
   border-left-width: 4px;
@@ -1188,21 +1188,35 @@
   gap: 6px;
 }
 
+.kanban-rpm-card-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 3px;
+}
+
 .kanban-rpm-card-title-wrap {
   display: grid;
-  gap: 2px;
+  gap: 0px;
   min-width: 0;
 }
 
 .kanban-rpm-card-context {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 1px;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 0px;
   color: var(--rpm-muted);
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.1;
   overflow-wrap: anywhere;
+}
+
+.kanban-rpm-card-breadcrumb-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
 }
 
 .kanban-rpm-project-token {
@@ -1216,7 +1230,7 @@
 .kanban-rpm-card-title {
   color: var(--rpm-normal);
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.18;
   overflow-wrap: anywhere;
   cursor: pointer;
 }
@@ -1227,18 +1241,18 @@
 
 .kanban-rpm-card-title-actions {
   position: relative;
-  display: grid;
+  display: flex;
   align-content: start;
-  gap: 4px;
+  gap: 3px;
 }
 
 .kanban-rpm-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
+  min-width: 24px;
   min-height: 26px;
-  padding: 3px;
+  padding: 3px 4px;
   font-size: 10px;
 }
 
@@ -1257,9 +1271,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
+  min-width: 20px;
   min-height: 26px;
-  padding: 3px;
+  padding: 3px 2px;
   border: 1px solid var(--rpm-border);
   border-radius: 6px;
   color: var(--rpm-muted);
