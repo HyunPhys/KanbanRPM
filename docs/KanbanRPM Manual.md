@@ -182,11 +182,15 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-`Timeline` view uses a Laminar-style kanban-like layout: a left `Perpetual` sidebar, top range/search/display controls, and horizontal date columns. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document.
+`Timeline` view uses a Laminar-style kanban-like layout: a left `Perpetual` sidebar, top range/search/display controls, and horizontal date columns. By default it shows 7 days before through 7 days after the base date, which starts as today. Use `Today`, `-7`, `+7`, the base date field, or the explicit `YYYY.MM.DD` to `YYYY.MM.DD` range fields to change the window. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines.
+
+Timeline only shows cards whose status is enabled in the Timeline `Statuses` filter. The default is `Active`. Cards without a timeline marker date do not appear in the date columns. Timeline markers show the card breadcrumb, status, priority, status dropdown, and a compact small-action list when available. Click the marker title to open its living document.
 
 The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows perpetual routines.
 
-Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`. Use `+ todo` to add a checkbox memo and `+ text` to add a plain note. Checkbox memo cards can be checked or unchecked directly from the Timeline.
+Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`. Use `+ todo` to add a checkbox memo and `+ text` to add a plain note. Checkbox memo cards can be checked or unchecked directly from the Timeline. Use `Edit` on a memo card to change or clear that line.
+
+`Perpetual` reads checkbox lines in a card's `### Perpetual` or `## Perpetual` section using `@daily`, `@weekly`, or `@monthly`. Daily routines appear on every visible day, weekly routines appear on the same weekday as the base date, and monthly routines appear on the same day-of-month as the base date.
 
 Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
 

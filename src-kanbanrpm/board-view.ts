@@ -44,10 +44,13 @@ export class KanbanRPMView extends ItemView {
   private viewMode: ViewMode = 'board';
   private tableSortKey: TableSortKey = 'priority';
   private tableSortDirection: 'asc' | 'desc' = 'asc';
-  private timelineStartOffset = -7;
+  private timelineBaseDate = this.todayIso();
+  private timelineRangeStart = '';
+  private timelineRangeEnd = '';
   private timelineSearchQuery = '';
   private timelineScope: TimelineScope = 'all';
   private timelineMemoVisible = true;
+  private timelineStatusFilter = new Set<string>();
   private groupByProject = true;
   private toolbarExpanded = false;
   private showDataWarnings = false;
@@ -762,19 +765,23 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderTimelineView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
+    this.ensureTimelineStatusFilter();
     const days = this.timelineDays();
-    const markers = this.filterTimelineMarkers(this.collectTimelineMarkers(visibleBoardCards, new Set(days)));
+    const timelineCards = visibleBoardCards.filter((card) => this.timelineStatusFilter.has(card.status));
+    const markers = this.filterTimelineMarkers(this.collectTimelineMarkers(timelineCards, new Set(days)));
     const grouped = this.groupTimelineMarkers(markers);
     const timeline = container.createDiv({ cls: 'kanban-rpm-timeline' });
-    this.renderTimelineSidebar(timeline, visibleBoardCards);
+    this.renderTimelineSidebar(timeline, timelineCards);
     const main = timeline.createDiv({ cls: 'kanban-rpm-timeline-main' });
     this.renderTimelineControls(main);
 
-    const board = main.createDiv({ cls: 'kanban-rpm-timeline-board' });
+    const viewport = main.createDiv({ cls: 'kanban-rpm-timeline-viewport' });
+    const board = viewport.createDiv({ cls: 'kanban-rpm-timeline-board' });
     for (const day of days) {
       const column = board.createDiv({
         cls: day === this.todayIso() ? 'kanban-rpm-timeline-day-column is-today' : 'kanban-rpm-timeline-day-column',
       });
+      column.dataset.day = day;
       const header = column.createDiv({ cls: 'kanban-rpm-timeline-day-header' });
       header.createDiv({ cls: 'kanban-rpm-timeline-day-name', text: this.timelineDayLabel(day) });
       header.createDiv({ cls: 'kanban-rpm-timeline-day-date', text: day.slice(5) });
@@ -797,6 +804,13 @@ export class KanbanRPMView extends ItemView {
           for (const marker of group.markers) this.renderTimelineMarker(section, marker);
         }
       }
+    }
+
+    if (days.includes(this.timelineBaseDate)) {
+      setTimeout(() => {
+        const todayColumn = board.querySelector<HTMLElement>(`[data-day="${this.timelineBaseDate}"]`);
+        todayColumn?.scrollIntoView({ block: 'nearest', inline: 'start' });
+      }, 0);
     }
   }
 
@@ -832,16 +846,65 @@ export class KanbanRPMView extends ItemView {
   private renderTimelineControls(container: HTMLElement): void {
     const controls = container.createDiv({ cls: 'kanban-rpm-timeline-controls' });
     controls.createEl('button', { text: 'Today' }).addEventListener('click', () => {
-      this.timelineStartOffset = -7;
+      this.timelineBaseDate = this.todayIso();
+      this.timelineRangeStart = '';
+      this.timelineRangeEnd = '';
       this.render();
     });
     controls.createEl('button', { text: '-7' }).addEventListener('click', () => {
-      this.timelineStartOffset -= 7;
+      this.shiftTimelineBase(-7);
       this.render();
     });
     controls.createEl('button', { text: '+7' }).addEventListener('click', () => {
-      this.timelineStartOffset += 7;
+      this.shiftTimelineBase(7);
       this.render();
+    });
+    const baseDate = controls.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'text',
+        placeholder: 'YYYY.MM.DD',
+        value: this.toDisplayDate(this.timelineBaseDate),
+        'aria-label': 'Timeline base date',
+      },
+    });
+    baseDate.addEventListener('change', () => {
+      const normalized = this.normalizeTimelineDate(baseDate.value);
+      if (normalized) {
+        this.timelineBaseDate = normalized;
+        this.timelineRangeStart = '';
+        this.timelineRangeEnd = '';
+        this.render();
+      }
+    });
+    const rangeStart = controls.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'text',
+        placeholder: 'YYYY.MM.DD',
+        value: this.toDisplayDate(this.timelineRangeStart),
+        'aria-label': 'Timeline range start',
+      },
+    });
+    const rangeEnd = controls.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'text',
+        placeholder: 'YYYY.MM.DD',
+        value: this.toDisplayDate(this.timelineRangeEnd),
+        'aria-label': 'Timeline range end',
+      },
+    });
+    const applyRange = controls.createEl('button', { text: 'Apply range' });
+    applyRange.addEventListener('click', () => {
+      const start = this.normalizeTimelineDate(rangeStart.value);
+      const end = this.normalizeTimelineDate(rangeEnd.value);
+      if (start && end && start <= end) {
+        this.timelineRangeStart = start;
+        this.timelineRangeEnd = end;
+        this.timelineBaseDate = start;
+        this.render();
+      }
     });
     controls
       .createEl('button', { text: this.timelineMemoVisible ? 'Hide Memo' : 'Show Memo' })
@@ -878,6 +941,20 @@ export class KanbanRPMView extends ItemView {
       this.timelineScope = scope.value as TimelineScope;
       this.render();
     });
+
+    const statusWrap = controls.createDiv({ cls: 'kanban-rpm-timeline-status-filter' });
+    statusWrap.createSpan({ text: 'Statuses' });
+    for (const status of this.plugin.settings.statuses) {
+      const label = statusWrap.createEl('label');
+      const checkbox = label.createEl('input', { attr: { type: 'checkbox' } });
+      checkbox.checked = this.timelineStatusFilter.has(status.id);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) this.timelineStatusFilter.add(status.id);
+        else this.timelineStatusFilter.delete(status.id);
+        this.render();
+      });
+      label.createSpan({ text: status.label });
+    }
   }
 
   private renderTimelineMemoSection(container: HTMLElement, day: string): void {
@@ -927,6 +1004,9 @@ export class KanbanRPMView extends ItemView {
     }
 
     row.createSpan({ text: item.text || item.raw });
+    row.createEl('button', { cls: 'kanban-rpm-icon-button', text: 'Edit' }).addEventListener('click', () => {
+      void this.editTimelineMemoItem(day, memo, item);
+    });
   }
 
   private parseTimelineMemoItems(memo: string): TimelineMemoItem[] {
@@ -971,15 +1051,36 @@ export class KanbanRPMView extends ItemView {
     this.render();
   }
 
+  private async editTimelineMemoItem(day: string, memo: string, item: TimelineMemoItem): Promise<void> {
+    const value = window.prompt('Edit timeline memo', item.text || item.raw);
+    if (value === null) return;
+    const lines = memo.split(/\r?\n/);
+    const trimmed = value.trim();
+    if (!trimmed) lines.splice(item.lineIndex, 1);
+    else lines[item.lineIndex] = item.checkbox ? `- [${item.done ? 'x' : ' '}] ${trimmed}` : trimmed;
+    await this.saveTimelineMemo(day, lines.join('\n'));
+    this.render();
+  }
+
   private renderTimelineMarker(container: HTMLElement, marker: TimelineMarker): void {
-    const item = container.createEl('button', {
+    const item = container.createDiv({
       cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind}`,
-      text: marker.label,
       attr: { title: `${marker.card.title} - ${marker.label}` },
     });
-    item.addEventListener('click', () => {
+    const label = item.createEl('button', { cls: 'kanban-rpm-timeline-marker-title', text: marker.label });
+    label.addEventListener('click', () => {
       void this.plugin.openCard(marker.card);
     });
+    const meta = item.createDiv({ cls: 'kanban-rpm-timeline-marker-meta' });
+    meta.createSpan({ text: marker.card.breadcrumb || marker.card.projectTitle || 'No project' });
+    meta.createSpan({ text: marker.card.status });
+    meta.createSpan({ text: `P${marker.card.priority}` });
+    this.renderStatusSelect(item, marker.card);
+    const actions = this.getVisibleSmallActions(marker.card).slice(0, 3);
+    if (actions.length) {
+      const list = item.createDiv({ cls: 'kanban-rpm-timeline-marker-actions' });
+      for (const action of actions) this.renderSmallActionRow(list, action);
+    }
   }
 
   private collectTimelineMarkers(cards: ProjectCard[], daySet: Set<string>): TimelineMarker[] {
@@ -998,9 +1099,13 @@ export class KanbanRPMView extends ItemView {
           markers.push({ date, label: `task: ${action.text}`, kind: 'task', card });
         }
       }
-      if (card.perpetuals.length && daySet.has(this.todayIso())) {
-        for (const item of card.perpetuals) {
-          markers.push({ date: this.todayIso(), label: `${item.cadence}: ${item.text}`, kind: 'recurring', card });
+      if (card.perpetuals.length) {
+        for (const day of daySet) {
+          for (const item of card.perpetuals) {
+            if (this.isRecurringVisibleOnDay(day, item.cadence)) {
+              markers.push({ date: day, label: `${item.cadence}: ${item.text}`, kind: 'recurring', card });
+            }
+          }
         }
       }
     }
@@ -1039,15 +1144,49 @@ export class KanbanRPMView extends ItemView {
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  private ensureTimelineStatusFilter(): void {
+    const valid = new Set(this.plugin.settings.statuses.map((status) => status.id));
+    this.timelineStatusFilter = new Set(Array.from(this.timelineStatusFilter).filter((status) => valid.has(status)));
+    if (this.timelineStatusFilter.size) return;
+    const activeStatus = this.plugin.settings.statuses.find((status) => status.id === 'active')?.id ?? this.plugin.settings.statuses[0]?.id;
+    if (activeStatus) this.timelineStatusFilter.add(activeStatus);
+  }
+
   private timelineDays(): string[] {
     const days: string[] = [];
-    const today = new Date(`${this.todayIso()}T00:00:00`);
-    for (let offset = this.timelineStartOffset; offset <= this.timelineStartOffset + 42; offset += 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + offset);
+    const start = this.timelineRangeStart || this.addDays(this.timelineBaseDate, -7);
+    const end = this.timelineRangeEnd || this.addDays(this.timelineBaseDate, 7);
+    const startDate = new Date(`${start}T00:00:00`);
+    const endDate = new Date(`${end}T00:00:00`);
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
       days.push(this.formatDate(date));
     }
     return days;
+  }
+
+  private shiftTimelineBase(days: number): void {
+    this.timelineBaseDate = this.addDays(this.timelineBaseDate, days);
+    this.timelineRangeStart = '';
+    this.timelineRangeEnd = '';
+  }
+
+  private addDays(day: string, days: number): string {
+    const date = new Date(`${day}T00:00:00`);
+    date.setDate(date.getDate() + days);
+    return this.formatDate(date);
+  }
+
+  private isIsoDate(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  }
+
+  private normalizeTimelineDate(value: string): string {
+    const normalized = value.trim().replace(/[./]/g, '-');
+    return this.isIsoDate(normalized) ? normalized : '';
+  }
+
+  private toDisplayDate(value: string): string {
+    return value ? value.replace(/-/g, '.') : '';
   }
 
   private timelineDayLabel(day: string): string {
@@ -1057,6 +1196,14 @@ export class KanbanRPMView extends ItemView {
 
   private formatDate(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private isRecurringVisibleOnDay(day: string, cadence: 'daily' | 'weekly' | 'monthly'): boolean {
+    if (cadence === 'daily') return true;
+    const date = new Date(`${day}T00:00:00`);
+    const base = new Date(`${this.timelineBaseDate}T00:00:00`);
+    if (cadence === 'weekly') return date.getDay() === base.getDay();
+    return date.getDate() === base.getDate();
   }
 
   private async readTimelineMemo(day: string): Promise<string> {
@@ -1214,6 +1361,13 @@ export class KanbanRPMView extends ItemView {
     titleWrap.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
       void this.plugin.openCard(card);
     });
+    const titleActions = titleRow.createDiv({ cls: 'kanban-rpm-card-title-actions' });
+    titleActions
+      .createEl('button', { cls: 'kanban-rpm-icon-button', text: 'Edit', attr: { 'aria-label': `Edit ${card.title}` } })
+      .addEventListener('click', () => {
+        new EditProjectCardModal(this.app, this.plugin, card).open();
+      });
+    this.renderCardMoreMenu(titleActions, card);
     if (this.plugin.settings.cardDisplayFields.priority) {
       titleRow.createSpan({
         cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
@@ -1248,16 +1402,15 @@ export class KanbanRPMView extends ItemView {
     }
     if (fields.dependencies || fields.sources) this.renderCardRelations(cardEl, card);
     if (fields.smallActionSummary) this.renderSmallActions(cardEl, card);
+  }
 
-    const actions = cardEl.createDiv({ cls: 'kanban-rpm-card-actions' });
-    actions.createEl('button', { text: 'Open' }).addEventListener('click', () => {
-      void this.plugin.openCard(card);
-    });
-    actions.createEl('button', { text: 'Edit' }).addEventListener('click', () => {
-      new EditProjectCardModal(this.app, this.plugin, card).open();
-    });
+  private renderCardMoreMenu(container: HTMLElement, card: ProjectCard): void {
+    const menu = container.createEl('details', { cls: 'kanban-rpm-card-more' });
+    menu.createEl('summary', { text: '...', attr: { 'aria-label': `More actions for ${card.title}` } });
+    const actions = menu.createDiv({ cls: 'kanban-rpm-card-more-menu' });
     actions.createEl('button', { text: 'Duplicate' }).addEventListener('click', () => {
       void this.plugin.duplicateCard(card);
+      menu.removeAttribute('open');
     });
     actions.createEl('button', { text: 'Archive' }).addEventListener('click', () => {
       new ConfirmCardActionModal(this.app, {
@@ -1266,6 +1419,7 @@ export class KanbanRPMView extends ItemView {
         confirmText: 'Archive',
         onConfirm: () => this.plugin.archiveCard(card),
       }).open();
+      menu.removeAttribute('open');
     });
     actions.createEl('button', { cls: 'mod-warning', text: 'Delete' }).addEventListener('click', () => {
       new ConfirmCardActionModal(this.app, {
@@ -1274,6 +1428,7 @@ export class KanbanRPMView extends ItemView {
         confirmText: 'Delete',
         onConfirm: () => this.plugin.deleteCard(card),
       }).open();
+      menu.removeAttribute('open');
     });
   }
 

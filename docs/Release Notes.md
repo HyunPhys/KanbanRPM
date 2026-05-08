@@ -168,3 +168,14 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added `+ todo` and `+ text` controls for date memo cells.
 - Made checkbox memo entries clickable from the Timeline while preserving the Markdown source under `KanbanRPM Workspace/timeline/`.
 - Renamed the Timeline `Scope` control to `Show` to clarify that it filters marker kinds rather than card metadata.
+
+### Phase 4.9 Timeline Usability And Card Density
+
+- Simplified board card actions: card titles open documents, `Edit` is compact, and `Duplicate` / `Archive` / `Delete` live under a `...` menu.
+- Kept Timeline controls fixed while the date columns scroll horizontally.
+- Changed Timeline's default window to base date -7 through base date +7.
+- Added base-date and explicit `YYYY.MM.DD` range controls.
+- Made `Today` reset the base date and scroll today's column next to the `Perpetual` sidebar.
+- Added Timeline status checkboxes, defaulting to `Active`.
+- Added status dropdowns and compact small-action controls to Timeline markers.
+- Expanded recurring `Perpetual` display across visible days for `@daily`, `@weekly`, and `@monthly`.

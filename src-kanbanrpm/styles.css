@@ -764,12 +764,12 @@
 
 .kanban-rpm-timeline-main {
   min-width: 0;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .kanban-rpm-timeline-controls {
-  position: sticky;
-  top: 0;
   z-index: 4;
   display: flex;
   align-items: center;
@@ -778,6 +778,11 @@
   border-bottom: 1px solid var(--rpm-border);
   background: var(--rpm-bg);
   flex-wrap: wrap;
+}
+
+.kanban-rpm-timeline-viewport {
+  min-height: 0;
+  overflow: auto;
 }
 
 .kanban-rpm-timeline-controls button {
@@ -792,6 +797,26 @@
 
 .kanban-rpm-timeline-scope {
   max-width: 150px;
+}
+
+.kanban-rpm-timeline-date-input {
+  max-width: 132px;
+  font-size: 12px;
+}
+
+.kanban-rpm-timeline-status-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--rpm-muted);
+  font-size: 11px;
+}
+
+.kanban-rpm-timeline-status-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .kanban-rpm-timeline-board {
@@ -883,7 +908,7 @@
 
 .kanban-rpm-timeline-memo-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 7px;
   align-items: start;
   padding: 7px 8px;
@@ -897,7 +922,7 @@
 }
 
 .kanban-rpm-timeline-memo-card.is-text {
-  display: block;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .kanban-rpm-timeline-memo-card.is-done span {
@@ -916,7 +941,8 @@
 }
 
 .kanban-rpm-timeline-marker {
-  display: block;
+  display: grid;
+  gap: 6px;
   width: 100%;
   margin-bottom: 7px;
   padding: 7px 8px;
@@ -928,9 +954,38 @@
   font-size: 11px;
   line-height: 1.3;
   text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-timeline-marker-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-timeline-marker-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: var(--rpm-muted);
+  font-size: 10px;
+}
+
+.kanban-rpm-timeline-marker .kanban-rpm-status-select {
+  max-width: 100%;
+  font-size: 11px;
+}
+
+.kanban-rpm-timeline-marker-actions {
+  display: grid;
+  gap: 5px;
 }
 
 .kanban-rpm-timeline-marker-due {
@@ -1068,6 +1123,7 @@
 }
 
 .kanban-rpm-card-title-wrap {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1095,6 +1151,64 @@
   font-weight: 650;
   line-height: 1.25;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.kanban-rpm-card-title:hover {
+  color: var(--text-accent);
+}
+
+.kanban-rpm-card-title-actions {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.kanban-rpm-icon-button {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.kanban-rpm-card-more {
+  position: relative;
+}
+
+.kanban-rpm-card-more summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 3px 7px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 6px;
+  color: var(--rpm-muted);
+  font-size: 11px;
+}
+
+.kanban-rpm-card-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.kanban-rpm-card-more-menu {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 4px;
+  min-width: 110px;
+  margin-top: 4px;
+  padding: 6px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 8px;
+  background: var(--rpm-panel);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+}
+
+.kanban-rpm-card-more-menu button {
+  width: 100%;
+  padding: 4px 7px;
+  font-size: 11px;
+  text-align: left;
 }
 
 .kanban-rpm-pill {
@@ -1319,19 +1433,6 @@
 .kanban-rpm-small-action-more {
   margin-top: 6px;
   color: var(--rpm-muted);
-  font-size: 11px;
-}
-
-.kanban-rpm-card-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.kanban-rpm-card-actions button {
-  flex: 0 1 auto;
-  padding: 4px 7px;
   font-size: 11px;
 }
 
