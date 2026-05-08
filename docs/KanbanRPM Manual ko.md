@@ -190,7 +190,7 @@ Timeline은 접혀 있는 Timeline `Statuses` filter에서 켜진 status의 card
 
 Timeline의 `Show` dropdown은 card-level field가 아니라 marker kind를 고르는 display filter입니다. `Show: Review`는 review marker만, `Show: Due`는 due marker만, `Show: Tasks`는 날짜가 있는 small action만, `Show: Recurring`은 perpetual routine만 보여줍니다.
 
-Timeline Memo entry는 `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`에 저장됩니다. `+ todo`로 checkbox memo를 추가하고, `+ text`로 plain note를 inline entry field에서 추가합니다. Checkbox memo card는 Timeline에서 직접 check/uncheck할 수 있습니다. Memo card의 pencil icon으로 해당 line을 inline 수정하거나 비울 수 있습니다.
+Timeline Memo entry는 `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`에 저장됩니다. `+ todo` 또는 `+ text`를 누르면 inline multi-line editor가 열립니다. Preview는 간단한 Markdown heading, bullet list, paragraph, checkbox를 렌더링합니다. Checkbox memo line은 preview mode에서 직접 check/uncheck할 수 있습니다. Pencil icon으로 전체 memo를 수정하고, check icon을 다시 눌러 저장합니다.
 
 `Perpetual`은 card의 `### Perpetual` 또는 `## Perpetual` section에 있는 checkbox line 중 `@daily`, `@weekly`, `@monthly`가 붙은 항목을 읽습니다. Daily routine은 보이는 모든 날짜에, weekly routine은 base date와 같은 요일에, monthly routine은 base date와 같은 일자에 표시됩니다.
 

@@ -182,9 +182,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 
 ### Phase 4.10 Inline Memo Editing And Card Layout
 
-- Replaced prompt-based Timeline Memo add/edit with inline entry fields.
+- Replaced prompt-based Timeline Memo add/edit with inline multi-line editing and save toggles.
+- Rendered simple Markdown headings, bullet lists, paragraphs, and clickable checkboxes in Timeline Memo preview.
 - Kept Timeline `Statuses` collapsed by default.
 - Made today's Timeline column visually distinct.
-- Reworked board card layout around compact stacked information blocks and a right-side icon action rail.
+- Restored the previous board card visual tone while keeping the requested right-side icon action rail.
 - Switched card edit and overflow actions to icons while keeping existing visual tone.
 - Moved status, type, dependency, and source details behind the card `Details` toggle.

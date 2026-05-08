@@ -188,7 +188,7 @@ Timeline only shows cards whose status is enabled in the collapsed Timeline `Sta
 
 The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows perpetual routines.
 
-Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`. Use `+ todo` to add a checkbox memo and `+ text` to add a plain note through inline entry fields. Checkbox memo cards can be checked or unchecked directly from the Timeline. Use the pencil icon on a memo card to edit or clear that line inline.
+Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`. Use `+ todo` or `+ text` to open an inline multi-line editor. The preview renders simple Markdown headings, bullet lists, paragraphs, and checkboxes. Checkbox memo lines can be checked or unchecked directly from preview mode. Use the pencil icon to edit the whole memo, then click the check icon to save.
 
 `Perpetual` reads checkbox lines in a card's `### Perpetual` or `## Perpetual` section using `@daily`, `@weekly`, or `@monthly`. Daily routines appear on every visible day, weekly routines appear on the same weekday as the base date, and monthly routines appear on the same day-of-month as the base date.
 
