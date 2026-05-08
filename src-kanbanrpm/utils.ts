@@ -1,5 +1,5 @@
 import { normalizePath } from 'obsidian';
-import { LANES, WEEKDAYS_KO } from './constants';
+import { LANES } from './constants';
 import type { KanbanRPMSettings, ProjectCard, Status, StatusDefinition } from './types';
 
 export function text(value: unknown): string {
@@ -142,14 +142,6 @@ export function parsePriority(value: unknown): number {
 export function parseOrder(value: unknown): number | undefined {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
-}
-
-export function getDailyPath(settings: KanbanRPMSettings, date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const weekday = WEEKDAYS_KO[date.getDay()];
-  return normalizePath(`${settings.dailyFolder}/${yyyy}-${mm}-${dd} (${weekday}).md`);
 }
 
 export function getIsoDate(date = new Date()): string {

@@ -161,7 +161,6 @@ Toolbar:
 
 Secondary actions under `More`:
 
-- `Pull Daily`
 - `Weekly review`
 - `Export arrows`
 - `Normalize order`
@@ -243,15 +242,15 @@ Blocks:
 
 KanbanRPM shows dependency counts, blocked-by badges, broken link warnings, and circular dependency warnings. `Export arrows` writes Laminar-style arrow notes under `KanbanRPM Workspace/arrows/`.
 
-## Daily And Weekly
+## Timeline Memo And Weekly
 
-`Send to Daily` appends this line to today's existing Daily note:
+KanbanRPM no longer writes planning lines to external Daily notes. Use the `Timeline` view's toggleable `Memo` row for lightweight day notes, quick checkbox tasks, and small reminders that do not need their own living document.
 
-```markdown
-- [ ] [[Card Title]]: Current Focus
+Each memo cell is stored in:
+
+```text
+KanbanRPM Workspace/timeline/YYYY-MM-DD.md
 ```
-
-KanbanRPM does not create Daily notes. If today's Daily note does not exist, it shows the expected path.
 
 `Weekly review` creates or opens a KanbanRPM-owned weekly review note under `KanbanRPM Workspace/perpetual/`.
 
@@ -273,8 +272,6 @@ Click a warning row to open the affected document.
 Available settings:
 
 - `Workspace folder`
-- `Daily folder`
-- `Daily section`
 - `Weekly review folder`
 - `Statuses`
 
@@ -283,8 +280,6 @@ Available settings:
 If the board is empty, confirm the document is in `KanbanRPM Workspace/cards/`, has `kanban_rpm: true`, and is not archived.
 
 If `Action index` is empty, confirm `## References` contains resolvable wikilinks to notes with unchecked checkboxes or `#todo` lines.
-
-If `Send to Daily` does nothing, confirm today's Daily note exists and the card has `## Current Focus`.
 
 ## Developer Note
 

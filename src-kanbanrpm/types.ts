@@ -2,8 +2,6 @@ import type { TFile } from 'obsidian';
 
 export interface KanbanRPMSettings {
   workspaceFolder: string;
-  dailyFolder: string;
-  dailySection: string;
   weeklyReviewFolder: string;
   statuses: StatusDefinition[];
   categories: string[];
@@ -155,8 +153,6 @@ export interface DependencyEdge {
   raw: string;
   broken: boolean;
 }
-
-export type DailyPullMode = 'review' | 'active' | 'waiting' | 'blocked' | 'all-visible';
 
 export type CardIssueLevel = 'warning' | 'error';
 

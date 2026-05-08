@@ -12,11 +12,11 @@ KanbanRPM keeps the upstream Kanban source tree for reference and attribution, b
 src-kanbanrpm/main.ts             Plugin lifecycle and command orchestration
 src-kanbanrpm/board-view.ts       Board UI, toolbar, lanes, cards, and drag/drop
 src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, hierarchy, and action indexing
-src-kanbanrpm/daily.ts            Daily note integration
+src-kanbanrpm/weekly-review.ts    Weekly review note integration
 src-kanbanrpm/types.ts            Shared TypeScript interfaces
 src-kanbanrpm/constants.ts        Shared constants and vocabularies
 src-kanbanrpm/utils.ts            Pure helper functions
-src-kanbanrpm/modals.ts           Document, Daily Pull, and confirmation modals
+src-kanbanrpm/modals.ts           Document and confirmation modals
 src-kanbanrpm/schema.ts           Schema reference content
 src-kanbanrpm/settings-tab.ts     Settings tab
 src-kanbanrpm/styles.css          Board and modal styles
@@ -179,9 +179,8 @@ KanbanRPM Workspace/archive/
 - Group `Action index` entries by card.
 - Show a `Command center` panel for review queue, waiting cards, blocked cards, and dependency-heavy cards.
 - Toggle `Data warnings`, `Command center`, and `Action index` from the filter row; closed panels are removed from the board area.
-- Keep secondary board actions under `More`, including `Pull Daily`, `Weekly review`, `Export arrows`, and `Normalize order`.
-- Select review/active/waiting/blocked/all-visible cards with `Pull Daily`.
-- Append Daily actions under a configurable `Daily section`.
+- Keep secondary board actions under `More`, including `Weekly review`, `Export arrows`, and `Normalize order`.
+- Use the Laminar-style `Timeline` view and date `Memo` row for lightweight daily notes instead of writing to external Daily notes.
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
 - Show compact card relation rows for `Depends on`, `Blocks`, and `References`.
 - Export dependency sections to Laminar-style `arrows/` notes with `Export arrows`.
@@ -198,7 +197,6 @@ KanbanRPM Workspace/archive/
 - Drag cards within a lane to set `order`.
 - Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.
 - Refresh automatically when card files change.
-- Send a card's `next_action` to today's existing Daily note.
 
 ## License Note
 

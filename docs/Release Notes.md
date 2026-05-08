@@ -153,3 +153,10 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Added `### Timeline Log` to new living document templates.
 - Checking a small action now prepends a completed entry with a `[[card]]` link to `### Timeline Log`; unchecking does not remove log history.
 - Deferred deeper `Action index` redesign to a later phase.
+
+### Phase 4.7 Timeline Memo Workflow
+
+- Removed the active Daily Pull workflow from commands, board toolbar actions, card actions, modals, settings, and current manuals.
+- Kept KanbanRPM planning inside the Laminar-style `Timeline` view with per-date `Memo` cells stored under `KanbanRPM Workspace/timeline/`.
+- Preserved `Weekly review` as the KanbanRPM-owned routine note workflow under `KanbanRPM Workspace/perpetual/`.
+- Updated smoke checks so the current release criteria track `Timeline`, `Weekly review`, and `Action index` instead of Daily integration.

@@ -30,32 +30,6 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName('Daily folder')
-      .setDesc('KanbanRPM only appends to an existing daily note in this folder.')
-      .addText((input) => {
-        input
-          .setPlaceholder(DEFAULT_SETTINGS.dailyFolder)
-          .setValue(this.plugin.settings.dailyFolder)
-          .onChange(async (value) => {
-            this.plugin.settings.dailyFolder = value.trim() || DEFAULT_SETTINGS.dailyFolder;
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('Daily section')
-      .setDesc('Heading where KanbanRPM appends Daily actions. Leave blank to append at the end.')
-      .addText((input) => {
-        input
-          .setPlaceholder(DEFAULT_SETTINGS.dailySection)
-          .setValue(this.plugin.settings.dailySection)
-          .onChange(async (value) => {
-            this.plugin.settings.dailySection = value.trim();
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
       .setName('Weekly review folder')
       .setDesc('Folder where KanbanRPM creates weekly review notes.')
       .addText((input) => {

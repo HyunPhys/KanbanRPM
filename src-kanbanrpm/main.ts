@@ -8,11 +8,11 @@ import {
 import { KanbanRPMView } from './board-view';
 import { CardRepository } from './card-repository';
 import { DEFAULT_SETTINGS, VIEW_TYPE } from './constants';
-import { openWeeklyReview, sendCardToDaily, sendCardsToDaily as sendCardBatchToDaily } from './daily';
-import { DailyPullModal, NewProjectCardModal } from './modals';
+import { NewProjectCardModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
 import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, SmallAction, Status } from './types';
+import { openWeeklyReview } from './weekly-review';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
@@ -57,12 +57,6 @@ export default class KanbanRPMPlugin extends Plugin {
       id: 'open-schema-reference',
       name: 'Open schema reference',
       callback: () => void this.openSchemaReference(),
-    });
-
-    this.addCommand({
-      id: 'pull-cards-to-daily',
-      name: 'Pull cards to Daily',
-      callback: () => void this.openDailyPullModal(),
     });
 
     this.addCommand({
@@ -258,18 +252,6 @@ export default class KanbanRPMPlugin extends Plugin {
   computeOrder(laneCards: ProjectCard[], insertIndex: number): number {
     return this.repository.computeOrder(laneCards, insertIndex);
   }
-  async sendToDaily(card: ProjectCard): Promise<void> {
-    await sendCardToDaily(this.app, this.settings, card);
-  }
-
-  async sendCardsToDaily(cards: ProjectCard[]): Promise<void> {
-    await sendCardBatchToDaily(this.app, this.settings, cards);
-  }
-
-  async openDailyPullModal(cards?: ProjectCard[]): Promise<void> {
-    new DailyPullModal(this.app, this, cards ?? (await this.loadCards())).open();
-  }
-
   async openWeeklyReview(cards?: ProjectCard[]): Promise<void> {
     await openWeeklyReview(this.app, this.settings, cards ?? (await this.loadCards()));
   }

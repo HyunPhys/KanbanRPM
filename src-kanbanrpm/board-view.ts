@@ -1,6 +1,6 @@
 import { ItemView, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { VIEW_TYPE } from './constants';
-import { ConfirmCardActionModal, DailyPullModal, EditProjectCardModal, NewProjectCardModal } from './modals';
+import { ConfirmCardActionModal, EditProjectCardModal, NewProjectCardModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status, TimelineScope, ViewMode } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
@@ -144,9 +144,6 @@ export class KanbanRPMView extends ItemView {
 
     if (this.toolbarExpanded) {
       const secondary = container.createDiv({ cls: 'kanban-rpm-toolbar-secondary' });
-      secondary.createEl('button', { text: 'Pull Daily' }).addEventListener('click', () => {
-        new DailyPullModal(this.app, this.plugin, visibleBoardCards).open();
-      });
       secondary.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
         void this.plugin.openWeeklyReview(visibleBoardCards);
       });
@@ -418,8 +415,11 @@ export class KanbanRPMView extends ItemView {
       .sort((a, b) => toDateSortValue(a).localeCompare(toDateSortValue(b)))
       .slice(0, 6);
     headerActions.createSpan({ text: 'review, waiting, blockers, dependencies' });
-    headerActions.createEl('button', { text: 'Daily review' }).addEventListener('click', () => {
-      void this.plugin.sendCardsToDaily(reviewCards);
+    headerActions.createEl('button', { text: 'Timeline review' }).addEventListener('click', () => {
+      this.viewMode = 'timeline';
+      this.timelineScope = 'review';
+      this.showCommandCenter = false;
+      this.render();
     });
 
     const grid = panel.createDiv({ cls: 'kanban-rpm-command-grid' });
@@ -1200,9 +1200,6 @@ export class KanbanRPMView extends ItemView {
     });
     actions.createEl('button', { text: 'Duplicate' }).addEventListener('click', () => {
       void this.plugin.duplicateCard(card);
-    });
-    actions.createEl('button', { text: 'Send to Daily' }).addEventListener('click', () => {
-      void this.plugin.sendToDaily(card);
     });
     actions.createEl('button', { text: 'Archive' }).addEventListener('click', () => {
       new ConfirmCardActionModal(this.app, {

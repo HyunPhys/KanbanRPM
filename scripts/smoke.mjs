@@ -17,7 +17,7 @@ assert(manifest.name === 'KanbanRPM', 'manifest.name must be KanbanRPM');
 assert(manifest.version === packageJson.version, 'manifest.version must match package.json version');
 assert(versions[manifest.version] === manifest.minAppVersion, 'versions.json must map version to minAppVersion');
 
-assertOnlyFiles(livePluginDir, pluginFiles, 'live plugin folder');
+assertOnlyFiles(livePluginDir, [...pluginFiles, 'data.json'], 'live plugin folder', ['data.json']);
 assertOnlyFiles(releaseDir, pluginFiles, 'release bundle');
 
 const liveManifest = readJson(path.join(livePluginDir, 'manifest.json'), true);
@@ -40,7 +40,7 @@ for (const rel of [
 
 assertFileContains('README.md', ['npm run package', 'docs/Install.md', 'docs/Release Notes.md']);
 assertFileContains('docs/Install.md', [manifest.id, manifest.version, 'main.js', 'manifest.json', 'styles.css']);
-assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Daily', 'Weekly review', 'Action index']);
+assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Timeline', 'Weekly review', 'Action index']);
 assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Subproject filter', 'primary_project', 'primary hierarchy', 'Table', 'List', 'Timeline']);
 assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Subproject', 'primary_project', 'primary hierarchy', 'Table', 'List', 'Timeline']);
 assertFileContains('docs/Attribution.md', ['obsidian-community/obsidian-kanban', 'kanban-rpm']);
@@ -56,10 +56,10 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function assertOnlyFiles(dir, expected, label) {
+function assertOnlyFiles(dir, expected, label, optional = []) {
   assert(fs.existsSync(dir), `Missing ${label}: ${dir}`);
   const actual = fs.readdirSync(dir).filter((name) => fs.statSync(path.join(dir, name)).isFile()).sort();
-  const sortedExpected = [...expected].sort();
+  const sortedExpected = expected.filter((name) => actual.includes(name) || !optional.includes(name)).sort();
   assert(
     JSON.stringify(actual) === JSON.stringify(sortedExpected),
     `${label} should contain only ${sortedExpected.join(', ')}; found ${actual.join(', ')}`
