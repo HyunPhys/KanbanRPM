@@ -189,7 +189,7 @@ KanbanRPM Workspace/archive/
 - Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
 - Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
 - Sort cards in `Table` view and inspect a collapsible `Project -> Subproject -> Big Action` tree in `List` view.
-- Inspect a Laminar-style `Timeline` view with a `Perpetual` sidebar, range controls, search/scope filters, date columns, and date Memo notes.
+- Inspect a Laminar-style kanban-like `Timeline` view with a `Perpetual` sidebar, range controls, marker-kind display filters, date columns, and clickable date Memo todo cards.
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
 - Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.

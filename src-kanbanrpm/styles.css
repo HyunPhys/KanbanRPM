@@ -794,106 +794,125 @@
   max-width: 150px;
 }
 
-.kanban-rpm-timeline-grid {
-  padding: 0 0 18px;
-}
-
-.kanban-rpm-timeline-header,
-.kanban-rpm-timeline-row {
+.kanban-rpm-timeline-board {
   display: grid;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  min-width: 1540px;
+  grid-auto-columns: minmax(220px, 260px);
+  grid-auto-flow: column;
+  gap: 10px;
+  min-width: max-content;
+  padding: 10px;
 }
 
-.kanban-rpm-timeline-corner,
-.kanban-rpm-timeline-row-label {
+.kanban-rpm-timeline-day-column {
+  min-height: calc(100vh - 230px);
+  border: 1px solid var(--rpm-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  overflow: hidden;
+}
+
+.kanban-rpm-timeline-day-column.is-today {
+  border-color: color-mix(in srgb, var(--interactive-accent) 70%, var(--rpm-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+}
+
+.kanban-rpm-timeline-day-header {
   position: sticky;
-  left: 0;
+  top: 45px;
   z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 10px;
-  border: 1px solid var(--rpm-border);
-  border-right: 0;
-  background: var(--rpm-panel);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.kanban-rpm-timeline-corner {
-  z-index: 3;
-}
-
-.kanban-rpm-timeline-days,
-.kanban-rpm-timeline-cells {
-  display: grid;
-  grid-template-columns: repeat(43, minmax(92px, 1fr));
-}
-
-.kanban-rpm-timeline-day,
-.kanban-rpm-timeline-cell {
-  min-height: 42px;
-  padding: 8px;
-  border: 0;
-  border-left: 1px solid var(--rpm-border);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
   border-bottom: 1px solid var(--rpm-border);
-  background: var(--background-primary);
-  font-size: 11px;
+  background: var(--rpm-panel);
 }
 
-.kanban-rpm-timeline-day {
-  color: var(--rpm-muted);
+.kanban-rpm-timeline-day-name {
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--rpm-normal);
+}
+
+.kanban-rpm-timeline-day-date {
+  font-size: 12px;
   font-weight: 650;
-  text-align: center;
+  color: var(--rpm-muted);
 }
 
-.kanban-rpm-timeline-day.is-today,
-.kanban-rpm-timeline-cell.is-today {
-  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--rpm-panel));
+.kanban-rpm-timeline-section {
+  padding: 9px;
+  border-bottom: 1px solid var(--rpm-border);
 }
 
-.kanban-rpm-timeline-row-label {
-  border-top: 0;
+.kanban-rpm-timeline-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 24px;
+  margin-bottom: 7px;
+  padding-left: 7px;
   border-left: 4px solid var(--rpm-project-color, var(--interactive-accent));
-  align-items: flex-start;
+  color: var(--rpm-muted);
+  font-size: 11px;
+  font-weight: 750;
   overflow-wrap: anywhere;
 }
 
-.kanban-rpm-timeline-cell {
-  min-height: 132px;
-  border-top: 0;
-  position: relative;
-}
-
-.kanban-rpm-timeline-memo-row .kanban-rpm-timeline-row-label {
+.kanban-rpm-timeline-memo-section {
   background: var(--rpm-panel-alt);
 }
 
-.kanban-rpm-timeline-add {
-  width: 100%;
-  padding: 3px 5px;
-  border: 1px dashed var(--rpm-border);
-  background: transparent;
-  color: var(--rpm-muted);
+.kanban-rpm-timeline-memo-controls {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.kanban-rpm-timeline-memo-controls button {
+  padding: 2px 5px;
   font-size: 10px;
 }
 
-.kanban-rpm-timeline-memo-input {
-  width: 100%;
-  min-height: 78px;
-  resize: vertical;
-  padding: 7px;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, var(--rpm-border));
-  border-radius: 7px;
-  background: var(--rpm-panel);
-  font-size: 11px;
-  line-height: 1.35;
+.kanban-rpm-timeline-memo-list {
+  display: grid;
+  gap: 6px;
 }
 
-.kanban-rpm-timeline-add {
-  margin-top: 12px;
-  border-radius: 6px;
+.kanban-rpm-timeline-memo-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 38%, var(--rpm-border));
+  border-radius: 8px;
+  background: var(--rpm-panel);
+  color: var(--rpm-normal);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.kanban-rpm-timeline-memo-card.is-text {
+  display: block;
+}
+
+.kanban-rpm-timeline-memo-card.is-done span {
+  color: var(--rpm-muted);
+  text-decoration: line-through;
+}
+
+.kanban-rpm-timeline-memo-empty,
+.kanban-rpm-timeline-empty-day {
+  color: var(--rpm-muted);
+  font-size: 11px;
+}
+
+.kanban-rpm-timeline-empty-day {
+  padding: 10px;
 }
 
 .kanban-rpm-timeline-marker {
@@ -951,9 +970,8 @@
     border-bottom: 1px solid var(--rpm-border);
   }
 
-  .kanban-rpm-timeline-header,
-  .kanban-rpm-timeline-row {
-    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  .kanban-rpm-timeline-board {
+    grid-auto-columns: minmax(190px, 82vw);
   }
 }
 

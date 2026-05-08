@@ -182,7 +182,11 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-`Timeline` view uses a Laminar-style layout: a left `Perpetual` sidebar, top range/search/scope controls, horizontal date columns, and a toggleable `Memo` row. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document. Type directly into a date memo cell to save quick text or checkbox notes in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`.
+`Timeline` view uses a Laminar-style kanban-like layout: a left `Perpetual` sidebar, top range/search/display controls, and horizontal date columns. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines. Click a marker to open its living document.
+
+The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows perpetual routines.
+
+Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md`. Use `+ todo` to add a checkbox memo and `+ text` to add a plain note. Checkbox memo cards can be checked or unchecked directly from the Timeline.
 
 Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
 
@@ -244,7 +248,7 @@ KanbanRPM shows dependency counts, blocked-by badges, broken link warnings, and 
 
 ## Timeline Memo And Weekly
 
-KanbanRPM no longer writes planning lines to external Daily notes. Use the `Timeline` view's toggleable `Memo` row for lightweight day notes, quick checkbox tasks, and small reminders that do not need their own living document.
+KanbanRPM no longer writes planning lines to external Daily notes. Use the `Timeline` view's toggleable `Memo` section for lightweight day notes, quick checkbox tasks, and small reminders that do not need their own living document.
 
 Each memo cell is stored in:
 

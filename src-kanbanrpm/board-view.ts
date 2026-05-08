@@ -24,6 +24,14 @@ interface TimelineMarker {
   card: ProjectCard;
 }
 
+interface TimelineMemoItem {
+  lineIndex: number;
+  raw: string;
+  text: string;
+  done: boolean;
+  checkbox: boolean;
+}
+
 export class KanbanRPMView extends ItemView {
   private plugin: KanbanRPMPlugin;
   private cards: ProjectCard[] = [];
@@ -762,43 +770,32 @@ export class KanbanRPMView extends ItemView {
     const main = timeline.createDiv({ cls: 'kanban-rpm-timeline-main' });
     this.renderTimelineControls(main);
 
-    const grid = main.createDiv({ cls: 'kanban-rpm-timeline-grid' });
-    const header = grid.createDiv({ cls: 'kanban-rpm-timeline-header' });
-    header.createDiv({ cls: 'kanban-rpm-timeline-corner', text: 'Timeline' });
-    const dayHeader = header.createDiv({ cls: 'kanban-rpm-timeline-days' });
+    const board = main.createDiv({ cls: 'kanban-rpm-timeline-board' });
     for (const day of days) {
-      const cell = dayHeader.createDiv({
-        cls: day === this.todayIso() ? 'kanban-rpm-timeline-day is-today' : 'kanban-rpm-timeline-day',
+      const column = board.createDiv({
+        cls: day === this.todayIso() ? 'kanban-rpm-timeline-day-column is-today' : 'kanban-rpm-timeline-day-column',
       });
-      cell.createDiv({ text: this.timelineDayLabel(day) });
-      cell.createDiv({ text: day.slice(5) });
-    }
+      const header = column.createDiv({ cls: 'kanban-rpm-timeline-day-header' });
+      header.createDiv({ cls: 'kanban-rpm-timeline-day-name', text: this.timelineDayLabel(day) });
+      header.createDiv({ cls: 'kanban-rpm-timeline-day-date', text: day.slice(5) });
 
-    if (this.timelineMemoVisible) this.renderTimelineMemoRow(grid, days);
+      if (this.timelineMemoVisible) this.renderTimelineMemoSection(column, day);
 
-    if (!markers.length) {
-      grid.createDiv({ cls: 'kanban-rpm-empty', text: 'No due, review, small-action, or recurring markers in the current window.' });
-      return;
-    }
+      const dayGroups = grouped
+        .map((group) => ({ ...group, markers: group.markers.filter((marker) => marker.date === day) }))
+        .filter((group) => group.markers.length);
 
-    for (const group of grouped) {
-      const row = grid.createDiv({ cls: 'kanban-rpm-timeline-row' });
-      const label = row.createDiv({ cls: 'kanban-rpm-timeline-row-label' });
-      label.style.setProperty('--rpm-project-color', this.projectColor(group.colorKey));
-      this.addProjectToken(label, group.colorKey);
-      label.createSpan({ text: group.label });
-      const cells = row.createDiv({ cls: 'kanban-rpm-timeline-cells' });
-      for (const day of days) {
-        const cell = cells.createDiv({
-          cls: day === this.todayIso() ? 'kanban-rpm-timeline-cell is-today' : 'kanban-rpm-timeline-cell',
-        });
-        const dayMarkers = group.markers.filter((marker) => marker.date === day);
-        for (const marker of dayMarkers.slice(0, 3)) this.renderTimelineMarker(cell, marker);
-        if (dayMarkers.length > 3) cell.createDiv({ cls: 'kanban-rpm-timeline-more', text: `+${dayMarkers.length - 3}` });
-        cell.createEl('button', { cls: 'kanban-rpm-timeline-add', text: '+' }).addEventListener('click', () => {
-          this.timelineMemoVisible = true;
-          this.render();
-        });
+      if (!dayGroups.length) {
+        column.createDiv({ cls: 'kanban-rpm-timeline-empty-day', text: 'No items' });
+      } else {
+        for (const group of dayGroups) {
+          const section = column.createDiv({ cls: 'kanban-rpm-timeline-section' });
+          const label = section.createDiv({ cls: 'kanban-rpm-timeline-section-label' });
+          label.style.setProperty('--rpm-project-color', this.projectColor(group.colorKey));
+          this.addProjectToken(label, group.colorKey);
+          label.createSpan({ text: group.label });
+          for (const marker of group.markers) this.renderTimelineMarker(section, marker);
+        }
       }
     }
   }
@@ -868,11 +865,11 @@ export class KanbanRPMView extends ItemView {
 
     const scope = controls.createEl('select', { cls: 'kanban-rpm-timeline-scope' });
     for (const [value, label] of [
-      ['all', 'Scope: All'],
-      ['review', 'Review'],
-      ['due', 'Due'],
-      ['tasks', 'Tasks'],
-      ['recurring', 'Recurring'],
+      ['all', 'Show: All markers'],
+      ['review', 'Show: Review'],
+      ['due', 'Show: Due'],
+      ['tasks', 'Show: Tasks'],
+      ['recurring', 'Show: Recurring'],
     ] as Array<[TimelineScope, string]>) {
       scope.createEl('option', { value, text: label });
     }
@@ -883,34 +880,95 @@ export class KanbanRPMView extends ItemView {
     });
   }
 
-  private renderTimelineMemoRow(container: HTMLElement, days: string[]): void {
-    const row = container.createDiv({ cls: 'kanban-rpm-timeline-row kanban-rpm-timeline-memo-row' });
-    const label = row.createDiv({ cls: 'kanban-rpm-timeline-row-label' });
-    label.createSpan({ text: 'Memo' });
-    const cells = row.createDiv({ cls: 'kanban-rpm-timeline-cells' });
-    for (const day of days) {
-      const cell = cells.createDiv({
-        cls: day === this.todayIso() ? 'kanban-rpm-timeline-cell is-today' : 'kanban-rpm-timeline-cell',
-      });
-      const memo = cell.createEl('textarea', {
-        cls: 'kanban-rpm-timeline-memo-input',
+  private renderTimelineMemoSection(container: HTMLElement, day: string): void {
+    const section = container.createDiv({ cls: 'kanban-rpm-timeline-section kanban-rpm-timeline-memo-section' });
+    const header = section.createDiv({ cls: 'kanban-rpm-timeline-section-label' });
+    header.createSpan({ text: 'Memo' });
+    const controls = header.createDiv({ cls: 'kanban-rpm-timeline-memo-controls' });
+    controls.createEl('button', { text: '+ todo' }).addEventListener('click', () => {
+      void this.addTimelineMemoLine(day, true);
+    });
+    controls.createEl('button', { text: '+ text' }).addEventListener('click', () => {
+      void this.addTimelineMemoLine(day, false);
+    });
+
+    const list = section.createDiv({ cls: 'kanban-rpm-timeline-memo-list' });
+    void this.readTimelineMemo(day).then((memo) => {
+      list.empty();
+      const items = this.parseTimelineMemoItems(memo);
+      if (!items.length) {
+        list.createDiv({ cls: 'kanban-rpm-timeline-memo-empty', text: 'No memo yet' });
+        return;
+      }
+      for (const item of items) this.renderTimelineMemoItem(list, day, memo, item);
+    });
+  }
+
+  private renderTimelineMemoItem(container: HTMLElement, day: string, memo: string, item: TimelineMemoItem): void {
+    const row = container.createDiv({
+      cls: [
+        'kanban-rpm-timeline-memo-card',
+        item.checkbox ? 'is-checkbox' : 'is-text',
+        item.checkbox && item.done ? 'is-done' : '',
+      ].filter(Boolean).join(' '),
+    });
+
+    if (item.checkbox) {
+      const checkbox = row.createEl('input', {
         attr: {
-          placeholder: '+ todo / + text',
-          'aria-label': `${day} timeline memo`,
+          type: 'checkbox',
+          'aria-label': item.text,
         },
       });
-      let focused = false;
-      memo.addEventListener('focus', () => {
-        focused = true;
-      });
-      memo.addEventListener('blur', () => {
-        focused = false;
-        void this.saveTimelineMemo(day, memo.value);
-      });
-      void this.readTimelineMemo(day).then((value) => {
-        if (!focused) memo.value = value;
+      checkbox.checked = item.done;
+      checkbox.addEventListener('change', () => {
+        void this.toggleTimelineMemoItem(day, memo, item, checkbox.checked);
       });
     }
+
+    row.createSpan({ text: item.text || item.raw });
+  }
+
+  private parseTimelineMemoItems(memo: string): TimelineMemoItem[] {
+    return memo
+      .split(/\r?\n/)
+      .map((raw, lineIndex) => {
+        const checkboxMatch = raw.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
+        if (checkboxMatch) {
+          return {
+            lineIndex,
+            raw,
+            text: checkboxMatch[2].trim(),
+            done: checkboxMatch[1].toLowerCase() === 'x',
+            checkbox: true,
+          };
+        }
+        return {
+          lineIndex,
+          raw,
+          text: raw.trim(),
+          done: false,
+          checkbox: false,
+        };
+      })
+      .filter((item) => item.text || item.raw.trim());
+  }
+
+  private async toggleTimelineMemoItem(day: string, memo: string, item: TimelineMemoItem, done: boolean): Promise<void> {
+    const lines = memo.split(/\r?\n/);
+    lines[item.lineIndex] = `- [${done ? 'x' : ' '}] ${item.text}`;
+    await this.saveTimelineMemo(day, lines.join('\n'));
+    this.render();
+  }
+
+  private async addTimelineMemoLine(day: string, checkbox: boolean): Promise<void> {
+    const value = window.prompt(checkbox ? 'New timeline todo' : 'New timeline memo');
+    if (!value?.trim()) return;
+    const memo = await this.readTimelineMemo(day);
+    const line = checkbox ? `- [ ] ${value.trim()}` : value.trim();
+    const next = memo.trimEnd() ? `${memo.trimEnd()}\n${line}` : line;
+    await this.saveTimelineMemo(day, next);
+    this.render();
   }
 
   private renderTimelineMarker(container: HTMLElement, marker: TimelineMarker): void {

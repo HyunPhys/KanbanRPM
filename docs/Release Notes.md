@@ -142,7 +142,7 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 ### Phase 4.5 Laminar-Style Timeline Layout
 
 - Reworked `Timeline` into a Laminar-style layout with a `Perpetual` sidebar and horizontal date grid.
-- Added `Today`, previous/next week, timeline search, and scope controls.
+- Added `Today`, previous/next week, timeline search, and marker-kind display controls.
 - Added a `Memo` row and day-cell `+` buttons that create/open date notes in `KanbanRPM Workspace/timeline/`.
 - Kept due, review, small-action, and recurring markers in the new layout.
 
@@ -160,3 +160,11 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 - Kept KanbanRPM planning inside the Laminar-style `Timeline` view with per-date `Memo` cells stored under `KanbanRPM Workspace/timeline/`.
 - Preserved `Weekly review` as the KanbanRPM-owned routine note workflow under `KanbanRPM Workspace/perpetual/`.
 - Updated smoke checks so the current release criteria track `Timeline`, `Weekly review`, and `Action index` instead of Daily integration.
+
+### Phase 4.8 Kanban-Like Timeline Memo Cards
+
+- Reworked Timeline from a table-like row grid into horizontal date columns with sectioned card stacks.
+- Rendered `Memo` entries as Timeline cards instead of a raw textarea.
+- Added `+ todo` and `+ text` controls for date memo cells.
+- Made checkbox memo entries clickable from the Timeline while preserving the Markdown source under `KanbanRPM Workspace/timeline/`.
+- Renamed the Timeline `Scope` control to `Show` to clarify that it filters marker kinds rather than card metadata.
