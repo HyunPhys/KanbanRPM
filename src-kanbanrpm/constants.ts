@@ -20,7 +20,7 @@ export const HIERARCHY_LEVELS = [
 
 export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   workspaceFolder: 'KanbanRPM Workspace',
-  weeklyReviewFolder: 'KanbanRPM Workspace/perpetual',
+  weeklyReviewFolder: 'KanbanRPM Workspace/routines',
   statuses: DEFAULT_STATUSES,
   categories: DEFAULT_CATEGORIES,
   cardDisplayFields: {

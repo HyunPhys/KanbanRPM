@@ -5,6 +5,59 @@ import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
 
+export class TimelineMemoModal extends Modal {
+  private day: string;
+  private value: string;
+  private onSave: (value: string) => Promise<void>;
+
+  constructor(app: App, day: string, initialValue: string, onSave: (value: string) => Promise<void>) {
+    super(app);
+    this.day = day;
+    this.value = initialValue;
+    this.onSave = onSave;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('kanban-rpm-memo-modal');
+    contentEl.createEl('h2', { text: `${this.day} Memo` });
+    contentEl.createDiv({
+      cls: 'kanban-rpm-modal-help',
+      text: 'Write Markdown for this Timeline date. Checkbox lines can be toggled from the Timeline preview.',
+    });
+
+    const editor = contentEl.createEl('textarea', {
+      cls: 'kanban-rpm-timeline-memo-modal-input',
+      attr: { 'aria-label': `${this.day} Timeline memo` },
+    });
+    editor.value = this.value;
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    editor.addEventListener('input', () => {
+      this.value = editor.value;
+    });
+
+    new Setting(contentEl)
+      .addButton((button) => {
+        button
+          .setButtonText('Save memo')
+          .setCta()
+          .onClick(() => {
+            void this.save();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText('Cancel').onClick(() => this.close());
+      });
+  }
+
+  private async save(): Promise<void> {
+    await this.onSave(this.value);
+    this.close();
+  }
+}
+
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
   private parentOptions: ProjectCard[] = [];
@@ -160,8 +213,8 @@ export class NewProjectCardModal extends Modal {
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
     this.addListField(details, 'Additional projects', '[[TTT]]\n[[Lab Setup]]', 'projects');
     this.addListField(details, 'Additional subprojects', '[[TTT Experiment]]\n[[Furnace Setup]]', 'subprojects');
-    this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
-    this.addListField(details, 'Blocks', 'missing quote', 'blocks');
+    this.addListField(details, 'Preceded by', '[[Drawing]]\n[[Quotation]]', 'dependsOn');
+    this.addListField(details, 'Followed by', '[[Purchase review]]', 'blocks');
   }
 
   private addVocabularyDropdown(
@@ -441,8 +494,8 @@ export class EditProjectCardModal extends Modal {
     this.addListField(details, 'Source notes', '[[250506 Lab setup meeting]]', 'sourceNotes');
     this.addListField(details, 'Additional projects', '[[TTT]]\n[[Lab Setup]]', 'projects');
     this.addListField(details, 'Additional subprojects', '[[TTT Experiment]]\n[[Furnace Setup]]', 'subprojects');
-    this.addListField(details, 'Depends on', 'drawing\nquotation', 'dependsOn');
-    this.addListField(details, 'Blocks', 'missing quote', 'blocks');
+    this.addListField(details, 'Preceded by', '[[Drawing]]\n[[Quotation]]', 'dependsOn');
+    this.addListField(details, 'Followed by', '[[Purchase review]]', 'blocks');
   }
 
   private addVocabularyDropdown(

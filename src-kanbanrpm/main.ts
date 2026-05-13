@@ -65,6 +65,12 @@ export default class KanbanRPMPlugin extends Plugin {
       callback: () => void this.openWeeklyReview(),
     });
 
+    this.addCommand({
+      id: 'write-management-brief',
+      name: 'Write management brief',
+      callback: () => void this.writeManagementBrief(),
+    });
+
     this.addSettingTab(new KanbanRPMSettingTab(this.app, this));
   }
 
@@ -74,9 +80,14 @@ export default class KanbanRPMPlugin extends Plugin {
 
   private normalizeSettings(data: Partial<KanbanRPMSettings> | null): KanbanRPMSettings {
     const saved = data ?? {};
+    const weeklyReviewFolder =
+      saved.weeklyReviewFolder === 'KanbanRPM Workspace/perpetual' || saved.weeklyReviewFolder?.match(/[\\/]perpetual$/)
+        ? saved.weeklyReviewFolder.replace(/[\\/]perpetual$/, '/routines')
+        : saved.weeklyReviewFolder;
     return {
       ...DEFAULT_SETTINGS,
       ...saved,
+      weeklyReviewFolder: weeklyReviewFolder || DEFAULT_SETTINGS.weeklyReviewFolder,
       statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
       categories: saved.categories?.length ? saved.categories : DEFAULT_SETTINGS.categories,
       cardDisplayFields: {
@@ -132,8 +143,16 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/arrows`);
   }
 
+  get routinesFolder(): string {
+    return normalizePath(`${this.workspaceFolder}/routines`);
+  }
+
   get schemaReferencePath(): string {
     return normalizePath(`${this.workspaceFolder}/KanbanRPM Card Schema.md`);
+  }
+
+  get managementBriefPath(): string {
+    return normalizePath(`${this.workspaceFolder}/KanbanRPM Management Brief.md`);
   }
 
   isCardPath(path: string): boolean {
@@ -145,12 +164,13 @@ export default class KanbanRPMPlugin extends Plugin {
   }
 
   async ensureWorkspace(): Promise<void> {
+    await this.migrateLegacyRoutineFolder();
     const folders = [
       this.workspaceFolder,
       this.cardsFolder,
       this.archiveFolder,
       this.arrowsFolder,
-      `${this.workspaceFolder}/perpetual`,
+      this.routinesFolder,
       `${this.workspaceFolder}/timeline`,
       `${this.workspaceFolder}/attachments`,
     ].map(normalizePath);
@@ -160,6 +180,15 @@ export default class KanbanRPMPlugin extends Plugin {
         await this.app.vault.createFolder(folder);
       }
     }
+  }
+
+  private async migrateLegacyRoutineFolder(): Promise<void> {
+    const legacy = normalizePath(`${this.workspaceFolder}/perpetual`);
+    const next = this.routinesFolder;
+    const legacyFolder = this.app.vault.getAbstractFileByPath(legacy);
+    const nextFolder = this.app.vault.getAbstractFileByPath(next);
+    if (!legacyFolder || nextFolder) return;
+    await this.app.fileManager.renameFile(legacyFolder, next);
   }
 
   async openBoard(): Promise<void> {
@@ -221,6 +250,18 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.toggleSmallAction(action);
   }
 
+  async completeRoutine(cardPath: string, routineText: string, date: string): Promise<void> {
+    await this.repository.completeRoutine(cardPath, routineText, date);
+  }
+
+  async addPrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    await this.repository.addPrecededBy(targetPath, sourceCard);
+  }
+
+  async removePrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    await this.repository.removePrecededBy(targetPath, sourceCard);
+  }
+
   async archiveCard(card: ProjectCard): Promise<void> {
     await this.repository.archiveCard(card);
   }
@@ -243,6 +284,10 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async writeDependencyArrows(cards?: ProjectCard[]): Promise<void> {
     await this.repository.writeDependencyArrows(cards);
+  }
+
+  async writeManagementBrief(cards?: ProjectCard[]): Promise<void> {
+    await this.repository.writeManagementBrief(cards);
   }
 
   resolveLinkedFile(link: string, sourcePath: string): TFile | null {

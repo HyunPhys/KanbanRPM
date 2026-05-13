@@ -44,7 +44,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Global status set')
-      .setDesc('One status per line. Format: id | Label. Used by Board, Table, List, Timeline, and Graph.')
+      .setDesc('One status per line. Format: id | Label. Used by Board, Table, List, and Timeline.')
       .addTextArea((input) => {
         input
           .setPlaceholder(serializeStatuses(DEFAULT_SETTINGS.statuses))
@@ -90,7 +90,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       ['waiting', 'Waiting'],
       ['blockers', 'Blockers'],
       ['dates', 'Due / review dates'],
-      ['dependencies', 'Dependencies'],
+      ['dependencies', 'Flow'],
       ['sources', 'Source note count'],
       ['smallActionSummary', 'Small action summary'],
     ] as const) {

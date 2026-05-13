@@ -24,12 +24,12 @@ Important user feedback:
 - Status lanes must be user-customizable.
 - The current model does not naturally express `Project -> Subproject -> Big Action -> checkbox task`.
 - Cards must visually show their Project/Subproject ownership.
-- Board, Table, List, Laminar-style Timeline, Dependency Panel, and eventually Graph view are needed.
+- Board, Table, List, Laminar-style Timeline, and board-integrated flow arrows are needed.
 - Cards must be living documents, not disposable database rows.
 
 Current uncommitted work:
 
-- Initial code has started for customizable statuses, living-doc section parsing, dependency extraction, metadata compaction, and expanded card types.
+- Initial code has started for customizable statuses, living-doc section parsing, flow extraction, metadata compaction, and expanded card types.
 - Treat this as Phase 1 draft work, not a stable checkpoint yet.
 
 ## Phase 0. Stabilize v0.2 Branch
@@ -70,8 +70,8 @@ Tasks:
   - `## Current Focus`
   - `## Subprojects`
   - `## Big Actions`
-  - `## Dependencies`
-  - `## Perpetual`
+  - `## Flow`
+  - `## Routine`
   - `## PM Metadata`
 - Keep old v0.1 cards readable as legacy cards.
 - Add `KanbanRPM: Compact card metadata`.
@@ -105,7 +105,7 @@ Deferred to Phase 4:
 
 Done when:
 
-- “All cards” view still shows ownership clearly.
+- ?쏛ll cards??view still shows ownership clearly.
 - Project/Subproject/Big Action tree is visible in List view.
 - Detailed checkbox tasks remain in source documents unless explicitly promoted.
 
@@ -167,71 +167,85 @@ Phase 3.7 cleanup:
 
 ## Phase 4. Board, Table, And List Views
 
+Status: Implemented.
+
 Goal: support the core Kanban plugin style views while keeping KanbanRPM PM semantics.
 
-Tasks:
+Implemented:
 
-- Add toolbar view switcher:
+- Added toolbar view switcher:
   ```text
-  Board | Table | List
+  Board | Table | List | Timeline
   ```
 - Board:
   - status lanes
-  - project grouping toggle
-  - breadcrumb and dependency badges
+  - adaptive Project/Subproject grouping
+  - project color stripes and compact breadcrumbs
+  - compact card actions and small-action summaries
 - Table:
   - sortable/filterable rows
-  - columns: title, breadcrumb, type, status, next action, due/review, dependency state, action count
+  - columns: title, breadcrumb, type, status, next action, due/review, flow state, action count
   - inline status change
 - List:
   - collapsible tree: Project -> Subproject -> Big Action
   - checkbox count and blocked indicator
   - click opens the living document
+- Timeline:
+  - Laminar-style horizontal date columns
+  - fixed controls, today navigation, range controls, and status filters
+  - date Memo cards backed by lazy-created Markdown files
+  - Memo modal editing with Markdown preview and clickable checkbox toggles
+  - due/review/small-action/routine markers
 
 Done when:
 
 - Board, Table, and List all show the same indexed data.
 - Switching views does not reload or lose filters unexpectedly.
 - User can manage projects without opening raw YAML.
+- Timeline Memo no longer depends on fragile inline textarea editing.
 
-## Phase 5. Dependency Panel
+## Phase 5. Flow Index
 
-Goal: make dependency/arrows actually affect project management.
+Status: Implemented.
 
-Tasks:
+Goal: make flow/arrows actually affect project management.
 
-- Parse `## Dependencies`:
+Implemented:
+
+- Parse `## Flow`:
   ```markdown
-  Depends on:
+  Preceded by:
   - [[Upstream Work]]
 
-  Blocks:
+  Followed by:
   - [[Downstream Work]]
   ```
-- Build a dependency index.
-- Add a Dependency Panel showing:
-  - upstream dependencies
-  - downstream blocked items
+- Build a flow index.
+- Add flow indexing for:
+  - upstream predecessor items
+  - downstream follower items
   - status of linked items
   - broken links
   - circular dependencies
-- Add `blocked by` indicator when upstream is not `Done`.
-- Show dependency counts and blocked badges in Board/Table/List.
-- Replace or de-emphasize `Write arrows`; arrow files become optional export, not the main dependency feature.
+- Add waiting indicator when preceding work is not `Done`.
+- Show flow counts and waiting badges in Board/Table/List.
+- Replace or de-emphasize `Write arrows`; arrow files become optional export, not the main flow feature.
 
 Done when:
 
-- A user can see why a project is blocked.
+- A user can see what preceding work is holding a project.
 - Broken/circular dependencies appear in `Data warnings`.
-- Dependency relationships are visible without opening generated arrow files.
+- Flow relationships are visible without opening generated arrow files.
 
-## Phase 6. Perpetual And Timeline Strip
+## Phase 6. Routine And Timeline Strip
+
+Status: Implemented.
 
 Goal: bring Laminar-like rhythm and time-awareness into KanbanRPM.
 
-Tasks:
+Implemented:
 
-- Parse `## Perpetual` items:
+- Parse `## Routine` items:
   ```markdown
   - [ ] Weekly TTT Review @weekly
   - [ ] TEM Data Backup @monthly
@@ -246,52 +260,56 @@ Tasks:
   - today marker
   - due date markers
   - next review markers
-  - recurring/perpetual markers
+  - recurring/routine markers
   - project/subproject rows
+- Group the `Routine` sidebar by cadence and show the next visible occurrence in the current Timeline range.
+- Use the Timeline `Show: Recurring` filter for recurring marker-only display.
+- Support `@start YYYY-MM-DD` and custom `@every 3d/2w/1m` schedules.
+- Log routine completion to `### Routine Log` without permanently checking off the recurring routine.
+- Store `### Routine Log` as a Markdown table.
+- Hide routines that are already completed inside the active recurrence period.
+- Sort routine groups from higher frequency to lower frequency and make groups collapsible.
 - v0.2 does not support dragging timeline markers to change dates.
 
 Done when:
 
-- User can see this week’s review/deadline/recurring rhythm.
+- User can see this week?셲 review/deadline/recurring rhythm.
 - Timeline feels Laminar-inspired: horizontal, temporal, project-aware.
 
-## Phase 7. Laminar-Style Graph View
+## Phase 7. Board Flow Arrows
 
-Goal: add a visual node/arrow graph using the dependency index.
+Status: Implemented.
 
-Tasks:
+Goal: add Laminar-style arrows directly on the Board.
 
-- Add view switcher entry:
-  ```text
-  Graph
-  ```
-- Use Project/Subproject/Big Action documents as nodes.
-- Use dependency index as edges.
-- Implement MVP graph:
-  - automatic layout
-  - pan/zoom
-  - node click opens document
-  - status-based node colors
-  - project filter
-  - broken edge warning
-- Do not store manual node positions in v0.2.
+Implemented:
+
+- Replaced user-facing `Depends on` / `Blocks` with `Flow`, `Preceded by`, and `Followed by`.
+- New documents use `### Flow` while legacy `### Dependencies` remains readable.
+- Removed `Graph` from the main toolbar.
+- Added left/right connector dots to Board cards.
+- Added read-only Board arrows from predecessor to follower.
+- Warning-colored arrows mean the predecessor is not `Done`; muted arrows mean the predecessor is complete.
 
 Done when:
 
-- Dependency Panel and Graph show consistent relationships.
-- Graph helps inspect project structure rather than just looking decorative.
+- Board arrows show the same relationships stored in `### Flow`.
+- Flow arrows help inspect and edit project structure without leaving the Board.
 
 ## Phase 8. Documentation, Migration Guide, And Release
 
+Status: Implemented; awaiting final manual Obsidian QA and optional git tag.
+
 Goal: prepare v0.2 as a usable upgrade from v0.1.0.
 
-Tasks:
+Implemented:
 
 - Update English and Korean manuals.
 - Add v0.1 -> v0.2 migration guide.
 - Update schema docs.
 - Update release notes.
 - Add v0.2 release QA checklist.
+- Bump package, manifest, and versions metadata to `0.2.0`.
 - Run:
   ```text
   npm run check
@@ -304,9 +322,9 @@ Tasks:
   - custom statuses
   - drag/drop
   - Board/Table/List
-  - Dependency Panel
+  - Board flow arrows
   - Timeline
-  - Graph
+  - Board flow arrows
 - Commit and tag `v0.2.0`.
 
 Done when:

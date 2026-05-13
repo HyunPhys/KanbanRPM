@@ -24,7 +24,7 @@ KanbanRPM creates its workspace when needed:
 KanbanRPM Workspace/
   cards/
   arrows/
-  perpetual/
+  routine/
   timeline/
   attachments/
   archive/
@@ -76,8 +76,8 @@ Optional fields are under `Advanced metadata`:
 - `Next review`
 - `Due date`
 - `Source notes`
-- `Depends on`
-- `Blocks`
+- `Preceded by`
+- `Followed by`
 
 `Category` is stored as `workstream_type`. It is the only broad classification field; KanbanRPM no longer uses separate `area`, `project_kind`, `importance`, or `stage` fields.
 
@@ -122,11 +122,11 @@ New documents split plugin-readable control data from the free writing area:
 
 ### Blockers
 
-### Dependencies
+### Flow
 
 ### Timeline
 
-### Perpetual
+### Routine
 
 ### References
 
@@ -147,7 +147,9 @@ New documents split plugin-readable control data from the free writing area:
 
 ## Board Use
 
-Cards show a `Project > Subproject` breadcrumb and a project color token, so the board stays readable even when many projects are visible.
+Cards use color only for Project identity. Project/Subproject/Big Action roles are shown with different stripe thicknesses inside a fixed-width left gutter, so card text starts at the same position across types.
+
+Subproject cards show only the owning `Project` in the breadcrumb. Big Action cards show the primary hierarchy as two compact lines: `Project`, then `> Subproject`.
 
 Project documents are not shown inside status lanes. They appear in a `Project notes` strip directly above the board. Click a project name to open the living Project document. When the `Project` filter is `All`, the strip shows all Project notes. When one Project is selected, it shows only that Project note. Use the strip's `Collapse` button when you want the board to use more vertical space.
 
@@ -178,21 +180,47 @@ Cards with multiple Project/Subproject links can appear under each matching filt
 
 Drag a card to another lane to update `status`. Drag within a lane to update `order`. Card buttons do not start drag.
 
-`Table` view shows the same filtered card set in sortable rows. Click a column header to sort by title, project, type, status, priority, date, dependency count, or action count. Use the `Status` dropdown in a row to move that document without returning to the board.
+`Table` view shows the same filtered card set in sortable rows. Click a column header to sort by title, project, type, status, priority, date, flow count, or action count. Use the `Status` dropdown in a row to move that document without returning to the board.
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-`Timeline` view uses a Laminar-style kanban-like layout: a left `Perpetual` sidebar, top range/search/display controls, and horizontal date columns. By default it shows 7 days before through 7 days after the base date, which starts as today. Use `Today`, `-7`, `+7`, the base date field, or the explicit `YYYY.MM.DD` to `YYYY.MM.DD` range fields to change the window. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Perpetual` routines.
+Board cards include small left/right flow dots. The left dot represents incoming `Preceded by` flow, and the right dot represents outgoing `Followed by` flow. Drag a card's right dot toward another card's left connector area to create a flow arrow; the drop target is intentionally wider than the visible dot and highlights while dragging. KanbanRPM stores that arrow by adding the source card to the target card's `Preceded by` list. Existing flow links are drawn directly on the board as curved arrows from predecessor to follower. Click an arrow to remove the link after confirmation. Grey arrows mean the predecessor is in a completion status such as `Done`, `Completed`, or `?꾨즺`; warning-colored arrows mean the follower is still waiting on unfinished preceding work. If your custom status set has no completion status, flow arrows stay in the warning state until one is added or renamed.
 
-Timeline only shows cards whose status is enabled in the collapsed Timeline `Statuses` filter. The default is `Active`. Cards without a timeline marker date do not appear in the date columns. Timeline markers show the card breadcrumb, status, priority, status dropdown, and a compact small-action list when available. Click the marker title to open its living document.
+`Timeline` view uses a Laminar-style kanban-like layout: a left `Routine` sidebar, top range/search/display controls, and horizontal date columns. By default it shows 7 days before through 7 days after the base date, which starts as today. Use `Today`, `-7`, `+7`, the base date field, or the explicit `YYYY.MM.DD` to `YYYY.MM.DD` range fields to change the window. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Routine` items.
 
-The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows perpetual routines.
+Timeline only shows cards whose status is enabled in the collapsed Timeline `Statuses` filter. The default is `Active`. Cards without a timeline marker date do not appear in the date columns. Due, review, and dated small-action markers show the card breadcrumb, status, priority, status dropdown, and a compact small-action list when available. Recurring `Routine` items appear as compact chips instead of full cards; use the `Routine` sidebar for routine completion. Click a marker title or recurring chip to open its living document.
 
-Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md` only after you save a memo for that date. Timeline does not create date memo files just by viewing a range. Use `+ todo` or `+ text` to open an inline multi-line editor. The preview renders simple Markdown headings, bullet lists, paragraphs, and checkboxes. Checked checkbox lines render with a strikethrough and can be toggled directly from preview mode. Use the pencil icon to edit the whole memo, then click the check icon to save.
+The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows compact recurring chips for routines.
 
-`Perpetual` reads checkbox lines in a card's `### Perpetual` or `## Perpetual` section using `@daily`, `@weekly`, or `@monthly`. Daily routines appear on every visible day, weekly routines appear on the same weekday as the base date, and monthly routines appear on the same day-of-month as the base date.
+Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md` only after you save a memo for that date. Timeline does not create date memo files just by viewing a range. Use `+ todo`, `+ text`, or the pencil icon to open the date Memo modal. The modal edits the date file's `## Memo` section as normal multi-line Markdown. The Timeline preview renders simple Markdown headings, bullet lists, paragraphs, and checkboxes. Checked checkbox lines render with a strikethrough and can be toggled directly from preview mode.
 
-Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, dates, sources, and small-action summaries.
+`Routine` reads checkbox lines in a card's `### Routine` or `## Routine` section. Every routine should include a start date:
+
+```markdown
+- [ ] Daily Lab Note Check @daily @start 2026-05-13
+- [ ] Weekly TTT Review @weekly @start 2026-05-13
+- [ ] TEM Data Backup @monthly @start 2026-05-13
+- [ ] Change glovebox purifier @every 10d @start 2026-05-13
+- [ ] Safety form audit @every 2w @start 2026-05-13
+```
+
+Older documents that still use `### Perpetual` or `### Perpetual Log` continue to load as legacy aliases. New documents use `### Routine` and `### Routine Log`.
+
+Daily routines appear only for today in the Timeline and Routine sidebar, even when the visible range includes other dates. Weekly routines repeat on the same weekday as the start date. Monthly routines repeat on the same day-of-month as the start date. Custom `@every` routines support `d`, `w`, and `m` units.
+
+The `Routine` sidebar groups routines by frequency, from most frequent to least frequent. Custom intervals are grouped separately, such as `Every 2D` and `Every 2W`, and groups can be collapsed with the triangle toggle. The sidebar shows routines from the current Project/Subproject/Category filter even if their card status is hidden from Timeline markers. Routines must include `@start YYYY-MM-DD` to appear on the Timeline, and routines with no occurrence inside the current Timeline range are hidden from the sidebar. Use the Timeline `Show: Recurring` filter when you want the date columns to show only recurring markers. Clicking `Done` logs completion to the owning card's `### Routine Log` as a Markdown table row without permanently checking off the routine. A completed routine is hidden for that active recurrence period. Recurring routines also appear in `Action index` as recurring items; they can be opened or copied into `Current Focus`, but they are not promoted into new Big Action documents.
+
+Routine log format:
+
+```markdown
+### Routine Log
+
+| Date | Routine |
+| --- | --- |
+| 2026-05-13 | Weekly TTT Review |
+```
+
+Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Flow`, dates, sources, and small-action summaries.
 
 ## Small Actions
 
@@ -201,20 +229,20 @@ Small actions are checkbox tasks inside the living document. They stay in the Ma
 KanbanRPM reads Tasks-style emoji metadata:
 
 ```markdown
-- [ ] Stack TTT sample ⏳ 2026-05-10 📅 2026-05-14 🔼
-- [x] Confirm mask design ✅ 2026-05-07
+- [ ] Stack TTT sample ??2026-05-10 ?뱟 2026-05-14 ?뵾
+- [x] Confirm mask design ??2026-05-07
 ```
 
 Supported metadata:
 
-- `scheduled`: `⏳ YYYY-MM-DD`
-- `due`: `📅 YYYY-MM-DD`
-- `done`: `✅ YYYY-MM-DD`
-- priority: `⏫`, `🔼`, `🔽`, `⏬`
+- `scheduled`: `??YYYY-MM-DD`
+- `due`: `?뱟 YYYY-MM-DD`
+- `done`: `??YYYY-MM-DD`
+- priority: `??, `?뵾`, `?뵿`, `??
 
-Board cards show a collapsible small-action row. Click `▶ Small actions` to expand and `▼ Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
+Board cards show a collapsible small-action row. Click `??Small actions` to expand and `??Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
 
-You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `✅ YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `??YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
 
 Small-action settings:
 
@@ -234,21 +262,21 @@ Use:
 - `Set next`: copy the action into `## Current Focus`.
 - `Promote`: create a new `Big Action` document from the action.
 
-## Dependencies
+## Flow
 
-Write dependencies in the document body:
+Write flow links in the document body:
 
 ```markdown
-## Dependencies
+## Flow
 
-Depends on:
+Preceded by:
 - [[TTT Data Processing]]
 
-Blocks:
+Followed by:
 - [[TTT Manuscript]]
 ```
 
-KanbanRPM shows dependency counts, blocked-by badges, broken link warnings, and circular dependency warnings. `Export arrows` writes Laminar-style arrow notes under `KanbanRPM Workspace/arrows/`.
+KanbanRPM shows flow directly on the Board with connector dots and arrows. Drag from a right dot to another card's left connector area to create a link; click an arrow to remove it. Flow counts and waiting badges also appear on Board/Table/List surfaces. Broken flow links and circular flow appear in `Data warnings`. `Export arrows` is optional: it writes Laminar-style arrow notes under `KanbanRPM Workspace/arrows/` for compatibility/reference. Existing legacy `## Dependencies` sections with `Depends on` / `Blocks` are still read as compatibility input.
 
 ## Timeline Memo And Weekly
 
@@ -260,7 +288,9 @@ Each memo cell is stored in:
 KanbanRPM Workspace/timeline/YYYY-MM-DD.md
 ```
 
-`Weekly review` creates or opens a KanbanRPM-owned weekly review note under `KanbanRPM Workspace/perpetual/`.
+`Weekly review` creates or opens a KanbanRPM-owned weekly review note under `KanbanRPM Workspace/routines/`.
+
+`Management brief` creates or updates `KanbanRPM Workspace/KanbanRPM Management Brief.md` and opens it. The brief is a generated project-management snapshot for human review and LLM-assisted planning. It includes status counts, Project sections, upcoming due/review dates, Waiting, Blocked, Flow risks, Routines, and Data warnings. It is safe to regenerate; edit living documents rather than editing the generated brief as source data.
 
 ## Data Warnings
 
@@ -270,8 +300,8 @@ Open `Data warnings` from the panel buttons next to the filters. It warns about:
 - invalid `priority`
 - unknown `Category`
 - non-numeric `order`
-- broken wikilinks in `## References` or `## Dependencies`
-- circular dependency
+- broken wikilinks in `## References` or `## Flow`
+- circular flow
 
 Click a warning row to open the affected document.
 

@@ -39,13 +39,13 @@ Default \`status\` values:
 ${DEFAULT_STATUSES.map((status) => status.id).join(' | ')}
 \`\`\`
 
-The active status set is global and editable in KanbanRPM settings. Every Board/List/Table/Timeline/Graph surface should read the same status set.
+The active status set is global and editable in KanbanRPM settings. Every Board/List/Table/Timeline surface should read the same status set.
 
 \`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
 
 \`projects\` and \`subprojects\` are multi-link hierarchy arrays. \`primary_project\` and \`primary_subproject\` define the default breadcrumb and future hierarchy folder placement. Legacy \`project\` and \`subproject\` fields are read as fallback only.
 
-Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Dependencies\`, \`### Timeline\`, and \`### PM Metadata\`.
+Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Flow\`, \`### Timeline\`, and \`### PM Metadata\`.
 
 ## Body-Backed Planning Fields
 
@@ -60,8 +60,9 @@ Rich planning data belongs in the document body:
 - \`### Current Focus\` for the next visible action.
 - \`### Waiting\` for people or responses you are waiting on.
 - \`### Blockers\` for concrete blockers.
-- \`### Dependencies\` for \`Depends on\` and \`Blocks\` wikilinks.
+- \`### Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
 - \`### Timeline\` for \`Next review\` and \`Due date\`.
+- \`### Routine\` for recurring review/checkup routines.
 - \`### References\` for source notes that feed the Action index.
 
 \`## PM Control\` is the plugin-readable area. \`## Working Notes\` is the human writing area. New Project/Subproject/Big Action documents use different working-note sections.
@@ -116,7 +117,7 @@ The board shows \`Data warnings\` for:
 - invalid \`priority\`
 - unknown \`workstream_type\` / \`Category\`
 - non-numeric \`order\`
-- broken wikilinks in \`## References\` or \`## Dependencies\`
+- broken wikilinks in \`## References\` or \`## Flow\`
 
 KanbanRPM tries to display imperfect cards rather than hiding them. Invalid \`status\` falls back to \`Inbox\` for display.
 `;

@@ -72,11 +72,13 @@ export class CardRepository {
         blocker: sectionData.blocker,
         nextReview: sectionData.nextReview,
         dueDate: sectionData.dueDate,
+        precededBy: sectionData.dependsOn,
+        followedBy: sectionData.blocks,
         dependsOn: sectionData.dependsOn,
         blocks: sectionData.blocks,
         blockedBy: [],
         sourceNotes: sectionData.sourceNotes,
-        perpetuals: sectionData.perpetuals.map((item) => ({
+        routines: sectionData.routines.map((item) => ({
           ...item,
           cardPath: file.path,
           cardTitle: this.getDocumentTitle(content) || file.basename,
@@ -229,12 +231,60 @@ export class CardRepository {
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const nextLine = action.done
       ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, '$1[ ]').replace(/\s*\u{2705}\s*\d{4}-\d{2}-\d{2}/u, '')
-      : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ✅ ${todayIso}`);
+      : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ??${todayIso}`);
 
     lines[index] = nextLine;
     const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), this.smallActionTimelineLog(action, todayIso, file));
     await this.plugin.app.vault.modify(file, nextContent);
     await this.plugin.refreshViews();
+  }
+
+  async completeRoutine(cardPath: string, routineText: string, date: string): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
+    if (!(file instanceof TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    const entry = `| ${date} | ${routineText} |`;
+    const next = this.prependRoutineLog(content, entry);
+    if (next !== content) await this.plugin.app.vault.modify(file, next);
+    new Notice(`Logged routine: ${routineText}`);
+    await this.plugin.refreshViews();
+  }
+
+  async addPrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(targetPath);
+    if (!(file instanceof TFile)) return;
+    if (targetPath === sourceCard.path) {
+      new Notice('KanbanRPM cannot create a flow arrow to the same card.');
+      return;
+    }
+
+    const content = await this.plugin.app.vault.read(file);
+    const link = `[[${sourceCard.file.basename}]]`;
+    const next = this.updateFlowList(content, 'Preceded by', link, 'add');
+    if (next === content) {
+      new Notice('KanbanRPM flow link already exists.');
+      return;
+    }
+
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new Notice(`KanbanRPM flow added: ${sourceCard.title} -> ${file.basename}`);
+  }
+
+  async removePrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(targetPath);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const next = this.updateFlowList(content, 'Preceded by', `[[${sourceCard.file.basename}]]`, 'remove', sourceCard);
+    if (next === content) {
+      new Notice('KanbanRPM could not find that flow link.');
+      return;
+    }
+
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new Notice(`KanbanRPM flow removed: ${sourceCard.title} -> ${file.basename}`);
   }
 
   async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
@@ -358,6 +408,21 @@ export class CardRepository {
           });
         });
       }
+
+      for (const item of card.routines) {
+        const key = `${card.path}|routine|${item.cadence}|${item.text}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({
+          cardPath: card.path,
+          cardTitle: card.title,
+          sourcePath: card.path,
+          sourceLabel: card.file.basename,
+          lineNumber: 0,
+          text: `${item.text} ${this.routineScheduleLabel(item)}`,
+          recurring: true,
+        });
+      }
     }
 
     return items;
@@ -416,10 +481,29 @@ export class CardRepository {
       const order = text(fm.order).trim();
       if (order && !Number.isFinite(Number(order))) add('warning', 'order', `order should be numeric; current value is "${order}".`);
 
-      const refs = [card.primaryProject, card.primarySubproject, ...card.projects, ...card.subprojects, ...card.sourceNotes, ...card.dependsOn, ...card.blocks].filter(Boolean);
+      for (const routine of card.routines) {
+        if (!routine.startDate) add('warning', 'routine', `Routine "${routine.text}" must include @start YYYY-MM-DD to appear on the Timeline.`);
+        if (routine.cadence === 'custom' && (!Number.isFinite(routine.interval) || routine.interval < 1)) {
+          add('warning', 'routine', `Routine "${routine.text}" has an invalid @every interval.`);
+        }
+      }
+
+      const refs = [card.primaryProject, card.primarySubproject, ...card.projects, ...card.subprojects, ...card.sourceNotes].filter(Boolean);
       for (const ref of refs) {
         if (ref.includes('[[') && !this.resolveLinkedFile(ref, card.path)) {
           add('warning', 'links', `Could not resolve linked note ${ref}.`);
+        }
+      }
+
+      for (const dependency of card.precededBy) {
+        if (dependency.includes('[[') && !this.resolveLinkedFile(dependency, card.path)) {
+          add('warning', 'dependencies', `Preceded by unresolved note ${dependency}.`);
+        }
+      }
+
+      for (const blocked of card.followedBy) {
+        if (blocked.includes('[[') && !this.resolveLinkedFile(blocked, card.path)) {
+          add('warning', 'dependencies', `Followed by unresolved note ${blocked}.`);
         }
       }
 
@@ -440,7 +524,7 @@ export class CardRepository {
     for (const card of sourceCards) {
       const cardLink = `[[${card.file.basename}]]`;
 
-      for (const dependency of card.dependsOn) {
+      for (const dependency of card.precededBy) {
         const name = sanitizeFileName(`${dependency} to ${card.title}`);
         const path = normalizePath(`${this.plugin.arrowsFolder}/${name}.md`);
         if (this.plugin.app.vault.getAbstractFileByPath(path)) continue;
@@ -450,8 +534,8 @@ export class CardRepository {
         created += 1;
       }
 
-      for (const blocked of card.blocks) {
-        const name = sanitizeFileName(`${card.title} blocks ${blocked}`);
+      for (const blocked of card.followedBy) {
+        const name = sanitizeFileName(`${card.title} followed by ${blocked}`);
         const path = normalizePath(`${this.plugin.arrowsFolder}/${name}.md`);
         if (this.plugin.app.vault.getAbstractFileByPath(path)) continue;
 
@@ -464,6 +548,22 @@ export class CardRepository {
     new Notice(`KanbanRPM wrote ${created} dependency arrow notes.`);
   }
 
+  async writeManagementBrief(cards?: ProjectCard[]): Promise<void> {
+    await this.plugin.ensureWorkspace();
+    const sourceCards = cards ?? (await this.loadCards());
+    const content = this.renderManagementBrief(sourceCards);
+    const existing = this.plugin.app.vault.getAbstractFileByPath(this.plugin.managementBriefPath);
+    let file: TFile;
+    if (existing instanceof TFile) {
+      await this.plugin.app.vault.modify(existing, content);
+      file = existing;
+    } else {
+      file = await this.plugin.app.vault.create(this.plugin.managementBriefPath, content);
+    }
+    new Notice('KanbanRPM management brief updated.');
+    await this.plugin.app.workspace.getLeaf(false).openFile(file);
+  }
+
   resolveLinkedFile(link: string, sourcePath: string): TFile | null {
     const target = getWikiLinkTarget(link);
     if (!target) return null;
@@ -474,6 +574,162 @@ export class CardRepository {
     const normalized = normalizePath(target.endsWith('.md') ? target : `${target}.md`);
     const direct = this.plugin.app.vault.getAbstractFileByPath(normalized);
     return direct instanceof TFile ? direct : null;
+  }
+
+  private renderManagementBrief(cards: ProjectCard[]): string {
+    const sorted = [...cards].sort(compareCards);
+    const today = this.todayIso();
+    const soon = this.addDays(today, 14);
+    const boardCards = sorted.filter((card) => card.type !== 'project');
+    const projectCards = sorted.filter((card) => card.type === 'project');
+    const statusCounts = this.plugin.settings.statuses
+      .map((status) => `| ${status.label} | ${cards.filter((card) => card.status === status.id).length} |`)
+      .join('\n');
+    const warningRows = this.validateCards(cards)
+      .slice(0, 30)
+      .map((issue) => `- ${issue.level.toUpperCase()} [[${issue.cardTitle}]]: ${issue.message}`)
+      .join('\n');
+    const dueSoon = boardCards
+      .filter((card) => (card.dueDate && card.dueDate <= soon) || (card.nextReview && card.nextReview <= soon))
+      .sort((a, b) => (a.dueDate || a.nextReview || '').localeCompare(b.dueDate || b.nextReview || '') || a.title.localeCompare(b.title));
+    const waiting = boardCards.filter((card) => card.waitingFor || card.status === this.statusId('waiting')).sort(compareCards);
+    const blocked = boardCards.filter((card) => card.blocker || card.blockedBy.length || card.status === this.statusId('blocked')).sort(compareCards);
+    const routines = boardCards.flatMap((card) => card.routines.map((routine) => ({ card, routine })));
+    const smallActionCount = boardCards.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0);
+
+    return `# KanbanRPM Management Brief
+
+Generated: ${today}
+
+> [!kanban-rpm]
+> This file is generated by KanbanRPM. It is designed as a compact project-management brief for human review and LLM-assisted planning.
+
+## How To Use With An LLM
+
+Ask for advice against this brief first. If more detail is needed, open the linked living documents.
+
+Suggested prompt:
+
+\`\`\`text
+Read this KanbanRPM Management Brief as my research project-management context.
+Identify the highest-risk blockers, stale waiting items, upcoming deadlines/reviews, and the next 3-5 actions I should focus on.
+Do not invent missing facts; point to the linked cards that need more information.
+\`\`\`
+
+## Snapshot
+
+| Metric | Count |
+| --- | ---: |
+| Projects | ${projectCards.length} |
+| Subprojects | ${cards.filter((card) => card.type === 'subproject').length} |
+| Big Actions | ${cards.filter((card) => card.type === 'big_action').length} |
+| Open small actions | ${smallActionCount} |
+| Routines | ${routines.length} |
+| Data warnings | ${this.validateCards(cards).length} |
+
+## Status Counts
+
+| Status | Count |
+| --- | ---: |
+${statusCounts}
+
+## Projects
+
+${this.renderBriefProjectSections(sorted)}
+
+## Upcoming Dates
+
+${dueSoon.length ? dueSoon.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No due/review dates in the next 14 days.'}
+
+## Waiting
+
+${waiting.length ? waiting.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No waiting cards.'}
+
+## Blocked
+
+${blocked.length ? blocked.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No blocked cards.'}
+
+## Flow Risks
+
+${this.renderBriefFlowRisks(boardCards)}
+
+## Routines
+
+${routines.length ? routines.map(({ card, routine }) => `- [[${card.file.basename}]]: ${routine.text} (${this.routineScheduleLabel(routine)})`).join('\n') : '- No routines.'}
+
+## Data Warnings
+
+${warningRows || '- No data warnings.'}
+`;
+  }
+
+  private renderBriefProjectSections(cards: ProjectCard[]): string {
+    const projects = cards.filter((card) => card.type === 'project').sort(compareCards);
+    const loose = cards.filter((card) => card.type !== 'project' && !card.projectTitle);
+    const sections = projects.map((project) => {
+      const children = cards
+        .filter((card) => card.type !== 'project' && card.projectTitles.includes(project.title))
+        .sort(compareCards);
+      return `### ${project.title}
+
+- Document: [[${project.file.basename}]]
+- Status: ${this.statusLabel(project.status)}
+- Current focus: ${project.nextAction || '(none)'}
+
+${children.length ? children.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No active child cards.'}`;
+    });
+    if (loose.length) {
+      sections.push(`### No Project
+
+${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
+    }
+    return sections.join('\n\n') || '- No projects.';
+  }
+
+  private renderBriefCardLine(card: ProjectCard, includeContext: boolean): string {
+    const context = includeContext ? ` ${card.breadcrumb ? `(${card.breadcrumb})` : ''}` : '';
+    const bits = [
+      this.statusLabel(card.status),
+      `P${card.priority}`,
+      card.workstreamType ? `category: ${card.workstreamType}` : '',
+      card.dueDate ? `due: ${card.dueDate}` : '',
+      card.nextReview ? `review: ${card.nextReview}` : '',
+      card.blockedBy.length ? `blocked by: ${card.blockedBy.join(', ')}` : '',
+    ].filter(Boolean);
+    const focus = card.nextAction ? ` - ${card.nextAction}` : '';
+    return `- [[${card.file.basename}]]${context}: ${bits.join(', ')}${focus}`;
+  }
+
+  private renderBriefFlowRisks(cards: ProjectCard[]): string {
+    const risks = cards
+      .filter((card) => card.blockedBy.length || card.precededBy.length)
+      .sort((a, b) => b.blockedBy.length - a.blockedBy.length || a.title.localeCompare(b.title))
+      .slice(0, 30);
+    if (!risks.length) return '- No flow risks.';
+    return risks.map((card) => this.renderBriefCardLine(card, true)).join('\n');
+  }
+
+  private statusId(preferredId: string): Status {
+    return this.plugin.settings.statuses.find((status) => status.id === preferredId)?.id ?? preferredId;
+  }
+
+  private statusLabel(statusId: string): string {
+    return this.plugin.settings.statuses.find((status) => status.id === statusId)?.label ?? statusId;
+  }
+
+  private todayIso(): string {
+    const now = new Date();
+    return this.formatDate(now);
+  }
+
+  private addDays(day: string, amount: number): string {
+    const date = new Date(`${day}T00:00:00`);
+    date.setDate(date.getDate() + amount);
+    return this.formatDate(date);
+  }
+
+  private formatDate(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
   computeOrder(laneCards: ProjectCard[], insertIndex: number): number {
@@ -570,8 +826,8 @@ export class CardRepository {
       values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : '',
       values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : '',
     ].filter(Boolean).join('\n');
-    const depends = textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n');
-    const blocks = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
+    const precededBy = textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n');
+    const followedBy = textareaToList(values.blocks).map((item) => `- ${item}`).join('\n');
     const references = textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n');
     const typeLabel = values.type === 'big_action' ? 'Big Action' : values.type === 'subproject' ? 'Subproject' : 'Project';
     const projects = this.uniqueLinks([values.project, ...textareaToList(values.projects)]);
@@ -586,7 +842,7 @@ export class CardRepository {
     ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Dependencies\n\nDepends on:\n${depends}\n\nBlocks:\n${blocks}\n\n### Timeline\n\n${timelineRows}\n\n### Timeline Log\n\n### Perpetual\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Flow\n\nPreceded by:\n${precededBy}\n\nFollowed by:\n${followedBy}\n\n### Timeline\n\n${timelineRows}\n\n### Timeline Log\n\n### Routine\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
@@ -610,35 +866,49 @@ export class CardRepository {
     dependsOn: string[];
     blocks: string[];
     sourceNotes: string[];
-    perpetuals: Array<{ cardPath: string; cardTitle: string; text: string; cadence: 'daily' | 'weekly' | 'monthly' }>;
+    routines: Array<{
+      cardPath: string;
+      cardTitle: string;
+      text: string;
+      cadence: 'daily' | 'weekly' | 'monthly' | 'custom';
+      startDate: string;
+      interval: number;
+      unit: 'day' | 'week' | 'month';
+      lineNumber: number;
+      raw: string;
+      completedDates: string[];
+    }>;
     smallActions: SmallAction[];
     actionCount: number;
   } {
+    const flow = this.getSection(content, 'Flow');
     const dependencies = this.getSection(content, 'Dependencies');
     const currentFocus = this.firstListItem(this.getSection(content, 'Current Focus'));
     const waitingFor = this.firstListItem(this.getSection(content, 'Waiting'));
     const blocker = this.firstListItem(this.getSection(content, 'Blockers'));
     const timeline = this.getSection(content, 'Timeline');
-    const perpetual = this.getSection(content, 'Perpetual');
+    const routine = this.getSection(content, 'Routine') || this.getSection(content, 'Perpetual');
+    const routineLog = this.getSection(content, 'Routine Log') || this.getSection(content, 'Perpetual Log');
     const references = this.getSection(content, 'References');
     const nextReview = this.parseTimelineDate(timeline, 'Next review');
     const dueDate = this.parseTimelineDate(timeline, 'Due date');
-    const dependsOn = this.parseDependencyList(dependencies, 'Depends on');
-    const blocks = this.parseDependencyList(dependencies, 'Blocks');
-    const perpetuals = perpetual
+    const dependsOn = this.uniqueLinks([
+      ...this.parseDependencyList(flow, 'Preceded by'),
+      ...this.parseDependencyList(dependencies, 'Depends on'),
+    ]);
+    const blocks = this.uniqueLinks([
+      ...this.parseDependencyList(flow, 'Followed by'),
+      ...this.parseDependencyList(dependencies, 'Blocks'),
+    ]);
+    const routines = routine
       .split(/\r?\n/)
-      .map((line) => line.match(/^\s*[-*]\s+\[[ xX-]\]\s+(.+?)\s+@(daily|weekly|monthly)\b/))
-      .filter((match): match is RegExpMatchArray => Boolean(match))
-      .map((match) => ({
-        cardPath: '',
-        cardTitle: '',
-        text: match[1].trim(),
-        cadence: match[2] as 'daily' | 'weekly' | 'monthly',
-      }));
+      .map((line, index) => this.parseRoutineLine(line, index + 1))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .map((item) => ({ ...item, completedDates: this.parseRoutineCompletedDates(routineLog, item.text) }));
     const smallActions = this.parseSmallActions(content);
     const actionCount = smallActions.filter((action) => !action.done).length;
     const sourceNotes = this.parsePlainList(references).filter((item) => item.includes('[['));
-    return { currentFocus, waitingFor, blocker, nextReview, dueDate, dependsOn, blocks, sourceNotes, perpetuals, smallActions, actionCount };
+    return { currentFocus, waitingFor, blocker, nextReview, dueDate, dependsOn, blocks, sourceNotes, routines, smallActions, actionCount };
   }
 
   private firstListItem(section: string): string {
@@ -655,7 +925,7 @@ export class CardRepository {
     next = this.replaceSection(next, 'Current Focus', values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '');
     next = this.replaceSection(next, 'Waiting', values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '');
     next = this.replaceSection(next, 'Blockers', values.blocker.trim() ? `- ${values.blocker.trim()}\n` : '');
-    next = this.replaceSection(next, 'Dependencies', `Depends on:\n${textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n')}\n\nBlocks:\n${textareaToList(values.blocks).map((item) => `- ${item}`).join('\n')}\n`);
+    next = this.replaceSection(next, 'Flow', `Preceded by:\n${textareaToList(values.dependsOn).map((item) => `- ${item}`).join('\n')}\n\nFollowed by:\n${textareaToList(values.blocks).map((item) => `- ${item}`).join('\n')}\n`);
     next = this.replaceSection(
       next,
       'Timeline',
@@ -666,6 +936,31 @@ export class CardRepository {
     next = this.replaceSection(next, 'References', textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n'));
     next = this.replaceSection(next, 'PM Metadata', this.renderNonEmptyMetadata(values).trimEnd());
     return next;
+  }
+
+  private updateFlowList(content: string, label: 'Preceded by' | 'Followed by', link: string, action: 'add' | 'remove', sourceCard?: ProjectCard): string {
+    const flow = this.getSection(content, 'Flow');
+    const precededBy = this.parseDependencyList(flow, 'Preceded by');
+    const followedBy = this.parseDependencyList(flow, 'Followed by');
+    const list = label === 'Preceded by' ? precededBy : followedBy;
+    const matchesSource = (value: string): boolean => {
+      if (!sourceCard) return value === link;
+      const target = getWikiLinkTarget(value) || value.replace(/^\[\[/, '').replace(/\]\]$/, '');
+      return value === link || target === sourceCard.file.basename || target === sourceCard.path || target === sourceCard.title;
+    };
+
+    let nextList = [...list];
+    if (action === 'add') {
+      if (nextList.some((value) => matchesSource(value))) return content;
+      nextList.push(link);
+    } else {
+      nextList = nextList.filter((value) => !matchesSource(value));
+      if (nextList.length === list.length) return content;
+    }
+
+    const nextPrecededBy = label === 'Preceded by' ? nextList : precededBy;
+    const nextFollowedBy = label === 'Followed by' ? nextList : followedBy;
+    return this.replaceSection(content, 'Flow', `Preceded by:\n${nextPrecededBy.map((item) => `- ${item}`).join('\n')}\n\nFollowed by:\n${nextFollowedBy.map((item) => `- ${item}`).join('\n')}\n`);
   }
 
   private replaceSection(content: string, title: string, body: string): string {
@@ -690,6 +985,87 @@ export class CardRepository {
     const section = `### Timeline Log\n\n${entry}\n`;
     if (timeline) return `${content.slice(0, timeline.end).trimEnd()}\n\n${section}${content.slice(timeline.end)}`;
     return `${content.trimEnd()}\n\n${section}`;
+  }
+
+  private prependRoutineLog(content: string, entry: string): string {
+    const tableHeader = '| Date | Routine |\n| --- | --- |';
+    const row = entry;
+    if (content.includes(row)) return content;
+    const routineLog = this.findHeadingSection(content, 'Routine Log');
+    const perpetualLog = this.findHeadingSection(content, 'Perpetual Log');
+    const existing = routineLog || perpetualLog;
+    if (existing) {
+      const body = content.slice(existing.bodyStart, existing.end).trim();
+      const normalized = body.includes('| Date | Routine |') ? body : `${tableHeader}\n${body}`;
+      const lines = normalized.split(/\r?\n/);
+      const insertIndex = lines.findIndex((line) => /^\|\s*---/.test(line));
+      if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+      else lines.unshift(row);
+      return this.replaceSection(content, routineLog ? 'Routine Log' : 'Perpetual Log', lines.join('\n'));
+    }
+
+    const routine = this.findHeadingSection(content, 'Routine') || this.findHeadingSection(content, 'Perpetual');
+    const section = `### Routine Log\n\n${tableHeader}\n${row}\n`;
+    if (routine) return `${content.slice(0, routine.end).trimEnd()}\n\n${section}${content.slice(routine.end)}`;
+    return `${content.trimEnd()}\n\n${section}`;
+  }
+
+  private parseRoutineLine(
+    line: string,
+    lineNumber: number
+  ): {
+    cardPath: string;
+    cardTitle: string;
+    text: string;
+    cadence: 'daily' | 'weekly' | 'monthly' | 'custom';
+    startDate: string;
+    interval: number;
+    unit: 'day' | 'week' | 'month';
+    lineNumber: number;
+    raw: string;
+    completedDates: string[];
+  } | null {
+    const match = line.match(/^\s*[-*]\s+\[[ xX-]\]\s+(.+)$/);
+    if (!match) return null;
+    const raw = match[1].trim();
+    const cadence = raw.match(/@(daily|weekly|monthly)\b/i)?.[1]?.toLowerCase();
+    const every = raw.match(/@every\s+(\d+)\s*([dDwWmM])\b/);
+    if (!cadence && !every) return null;
+    const startDate = raw.match(/@start\s+(\d{4}-\d{2}-\d{2})\b/i)?.[1] ?? '';
+    const text = raw
+      .replace(/@(daily|weekly|monthly)\b/gi, '')
+      .replace(/@every\s+\d+\s*[dDwWmM]\b/gi, '')
+      .replace(/@start\s+\d{4}-\d{2}-\d{2}\b/gi, '')
+      .trim();
+    const unitChar = every?.[2]?.toLowerCase();
+    return {
+      cardPath: '',
+      cardTitle: '',
+      text,
+      cadence: every ? 'custom' : (cadence as 'daily' | 'weekly' | 'monthly'),
+      startDate,
+      interval: every ? Number(every[1]) : 1,
+      unit: every ? (unitChar === 'w' ? 'week' : unitChar === 'm' ? 'month' : 'day') : cadence === 'weekly' ? 'week' : cadence === 'monthly' ? 'month' : 'day',
+      lineNumber,
+      raw,
+      completedDates: [],
+    };
+  }
+
+  private parseRoutineCompletedDates(section: string, routineText: string): string[] {
+    const dates: string[] = [];
+    for (const line of section.split(/\r?\n/)) {
+      const row = line.match(/^\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+?)\s*\|?$/);
+      if (row && row[2].trim() === routineText) dates.push(row[1]);
+      const legacy = line.match(/^-\s+(\d{4}-\d{2}-\d{2})\s+completed:\s+(.+)$/);
+      if (legacy && legacy[2].trim() === routineText) dates.push(legacy[1]);
+    }
+    return Array.from(new Set(dates)).sort();
+  }
+
+  private routineScheduleLabel(item: { cadence: 'daily' | 'weekly' | 'monthly' | 'custom'; interval: number; unit: 'day' | 'week' | 'month'; startDate: string }): string {
+    const interval = item.cadence === 'custom' ? `@every ${item.interval}${item.unit[0]}` : `@${item.cadence}`;
+    return item.startDate ? `${interval} @start ${item.startDate}` : interval;
   }
 
   private smallActionTimelineLog(action: SmallAction, date: string, file: TFile): string {
@@ -864,20 +1240,25 @@ export class CardRepository {
   }
 
   private applyBlockedBy(cards: ProjectCard[]): void {
-    const doneStatus = this.plugin.settings.statuses.find((status) => status.id === 'done')?.id ?? 'done';
     for (const card of cards) card.blockedBy = [];
     for (const card of cards) {
-      for (const dependency of card.dependsOn) {
+      for (const dependency of card.precededBy) {
         const dependencyFile = this.resolveLinkedFile(dependency, card.path);
         const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : undefined;
-        if (dependencyCard && dependencyCard.status !== doneStatus) card.blockedBy.push(dependencyCard.title);
+        if (dependencyCard && !this.isCompletionStatus(dependencyCard.status)) card.blockedBy.push(dependencyCard.title);
       }
-      for (const blocked of card.blocks) {
+      for (const blocked of card.followedBy) {
         const blockedFile = this.resolveLinkedFile(blocked, card.path);
         const blockedCard = blockedFile ? cards.find((item) => item.path === blockedFile.path) : undefined;
-        if (blockedCard && card.status !== doneStatus) blockedCard.blockedBy.push(card.title);
+        if (blockedCard && !this.isCompletionStatus(card.status)) blockedCard.blockedBy.push(card.title);
       }
     }
+  }
+
+  private isCompletionStatus(statusId: string): boolean {
+    const status = this.plugin.settings.statuses.find((item) => item.id === statusId);
+    const value = `${status?.id ?? statusId} ${status?.label ?? ''}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value) || value.includes('?꾨즺');
   }
 
   private hasCircularDependency(card: ProjectCard, cards: ProjectCard[]): boolean {
@@ -885,7 +1266,7 @@ export class CardRepository {
     const visit = (current: ProjectCard): boolean => {
       if (visited.has(current.path)) return false;
       visited.add(current.path);
-      for (const dependency of current.dependsOn) {
+      for (const dependency of current.precededBy) {
         const dependencyFile = this.resolveLinkedFile(dependency, current.path);
         const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : undefined;
         if (!dependencyCard) continue;

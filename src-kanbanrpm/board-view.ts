@@ -1,8 +1,8 @@
 import { ItemView, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 import { VIEW_TYPE } from './constants';
-import { ConfirmCardActionModal, EditProjectCardModal, NewProjectCardModal } from './modals';
+import { ConfirmCardActionModal, EditProjectCardModal, NewProjectCardModal, TimelineMemoModal } from './modals';
 import type KanbanRPMPlugin from './main';
-import type { ActionItem, CardIssue, Lane, ProjectCard, SmallAction, Status, TimelineScope, ViewMode } from './types';
+import type { ActionItem, CardIssue, Lane, ProjectCard, RecurringItem, SmallAction, Status, TimelineScope, ViewMode } from './types';
 import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
 
 interface PointerDragState {
@@ -13,6 +13,14 @@ interface PointerDragState {
   dragging: boolean;
   cardEl: HTMLElement;
   activeLaneEl?: HTMLElement;
+}
+
+interface FlowConnectState {
+  pointerId: number;
+  sourcePath: string;
+  preview: SVGPathElement;
+  startX: number;
+  startY: number;
 }
 
 type TableSortKey = 'title' | 'project' | 'type' | 'status' | 'priority' | 'date' | 'dependencies' | 'actions';
@@ -46,6 +54,7 @@ export class KanbanRPMView extends ItemView {
   private timelineSearchQuery = '';
   private timelineScope: TimelineScope = 'all';
   private timelineMemoVisible = true;
+  private timelineSidebarCollapsed = false;
   private timelineStatusFilter = new Set<string>();
   private groupByProject = true;
   private toolbarExpanded = false;
@@ -57,6 +66,7 @@ export class KanbanRPMView extends ItemView {
   private collapsedSmallActions = new Set<string>();
   private collapsedListNodes = new Set<string>();
   private pointerDrag?: PointerDragState;
+  private flowConnect?: FlowConnectState;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanRPMPlugin) {
     super(leaf);
@@ -154,6 +164,9 @@ export class KanbanRPMView extends ItemView {
       secondary.createEl('button', { text: 'Weekly review' }).addEventListener('click', () => {
         void this.plugin.openWeeklyReview(visibleBoardCards);
       });
+      secondary.createEl('button', { text: 'Management brief' }).addEventListener('click', () => {
+        void this.plugin.writeManagementBrief(visibleCards);
+      });
       secondary.createEl('button', { text: 'Export arrows' }).addEventListener('click', () => {
         void this.plugin.writeDependencyArrows(visibleBoardCards);
       });
@@ -236,8 +249,8 @@ export class KanbanRPMView extends ItemView {
       card.blocker,
       card.nextReview,
       card.dueDate,
-      ...card.dependsOn,
-      ...card.blocks,
+      ...card.precededBy,
+      ...card.followedBy,
       ...card.sourceNotes,
     ]
       .join(' ')
@@ -314,8 +327,8 @@ export class KanbanRPMView extends ItemView {
     const wrap = container.createDiv({ cls: 'kanban-rpm-filter' });
     wrap.createSpan({ text: label });
     const select = wrap.createEl('select');
-    select.createEl('option', { text: 'All', value: '' });
-    for (const value of values) select.createEl('option', { text: value, value });
+    select.createEl('option', { text: 'All', attr: { value: '' } });
+    for (const value of values) select.createEl('option', { text: value, attr: { value } });
     select.value = currentValue;
     select.addEventListener('change', () => onChange(select.value));
   }
@@ -365,9 +378,8 @@ export class KanbanRPMView extends ItemView {
 
     const list = panel.createDiv({ cls: 'kanban-rpm-project-note-list' });
     for (const project of projects) {
-      const note = list.createDiv({ cls: 'kanban-rpm-project-note' });
+      const note = list.createDiv({ cls: 'kanban-rpm-project-note kanban-rpm-type-project' });
       note.style.setProperty('--rpm-project-color', this.projectColor(project.colorKey));
-      this.addProjectToken(note, project.colorKey);
       const title = note.createEl('button', { cls: 'kanban-rpm-project-note-title', text: project.title });
       title.addEventListener('click', () => {
         void this.plugin.openCard(project);
@@ -421,7 +433,7 @@ export class KanbanRPMView extends ItemView {
       .filter((card) => isPastDate(card.nextReview) || isDueSoon(card.nextReview) || isPastDate(card.dueDate) || isDueSoon(card.dueDate))
       .sort((a, b) => toDateSortValue(a).localeCompare(toDateSortValue(b)))
       .slice(0, 6);
-    headerActions.createSpan({ text: 'review, waiting, blockers, dependencies' });
+    headerActions.createSpan({ text: 'review, waiting, blockers, flow' });
     headerActions.createEl('button', { text: 'Timeline review' }).addEventListener('click', () => {
       this.viewMode = 'timeline';
       this.timelineScope = 'review';
@@ -441,8 +453,8 @@ export class KanbanRPMView extends ItemView {
       .sort(compareCards)
       .slice(0, 6);
     const dependencyCards = visibleCards
-      .filter((card) => card.dependsOn.length || card.blocks.length)
-      .sort((a, b) => b.dependsOn.length + b.blocks.length - (a.dependsOn.length + a.blocks.length))
+      .filter((card) => card.precededBy.length || card.followedBy.length)
+      .sort((a, b) => b.precededBy.length + b.followedBy.length - (a.precededBy.length + a.followedBy.length))
       .slice(0, 6);
 
     this.renderCommandSection(grid, 'Review queue', reviewCards, (card) => {
@@ -451,10 +463,10 @@ export class KanbanRPMView extends ItemView {
     });
     this.renderCommandSection(grid, 'Waiting', waitingCards, (card) => card.waitingFor || card.nextAction || card.status);
     this.renderCommandSection(grid, 'Blocked', blockedCards, (card) => card.blocker || card.nextAction || card.status);
-    this.renderCommandSection(grid, 'Dependencies', dependencyCards, (card) => {
+    this.renderCommandSection(grid, 'Flow', dependencyCards, (card) => {
       const counts = [];
-      if (card.dependsOn.length) counts.push(`${card.dependsOn.length} depends`);
-      if (card.blocks.length) counts.push(`${card.blocks.length} blocks`);
+      if (card.precededBy.length) counts.push(`${card.precededBy.length} preceded`);
+      if (card.followedBy.length) counts.push(`${card.followedBy.length} followed`);
       return counts.join(' - ') || card.workstreamType || card.status;
     });
   }
@@ -483,6 +495,20 @@ export class KanbanRPMView extends ItemView {
         void this.plugin.openCard(card);
       });
     }
+  }
+
+  private resolveDependencyTarget(sourceCard: ProjectCard, link: string): { file?: TFile; card?: ProjectCard } {
+    const file = this.plugin.resolveLinkedFile(link, sourceCard.path);
+    if (!file) return {};
+    return { file, card: this.cards.find((card) => card.path === file.path) };
+  }
+
+  private cleanWikiLabel(link: string): string {
+    return link.replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0];
+  }
+
+  private svgEl<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] {
+    return document.createElementNS('http://www.w3.org/2000/svg', tag);
   }
 
   private renderActionIndexGrouped(container: HTMLElement, visibleCards: ProjectCard[]): void {
@@ -541,10 +567,10 @@ export class KanbanRPMView extends ItemView {
     row.createDiv({ cls: 'kanban-rpm-action-text', text: action.text });
     row.createDiv({
       cls: 'kanban-rpm-action-source',
-      text: `${action.sourceLabel}:${action.lineNumber}`,
+      text: action.recurring ? `${action.sourceLabel} - recurring` : `${action.sourceLabel}:${action.lineNumber}`,
     });
     const rowActions = row.createDiv({ cls: 'kanban-rpm-action-buttons' });
-    rowActions.createEl('button', { text: 'Open source' }).addEventListener('click', (event) => {
+    rowActions.createEl('button', { text: action.recurring ? 'Open card' : 'Open source' }).addEventListener('click', (event) => {
       event.stopPropagation();
       void this.plugin.openFilePath(action.sourcePath);
     });
@@ -552,10 +578,12 @@ export class KanbanRPMView extends ItemView {
       event.stopPropagation();
       void this.plugin.setNextAction(action.cardPath, action.text);
     });
-    rowActions.createEl('button', { text: 'Promote' }).addEventListener('click', (event) => {
-      event.stopPropagation();
-      void this.plugin.promoteActionToBigAction(action);
-    });
+    if (!action.recurring) {
+      rowActions.createEl('button', { text: 'Promote' }).addEventListener('click', (event) => {
+        event.stopPropagation();
+        void this.plugin.promoteActionToBigAction(action);
+      });
+    }
     row.addEventListener('click', () => {
       void this.plugin.openFilePath(action.sourcePath);
     });
@@ -567,10 +595,102 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderBoardView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
-    const board = container.createDiv({ cls: 'kanban-rpm-board' });
+    const wrap = container.createDiv({ cls: 'kanban-rpm-board-wrap' });
+    const overlay = this.svgEl('svg');
+    overlay.addClass('kanban-rpm-board-flow-overlay');
+    wrap.appendChild(overlay);
+    const board = wrap.createDiv({ cls: 'kanban-rpm-board' });
     for (const lane of this.plugin.settings.statuses) {
       this.renderLane(board, lane, visibleBoardCards.filter((card) => card.status === lane.id).sort(compareCards));
     }
+    this.queueBoardFlowOverlay(wrap, overlay, visibleBoardCards);
+  }
+
+  private queueBoardFlowOverlay(wrap: HTMLElement, overlay: SVGElement, visibleBoardCards: ProjectCard[]): void {
+    window.setTimeout(() => this.renderBoardFlowOverlay(wrap, overlay, visibleBoardCards), 0);
+  }
+
+  private renderBoardFlowOverlay(wrap: HTMLElement, overlay: SVGElement, visibleBoardCards: ProjectCard[]): void {
+    overlay.empty();
+    const wrapRect = wrap.getBoundingClientRect();
+    const width = Math.max(1, wrap.scrollWidth);
+    const height = Math.max(1, wrap.scrollHeight);
+    overlay.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    overlay.setAttribute('width', String(width));
+    overlay.setAttribute('height', String(height));
+
+    const defs = this.svgEl('defs');
+    for (const [id, color] of [
+      ['ready', 'var(--text-muted)'],
+      ['waiting', 'var(--text-warning)'],
+    ]) {
+      const marker = this.svgEl('marker');
+      marker.setAttribute('id', `kanban-rpm-board-flow-arrow-${id}`);
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '9');
+      marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '6');
+      marker.setAttribute('markerHeight', '6');
+      marker.setAttribute('orient', 'auto-start-reverse');
+      const arrow = this.svgEl('path');
+      arrow.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+      arrow.setAttribute('fill', color);
+      marker.appendChild(arrow);
+      defs.appendChild(marker);
+    }
+    overlay.appendChild(defs);
+
+    const visiblePaths = new Set(visibleBoardCards.map((card) => card.path));
+    const seen = new Set<string>();
+    for (const card of visibleBoardCards) {
+      for (const predecessor of card.precededBy) {
+        const resolved = this.resolveDependencyTarget(card, predecessor);
+        const source = resolved.card;
+        if (!source || !visiblePaths.has(source.path)) continue;
+        const key = `${source.path}->${card.path}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        this.renderBoardFlowArrow(wrapRect, overlay, source, card, this.isCompletionStatus(source.status) ? 'ready' : 'waiting');
+      }
+    }
+  }
+
+  private renderBoardFlowArrow(
+    wrapRect: DOMRect,
+    overlay: SVGElement,
+    source: ProjectCard,
+    target: ProjectCard,
+    state: 'ready' | 'waiting'
+  ): void {
+    const sourceDot = this.containerEl.querySelector<HTMLElement>(`.kanban-rpm-flow-dot-out[data-path="${CSS.escape(source.path)}"]`);
+    const targetDot = this.containerEl.querySelector<HTMLElement>(`.kanban-rpm-flow-dot-in[data-path="${CSS.escape(target.path)}"]`);
+    if (!sourceDot || !targetDot) return;
+    const from = sourceDot.getBoundingClientRect();
+    const to = targetDot.getBoundingClientRect();
+    const wrap = overlay.parentElement as HTMLElement | null;
+    const scrollLeft = wrap?.scrollLeft ?? 0;
+    const scrollTop = wrap?.scrollTop ?? 0;
+    const fromX = from.left + from.width / 2 - wrapRect.left + scrollLeft;
+    const fromY = from.top + from.height / 2 - wrapRect.top + scrollTop;
+    const toX = to.left + to.width / 2 - wrapRect.left + scrollLeft;
+    const toY = to.top + to.height / 2 - wrapRect.top + scrollTop;
+    const control = Math.max(60, Math.abs(toX - fromX) * 0.45);
+    const path = this.svgEl('path');
+    path.setAttribute('class', `kanban-rpm-board-flow-arrow is-${state}`);
+    path.setAttribute('d', `M ${fromX} ${fromY} C ${fromX + control} ${fromY}, ${toX - control} ${toY}, ${toX} ${toY}`);
+    path.setAttribute('marker-end', `url(#kanban-rpm-board-flow-arrow-${state})`);
+    path.dataset.sourcePath = source.path;
+    path.dataset.targetPath = target.path;
+    path.addEventListener('click', (event) => {
+      event.stopPropagation();
+      new ConfirmCardActionModal(this.app, {
+        title: 'Remove flow arrow',
+        message: `Remove "${source.title} -> ${target.title}" from ${target.title}'s Preceded by list?`,
+        confirmText: 'Remove',
+        onConfirm: () => this.plugin.removePrecededBy(target.path, source),
+      }).open();
+    });
+    overlay.appendChild(path);
   }
 
   private renderTableView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
@@ -585,7 +705,7 @@ export class KanbanRPMView extends ItemView {
     this.renderTableHeader(header, 'status', 'Status');
     this.renderTableHeader(header, 'priority', 'Priority');
     this.renderTableHeader(header, 'date', 'Due / Review');
-    this.renderTableHeader(header, 'dependencies', 'Dependencies');
+    this.renderTableHeader(header, 'dependencies', 'Flow');
     this.renderTableHeader(header, 'actions', 'Actions');
 
     const tbody = table.createEl('tbody');
@@ -604,7 +724,7 @@ export class KanbanRPMView extends ItemView {
     const active = this.tableSortKey === key;
     const button = th.createEl('button', {
       cls: active ? 'kanban-rpm-table-sort is-active' : 'kanban-rpm-table-sort',
-      text: `${label}${active ? (this.tableSortDirection === 'asc' ? ' ↑' : ' ↓') : ''}`,
+      text: `${label}${active ? (this.tableSortDirection === 'asc' ? ' asc' : ' desc') : ''}`,
     });
     button.addEventListener('click', () => {
       if (this.tableSortKey === key) {
@@ -650,7 +770,7 @@ export class KanbanRPMView extends ItemView {
   private renderStatusSelect(container: HTMLElement, card: ProjectCard): void {
     const select = container.createEl('select', { cls: 'kanban-rpm-status-select' });
     for (const status of this.plugin.settings.statuses) {
-      select.createEl('option', { text: status.label, value: status.id });
+      select.createEl('option', { text: status.label, attr: { value: status.id } });
     }
     select.value = card.status;
     select.addEventListener('change', () => {
@@ -755,6 +875,7 @@ export class KanbanRPMView extends ItemView {
         void this.plugin.openCard(card);
       });
       item.createSpan({ cls: 'kanban-rpm-tree-pill', text: card.status });
+      if (card.blockedBy.length) item.createSpan({ cls: 'kanban-rpm-tree-pill is-blocked', text: `blocked by ${card.blockedBy.length}` });
       item.createSpan({ cls: 'kanban-rpm-tree-muted', text: this.cardDateLabel(card) });
       item.createSpan({ cls: 'kanban-rpm-tree-muted', text: `${card.actionCount} tasks` });
     }
@@ -766,8 +887,8 @@ export class KanbanRPMView extends ItemView {
     const timelineCards = visibleBoardCards.filter((card) => this.timelineStatusFilter.has(card.status));
     const markers = this.filterTimelineMarkers(this.collectTimelineMarkers(timelineCards, new Set(days)));
     const grouped = this.groupTimelineMarkers(markers);
-    const timeline = container.createDiv({ cls: 'kanban-rpm-timeline' });
-    this.renderTimelineSidebar(timeline, timelineCards);
+    const timeline = container.createDiv({ cls: this.timelineSidebarCollapsed ? 'kanban-rpm-timeline is-sidebar-collapsed' : 'kanban-rpm-timeline' });
+    this.renderTimelineSidebar(timeline, visibleBoardCards);
     const main = timeline.createDiv({ cls: 'kanban-rpm-timeline-main' });
     this.renderTimelineControls(main);
 
@@ -813,30 +934,78 @@ export class KanbanRPMView extends ItemView {
   private renderTimelineSidebar(container: HTMLElement, cards: ProjectCard[]): void {
     const sidebar = container.createDiv({ cls: 'kanban-rpm-timeline-sidebar' });
     const header = sidebar.createDiv({ cls: 'kanban-rpm-timeline-sidebar-header' });
-    header.createEl('h3', { text: 'Perpetual' });
-    header.createEl('button', { text: '<' }).addEventListener('click', () => {
-      this.viewMode = 'board';
+    header.createEl('h3', { text: 'Routine' });
+    header.createEl('button', { text: this.timelineSidebarCollapsed ? '>' : '<' }).addEventListener('click', () => {
+      this.timelineSidebarCollapsed = !this.timelineSidebarCollapsed;
       this.render();
     });
+    if (this.timelineSidebarCollapsed) {
+      sidebar.addClass('is-collapsed');
+      return;
+    }
 
-    const tabs = sidebar.createDiv({ cls: 'kanban-rpm-timeline-tabs' });
-    tabs.createEl('button', { cls: 'is-active', text: 'General' });
-    tabs.createEl('button', { text: '+' }).addEventListener('click', () => {
-      this.timelineMemoVisible = true;
-      this.render();
-    });
-
-    const routines = cards.flatMap((card) => card.perpetuals.map((item) => ({ item, card })));
+    const days = this.timelineDays();
+    const routines = cards.flatMap((card) =>
+      card.routines.map((item) => ({
+        item,
+        card,
+        nextDate: this.nextRecurringDateInRange(item, days),
+      }))
+    ).filter((routine) => routine.nextDate);
     const list = sidebar.createDiv({ cls: 'kanban-rpm-timeline-routines' });
     if (!routines.length) {
-      list.createDiv({ cls: 'kanban-rpm-empty', text: 'No perpetual routines yet' });
+      list.createDiv({ cls: 'kanban-rpm-empty', text: 'No routines yet' });
     }
-    for (const { item, card } of routines.slice(0, 16)) {
-      const row = list.createEl('button', { cls: 'kanban-rpm-timeline-routine', text: `${item.cadence}: ${item.text}` });
-      row.addEventListener('click', () => {
-        void this.plugin.openCard(card);
-      });
+    const groups = this.groupTimelineRoutines(routines);
+    for (const group of groups) {
+      const groupEl = list.createEl('details', { cls: 'kanban-rpm-timeline-routine-group' });
+      groupEl.open = true;
+      groupEl.createEl('summary', { cls: 'kanban-rpm-timeline-routine-group-title', text: `${group.label} (${group.routines.length})` });
+      for (const { item, card, nextDate } of group.routines.slice(0, 8)) {
+        const row = groupEl.createDiv({ cls: 'kanban-rpm-timeline-routine' });
+        const open = row.createEl('button', { cls: 'kanban-rpm-timeline-routine-open' });
+        open.createSpan({ cls: 'kanban-rpm-timeline-routine-text', text: item.text });
+        open.createSpan({ cls: 'kanban-rpm-timeline-routine-meta', text: `${card.title} - next ${nextDate.slice(5)}` });
+        open.addEventListener('click', () => {
+          void this.plugin.openCard(card);
+        });
+        row.createEl('button', { cls: 'kanban-rpm-timeline-routine-done', text: 'Done' }).addEventListener('click', () => {
+          void this.plugin.completeRoutine(card.path, item.text, nextDate);
+        });
+      }
+      if (group.routines.length > 8) groupEl.createDiv({ cls: 'kanban-rpm-timeline-routine-more', text: `+${group.routines.length - 8} more` });
     }
+  }
+
+  private groupTimelineRoutines(
+    routines: Array<{ item: RecurringItem; card: ProjectCard; nextDate: string }>
+  ): Array<{ key: string; label: string; frequency: number; routines: Array<{ item: RecurringItem; card: ProjectCard; nextDate: string }> }> {
+    const map = new Map<string, { key: string; label: string; frequency: number; routines: Array<{ item: RecurringItem; card: ProjectCard; nextDate: string }> }>();
+    for (const routine of routines) {
+      const key = this.recurringGroupKey(routine.item);
+      const existing = map.get(key) ?? {
+        key,
+        label: this.recurringGroupLabel(routine.item),
+        frequency: this.recurringFrequencyDays(routine.item),
+        routines: [],
+      };
+      existing.routines.push(routine);
+      map.set(key, existing);
+    }
+    return Array.from(map.values())
+      .map((group) => ({
+        ...group,
+        routines: group.routines.sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.card.title.localeCompare(b.card.title) || a.item.text.localeCompare(b.item.text)),
+      }))
+      .sort((a, b) => a.frequency - b.frequency || a.label.localeCompare(b.label));
+  }
+
+  private nextRecurringDateInRange(item: RecurringItem | RecurringItem['cadence'], days: string[]): string {
+    if (typeof item !== 'string' && item.cadence === 'daily') {
+      const today = this.todayIso();
+      return days.includes(today) && this.isRecurringItemVisibleOnDay(today, item) && !this.isRecurringItemCompletedForOccurrence(today, item) ? today : '';
+    }
+    return days.find((day) => (typeof item === 'string' ? this.isRecurringVisibleOnDay(day, item) : this.isRecurringItemVisibleOnDay(day, item) && !this.isRecurringItemCompletedForOccurrence(day, item))) ?? '';
   }
 
   private renderTimelineControls(container: HTMLElement): void {
@@ -930,7 +1099,7 @@ export class KanbanRPMView extends ItemView {
       ['tasks', 'Show: Tasks'],
       ['recurring', 'Show: Recurring'],
     ] as Array<[TimelineScope, string]>) {
-      scope.createEl('option', { value, text: label });
+      scope.createEl('option', { text: label, attr: { value } });
     }
     scope.value = this.timelineScope;
     scope.addEventListener('change', () => {
@@ -961,10 +1130,10 @@ export class KanbanRPMView extends ItemView {
     const controls = header.createDiv({ cls: 'kanban-rpm-timeline-memo-controls' });
     const list = section.createDiv({ cls: 'kanban-rpm-timeline-memo-list' });
     controls.createEl('button', { text: '+ todo' }).addEventListener('click', () => {
-      this.startInlineTimelineMemoAdd(list, day, true);
+      void this.openTimelineMemoModal(day, 'todo');
     });
     controls.createEl('button', { text: '+ text' }).addEventListener('click', () => {
-      this.startInlineTimelineMemoAdd(list, day, false);
+      void this.openTimelineMemoModal(day, 'text');
     });
 
     void this.readTimelineMemo(day).then((memo) => {
@@ -986,7 +1155,7 @@ export class KanbanRPMView extends ItemView {
     });
     const edit = this.createIconButton(row, 'pencil', 'Edit memo');
     edit.addEventListener('click', () => {
-      this.startInlineTimelineMemoEdit(row, day, item.content);
+      void this.openTimelineMemoModal(day);
     });
   }
 
@@ -1004,70 +1173,21 @@ export class KanbanRPMView extends ItemView {
     this.render();
   }
 
-  private startInlineTimelineMemoAdd(container: HTMLElement, day: string, checkbox: boolean): void {
-    container.empty();
-    const row = container.createDiv({ cls: 'kanban-rpm-timeline-memo-card is-editing' });
-    const input = row.createEl('textarea', {
-      cls: 'kanban-rpm-timeline-memo-edit-input',
-      attr: {
-        placeholder: checkbox ? 'New todo' : 'New memo',
-      },
-    });
-    if (checkbox) input.value = '- [ ] ';
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
-
-    let saved = false;
-    const save = async (): Promise<void> => {
-      if (saved) return;
-      saved = true;
-      const value = input.value.trim();
-      if (!value) {
-        this.render();
-        return;
-      }
-      const memo = await this.readTimelineMemo(day);
-      const line = checkbox && !/^\s*[-*]\s+\[[ xX]\]\s+/.test(value) ? `- [ ] ${value}` : value;
-      const next = memo.trimEnd() ? `${memo.trimEnd()}\n${line}` : line;
-      await this.saveTimelineMemo(day, next);
+  private async openTimelineMemoModal(day: string, seed?: 'todo' | 'text'): Promise<void> {
+    const memo = await this.readTimelineMemo(day);
+    const initial = this.seedTimelineMemo(memo, seed);
+    new TimelineMemoModal(this.app, day, initial, async (value) => {
+      await this.saveTimelineMemo(day, value);
       this.render();
-    };
-
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') void save();
-      if (event.key === 'Escape') this.render();
-    });
-    input.addEventListener('blur', () => {
-      void save();
-    });
+    }).open();
   }
 
-  private startInlineTimelineMemoEdit(row: HTMLElement, day: string, memo: string): void {
-    row.empty();
-    row.addClass('is-editing');
-    const input = row.createEl('textarea', {
-      cls: 'kanban-rpm-timeline-memo-edit-input',
-      attr: { 'aria-label': `${day} memo editor` },
-    });
-    input.value = memo;
-    const saveButton = this.createIconButton(row, 'check', 'Save memo');
-    input.focus();
-
-    let saved = false;
-    const save = async (): Promise<void> => {
-      if (saved) return;
-      saved = true;
-      await this.saveTimelineMemo(day, input.value);
-      this.render();
-    };
-
-    saveButton.addEventListener('click', () => {
-      void save();
-    });
-    input.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void save();
-      if (event.key === 'Escape') this.render();
-    });
+  private seedTimelineMemo(memo: string, seed?: 'todo' | 'text'): string {
+    if (!seed) return memo;
+    const trimmed = memo.trimEnd();
+    const addition = seed === 'todo' ? '- [ ] ' : '';
+    if (!trimmed) return addition;
+    return `${trimmed}\n${addition}`;
   }
 
   private renderMiniMarkdown(container: HTMLElement, markdown: string, onCheckbox: (lineIndex: number, done: boolean) => void): void {
@@ -1112,16 +1232,22 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderTimelineMarker(container: HTMLElement, marker: TimelineMarker): void {
+    if (marker.kind === 'recurring') {
+      this.renderRecurringTimelineChip(container, marker);
+      return;
+    }
+
     const item = container.createDiv({
-      cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind}`,
+      cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind} kanban-rpm-type-${marker.card.type.replace('_', '-')}`,
       attr: { title: `${marker.card.title} - ${marker.label}` },
     });
+    item.style.setProperty('--rpm-project-color', this.projectColor(marker.card.colorKey));
     const label = item.createEl('button', { cls: 'kanban-rpm-timeline-marker-title', text: marker.label });
     label.addEventListener('click', () => {
       void this.plugin.openCard(marker.card);
     });
     const meta = item.createDiv({ cls: 'kanban-rpm-timeline-marker-meta' });
-    meta.createSpan({ text: marker.card.breadcrumb || marker.card.projectTitle || 'No project' });
+    meta.createSpan({ text: this.cardDisplayBreadcrumb(marker.card) });
     meta.createSpan({ text: marker.card.status });
     meta.createSpan({ text: `P${marker.card.priority}` });
     this.renderStatusSelect(item, marker.card);
@@ -1130,6 +1256,19 @@ export class KanbanRPMView extends ItemView {
       const list = item.createDiv({ cls: 'kanban-rpm-timeline-marker-actions' });
       for (const action of actions) this.renderSmallActionRow(list, action);
     }
+  }
+
+  private renderRecurringTimelineChip(container: HTMLElement, marker: TimelineMarker): void {
+    const chip = container.createEl('button', {
+      cls: `kanban-rpm-timeline-recurring-chip kanban-rpm-type-${marker.card.type.replace('_', '-')}`,
+      attr: { title: `${marker.card.title} - ${marker.label}` },
+    });
+    chip.style.setProperty('--rpm-project-color', this.projectColor(marker.card.colorKey));
+    chip.createSpan({ cls: 'kanban-rpm-timeline-recurring-icon', text: 'R' });
+    chip.createSpan({ cls: 'kanban-rpm-timeline-recurring-text', text: marker.label.replace(/^(daily|weekly|monthly|custom):\s*/, '') });
+    chip.addEventListener('click', () => {
+      void this.plugin.openCard(marker.card);
+    });
   }
 
   private collectTimelineMarkers(cards: ProjectCard[], daySet: Set<string>): TimelineMarker[] {
@@ -1148,10 +1287,12 @@ export class KanbanRPMView extends ItemView {
           markers.push({ date, label: `task: ${action.text}`, kind: 'task', card });
         }
       }
-      if (card.perpetuals.length) {
+      if (card.routines.length) {
         for (const day of daySet) {
-          for (const item of card.perpetuals) {
-            if (this.isRecurringVisibleOnDay(day, item.cadence)) {
+          for (const item of card.routines) {
+            if (item.cadence === 'daily' && day !== this.todayIso()) continue;
+            if (this.isRecurringItemVisibleOnDay(day, item)) {
+              if (this.isRecurringItemCompletedForOccurrence(day, item)) continue;
               markers.push({ date: day, label: `${item.cadence}: ${item.text}`, kind: 'recurring', card });
             }
           }
@@ -1247,12 +1388,70 @@ export class KanbanRPMView extends ItemView {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
-  private isRecurringVisibleOnDay(day: string, cadence: 'daily' | 'weekly' | 'monthly'): boolean {
+  private isRecurringVisibleOnDay(day: string, cadence: 'daily' | 'weekly' | 'monthly' | 'custom'): boolean {
     if (cadence === 'daily') return true;
     const date = new Date(`${day}T00:00:00`);
     const base = new Date(`${this.timelineBaseDate}T00:00:00`);
     if (cadence === 'weekly') return date.getDay() === base.getDay();
+    if (cadence === 'custom') return false;
     return date.getDate() === base.getDate();
+  }
+
+  private isRecurringItemVisibleOnDay(day: string, item: RecurringItem): boolean {
+    const start = item.startDate;
+    if (!start) return false;
+    if (day < start) return false;
+    if (item.cadence === 'daily') return true;
+    const startDate = new Date(`${start}T00:00:00`);
+    const current = new Date(`${day}T00:00:00`);
+    if (item.cadence === 'weekly') return current.getDay() === startDate.getDay();
+    if (item.cadence === 'monthly') return current.getDate() === startDate.getDate();
+    if (item.unit === 'day') {
+      const diff = Math.floor((current.getTime() - startDate.getTime()) / 86400000);
+      return diff >= 0 && diff % Math.max(1, item.interval) === 0;
+    }
+    if (item.unit === 'week') {
+      const diff = Math.floor((current.getTime() - startDate.getTime()) / 86400000);
+      return diff >= 0 && diff % (Math.max(1, item.interval) * 7) === 0;
+    }
+    if (current.getDate() !== startDate.getDate()) return false;
+    const monthDiff = (current.getFullYear() - startDate.getFullYear()) * 12 + current.getMonth() - startDate.getMonth();
+    return monthDiff >= 0 && monthDiff % Math.max(1, item.interval) === 0;
+  }
+
+  private isRecurringItemCompletedForOccurrence(day: string, item: RecurringItem): boolean {
+    const next = this.nextOccurrenceAfter(day, item);
+    return item.completedDates.some((completed) => completed >= day && (!next || completed < next));
+  }
+
+  private nextOccurrenceAfter(day: string, item: RecurringItem): string {
+    for (let offset = 1; offset <= 370; offset += 1) {
+      const candidate = this.addDays(day, offset);
+      if (this.isRecurringItemVisibleOnDay(candidate, item)) return candidate;
+    }
+    return '';
+  }
+
+  private recurringGroupKey(item: RecurringItem): string {
+    if (item.cadence !== 'custom') return item.cadence;
+    return `${item.interval}${item.unit}`;
+  }
+
+  private recurringGroupLabel(item: RecurringItem): string {
+    if (item.cadence === 'daily') return 'Daily';
+    if (item.cadence === 'weekly') return 'Weekly';
+    if (item.cadence === 'monthly') return 'Monthly';
+    const unit = item.unit === 'day' ? 'D' : item.unit === 'week' ? 'W' : 'M';
+    return `Every ${item.interval}${unit}`;
+  }
+
+  private recurringFrequencyDays(item: RecurringItem): number {
+    if (item.cadence === 'daily') return 1;
+    if (item.cadence === 'weekly') return 7;
+    if (item.cadence === 'monthly') return 30;
+    if (item.unit === 'day') return item.interval;
+    if (item.unit === 'week') return item.interval * 7;
+    return item.interval * 30;
   }
 
   private async readTimelineMemo(day: string): Promise<string> {
@@ -1285,16 +1484,59 @@ export class KanbanRPMView extends ItemView {
   }
 
   private extractMemoBody(content: string): string {
-    const match = content.match(/^## Memo\s*\n([\s\S]*?)(?=\n## |\s*$)/m);
-    return match?.[1]?.trimEnd() ?? '';
+    const section = this.findMarkdownSection(content, 'Memo', 2);
+    if (!section) return '';
+    return section.bodyLines.join('\n').trimEnd();
   }
 
   private replaceMemoBody(content: string, memo: string): string {
     const normalized = memo.trimEnd();
-    if (/^## Memo\s*$/m.test(content)) {
-      return content.replace(/^## Memo\s*\n([\s\S]*?)(?=\n## |\s*$)/m, `## Memo\n\n${normalized}${normalized ? '\n' : ''}`);
+    const lines = content.split(/\r?\n/);
+    const section = this.findMarkdownSection(content, 'Memo', 2);
+    const replacement = ['## Memo', '', ...normalized.split('\n').filter((_, index, array) => normalized || index < array.length - 1)];
+    if (normalized) replacement.push('');
+
+    if (!section) {
+      const prefix = content.trimEnd();
+      return `${prefix}${prefix ? '\n\n' : ''}${replacement.join('\n')}`;
     }
-    return `${content.trimEnd()}\n\n## Memo\n\n${normalized}${normalized ? '\n' : ''}`;
+
+    const next = [...lines.slice(0, section.headingLine), ...replacement, ...lines.slice(section.endLine)];
+    return next.join('\n').replace(/\n{4,}/g, '\n\n\n');
+  }
+
+  private findMarkdownSection(
+    content: string,
+    title: string,
+    level: number
+  ): { headingLine: number; endLine: number; bodyLines: string[] } | null {
+    const lines = content.split(/\r?\n/);
+    const headingPattern = new RegExp(`^#{${level}}\\s+${this.escapeRegex(title)}\\s*$`, 'i');
+    const anyHeadingPattern = /^(#{1,6})\s+\S/;
+    const headingLine = lines.findIndex((line) => headingPattern.test(line.trimEnd()));
+    if (headingLine < 0) return null;
+
+    let bodyStart = headingLine + 1;
+    if (lines[bodyStart] === '') bodyStart += 1;
+
+    let endLine = lines.length;
+    for (let index = bodyStart; index < lines.length; index += 1) {
+      const match = lines[index].match(anyHeadingPattern);
+      if (match && match[1].length <= level) {
+        endLine = index;
+        break;
+      }
+    }
+
+    return {
+      headingLine,
+      endLine,
+      bodyLines: lines.slice(bodyStart, endLine),
+    };
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private renderTreeToggle(container: HTMLElement, key: string, collapsed: boolean): void {
@@ -1325,7 +1567,7 @@ export class KanbanRPMView extends ItemView {
     if (key === 'status') return card.status;
     if (key === 'priority') return String(card.priority).padStart(2, '0');
     if (key === 'date') return toDateSortValue(card);
-    if (key === 'dependencies') return String(card.blockedBy.length + card.dependsOn.length + card.blocks.length).padStart(3, '0');
+    if (key === 'dependencies') return String(card.blockedBy.length + card.precededBy.length + card.followedBy.length).padStart(3, '0');
     return String(card.actionCount).padStart(4, '0');
   }
 
@@ -1344,9 +1586,9 @@ export class KanbanRPMView extends ItemView {
 
   private cardDependencyLabel(card: ProjectCard): string {
     const parts = [];
-    if (card.blockedBy.length) parts.push(`blocked by ${card.blockedBy.length}`);
-    if (card.dependsOn.length) parts.push(`depends ${card.dependsOn.length}`);
-    if (card.blocks.length) parts.push(`blocks ${card.blocks.length}`);
+    if (card.blockedBy.length) parts.push(`waiting on ${card.blockedBy.length}`);
+    if (card.precededBy.length) parts.push(`preceded ${card.precededBy.length}`);
+    if (card.followedBy.length) parts.push(`followed ${card.followedBy.length}`);
     return parts.join(' - ') || 'None';
   }
 
@@ -1392,6 +1634,7 @@ export class KanbanRPMView extends ItemView {
   private renderCard(list: HTMLElement, card: ProjectCard): void {
     const cardClasses = [
       'kanban-rpm-card',
+      `kanban-rpm-type-${card.type.replace('_', '-')}`,
       `kanban-rpm-card-status-${card.status}`,
       isPastDate(card.dueDate) || isPastDate(card.nextReview) ? 'kanban-rpm-card-overdue' : '',
     ]
@@ -1401,6 +1644,7 @@ export class KanbanRPMView extends ItemView {
     cardEl.dataset.path = card.path;
     cardEl.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
     this.attachPointerDrag(cardEl, card);
+    this.renderFlowDots(cardEl, card);
 
     const toolbar = cardEl.createDiv({ cls: 'kanban-rpm-card-toolbar' });
     if (this.plugin.settings.cardDisplayFields.breadcrumb) {
@@ -1420,12 +1664,14 @@ export class KanbanRPMView extends ItemView {
     });
     this.renderCardMoreMenu(titleActions, card);
 
-    cardEl.createDiv({ cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', () => {
+    cardEl.createEl('button', { cls: 'kanban-rpm-card-title', text: card.title }).addEventListener('click', (event) => {
+      event.stopPropagation();
       void this.plugin.openCard(card);
     });
 
     const fields = this.plugin.settings.cardDisplayFields;
     const primaryMeta = cardEl.createDiv({ cls: 'kanban-rpm-meta kanban-rpm-card-primary-meta' });
+    if (card.blockedBy.length) this.addMeta(primaryMeta, String(card.blockedBy.length), 'waiting on', 'kanban-rpm-meta-dependency');
     if (fields.category) this.addMeta(primaryMeta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
     if (!primaryMeta.childElementCount) primaryMeta.remove();
 
@@ -1476,12 +1722,127 @@ export class KanbanRPMView extends ItemView {
     });
   }
 
+  private renderFlowDots(cardEl: HTMLElement, card: ProjectCard): void {
+    const incoming = cardEl.createSpan({
+      cls: 'kanban-rpm-flow-dot kanban-rpm-flow-dot-in',
+      attr: { title: 'Preceded by connector', 'aria-label': 'Preceded by connector' },
+    });
+    incoming.dataset.path = card.path;
+    incoming.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    const outgoing = cardEl.createSpan({
+      cls: 'kanban-rpm-flow-dot kanban-rpm-flow-dot-out',
+      attr: { title: 'Followed by connector', 'aria-label': 'Followed by connector' },
+    });
+    outgoing.dataset.path = card.path;
+    outgoing.addEventListener('pointerdown', (event) => this.startFlowConnect(event, card));
+  }
+
+  private startFlowConnect(event: PointerEvent, source: ProjectCard): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const wrap = (event.currentTarget as HTMLElement).closest('.kanban-rpm-board-wrap') as HTMLElement | null;
+    const overlay = wrap?.querySelector<SVGElement>('.kanban-rpm-board-flow-overlay');
+    if (!wrap || !overlay) return;
+    const rect = wrap.getBoundingClientRect();
+    const startX = event.clientX - rect.left + wrap.scrollLeft;
+    const startY = event.clientY - rect.top + wrap.scrollTop;
+    const preview = this.svgEl('path');
+    preview.setAttribute('class', 'kanban-rpm-board-flow-arrow is-preview');
+    preview.setAttribute('d', `M ${startX} ${startY} C ${startX + 80} ${startY}, ${startX + 80} ${startY}, ${startX} ${startY}`);
+    overlay.appendChild(preview);
+    this.flowConnect = { pointerId: event.pointerId, sourcePath: source.path, preview, startX, startY };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+
+    const move = (moveEvent: PointerEvent): void => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== moveEvent.pointerId) return;
+      const endX = moveEvent.clientX - rect.left + wrap.scrollLeft;
+      const endY = moveEvent.clientY - rect.top + wrap.scrollTop;
+      const control = Math.max(60, Math.abs(endX - this.flowConnect.startX) * 0.45);
+      this.flowConnect.preview.setAttribute(
+        'd',
+        `M ${this.flowConnect.startX} ${this.flowConnect.startY} C ${this.flowConnect.startX + control} ${this.flowConnect.startY}, ${endX - control} ${endY}, ${endX} ${endY}`
+      );
+      this.setFlowDropHighlight(this.findFlowDropTarget(moveEvent.clientX, moveEvent.clientY, this.flowConnect.sourcePath));
+    };
+
+    const end = (endEvent: PointerEvent): void => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== endEvent.pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', cancel);
+      const state = this.flowConnect;
+      state.preview.remove();
+      this.flowConnect = undefined;
+      this.setFlowDropHighlight('');
+      const targetPath = this.findFlowDropTarget(endEvent.clientX, endEvent.clientY, state.sourcePath);
+      const sourceCard = this.cards.find((card) => card.path === state.sourcePath);
+      if (sourceCard && targetPath && targetPath !== sourceCard.path) void this.plugin.addPrecededBy(targetPath, sourceCard);
+    };
+
+    const cancel = (cancelEvent: PointerEvent): void => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== cancelEvent.pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', cancel);
+      this.flowConnect.preview.remove();
+      this.flowConnect = undefined;
+      this.setFlowDropHighlight('');
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', cancel);
+  }
+
+  private findFlowDropTarget(clientX: number, clientY: number, sourcePath: string): string {
+    const targets = Array.from(this.containerEl.querySelectorAll<HTMLElement>('.kanban-rpm-flow-dot-in'));
+    let best: { path: string; distance: number } | undefined;
+    for (const target of targets) {
+      const path = target.dataset.path ?? '';
+      if (!path || path === sourcePath) continue;
+      const rect = target.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const cardRect = target.closest('.kanban-rpm-card')?.getBoundingClientRect();
+      const isInCardConnectorZone = cardRect
+        ? clientX >= cardRect.left - 20 && clientX <= cardRect.left + 58 && clientY >= cardRect.top - 10 && clientY <= cardRect.bottom + 10
+        : false;
+      if (distance > 38 && !isInCardConnectorZone) continue;
+      if (!best || distance < best.distance) best = { path, distance };
+    }
+    return best?.path ?? '';
+  }
+
+  private setFlowDropHighlight(targetPath: string): void {
+    this.containerEl
+      .querySelectorAll<HTMLElement>('.kanban-rpm-flow-dot-in.is-flow-target, .kanban-rpm-card.is-flow-target')
+      .forEach((element) => element.removeClass('is-flow-target'));
+    if (!targetPath) return;
+    const target = this.containerEl.querySelector<HTMLElement>(`.kanban-rpm-flow-dot-in[data-path="${CSS.escape(targetPath)}"]`);
+    target?.addClass('is-flow-target');
+    target?.closest('.kanban-rpm-card')?.addClass('is-flow-target');
+  }
+
   private renderCardBreadcrumb(container: HTMLElement, card: ProjectCard): void {
     const project = card.projectTitle || card.projectTitles[0] || 'No project';
     const subproject = card.subprojectTitle || card.subprojectTitles[0] || '';
     const text = container.createSpan({ cls: 'kanban-rpm-card-breadcrumb-text' });
     text.createSpan({ text: project });
-    if (subproject) text.createSpan({ text: `> ${subproject}` });
+    if (card.type === 'big_action' && subproject) text.createSpan({ text: `> ${subproject}` });
+  }
+
+  private cardDisplayBreadcrumb(card: ProjectCard): string {
+    const project = card.projectTitle || card.projectTitles[0] || 'No project';
+    const subproject = card.subprojectTitle || card.subprojectTitles[0] || '';
+    if (card.type === 'big_action' && subproject) return `${project} > ${subproject}`;
+    return project;
   }
 
   private createIconButton(container: HTMLElement, icon: string, label: string, cls = ''): HTMLButtonElement {
@@ -1525,14 +1886,12 @@ export class KanbanRPMView extends ItemView {
     if (!card.smallActions.length && !visibleActions.length) return;
 
     const open = card.smallActions.filter((action) => !action.done).length;
-    const overdue = card.smallActions.filter((action) => !action.done && this.isSmallActionOverdue(action)).length;
-    const dueSoon = card.smallActions.filter((action) => !action.done && this.isSmallActionInWindow(action, 'week')).length;
     const expanded = this.isSmallActionsExpanded(card);
 
     const panel = cardEl.createDiv({ cls: 'kanban-rpm-small-actions' });
     const header = panel.createEl('button', {
       cls: 'kanban-rpm-small-actions-toggle',
-      text: `${expanded ? 'v' : '>'} Small actions: ${open} open${overdue ? ` - ${overdue} overdue` : ''}${dueSoon ? ` - ${dueSoon} due soon` : ''}`,
+      text: `${expanded ? 'v' : '>'} Small actions: ${open} remaining`,
     });
     header.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -1725,9 +2084,9 @@ export class KanbanRPMView extends ItemView {
     const fields = this.plugin.settings.cardDisplayFields;
     const rows: Array<[string, string[], string]> = [];
     if (fields.dependencies) {
-      rows.push(['Blocked by', card.blockedBy, 'kanban-rpm-relation-blocks']);
-      rows.push(['Depends', card.dependsOn, 'kanban-rpm-relation-depends']);
-      rows.push(['Blocks', card.blocks, 'kanban-rpm-relation-blocks']);
+      rows.push(['Waiting on', card.blockedBy, 'kanban-rpm-relation-blocks']);
+      rows.push(['Preceded by', card.precededBy, 'kanban-rpm-relation-depends']);
+      rows.push(['Followed by', card.followedBy, 'kanban-rpm-relation-blocks']);
     }
     if (fields.sources) rows.push(['Sources', card.sourceNotes.slice(0, 3), 'kanban-rpm-relation-sources']);
     const visibleRows = rows.filter(([, values]) => values.length > 0);
@@ -1790,6 +2149,16 @@ export class KanbanRPMView extends ItemView {
 
   private getConfiguredStatusId(preferredId: string): Status {
     return this.plugin.settings.statuses.find((status) => status.id === preferredId)?.id ?? preferredId;
+  }
+
+  private isCompletionStatus(statusId: string): boolean {
+    const status = this.plugin.settings.statuses.find((item) => item.id === statusId);
+    const value = `${status?.id ?? statusId} ${status?.label ?? ''}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value) || value.includes('?꾨즺');
+  }
+
+  private statusLabel(statusId: string): string {
+    return this.plugin.settings.statuses.find((status) => status.id === statusId)?.label ?? statusId;
   }
 
   private projectColor(key: string): string {

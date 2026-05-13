@@ -13,7 +13,7 @@ export type Status = string;
 
 export type CardType = 'project' | 'subproject' | 'big_action';
 
-export type ViewMode = 'board' | 'table' | 'list' | 'timeline' | 'graph';
+export type ViewMode = 'board' | 'table' | 'list' | 'timeline';
 
 export interface StatusDefinition {
   id: string;
@@ -54,11 +54,13 @@ export interface ProjectCard {
   blocker: string;
   nextReview: string;
   dueDate: string;
+  precededBy: string[];
+  followedBy: string[];
   dependsOn: string[];
   blocks: string[];
   blockedBy: string[];
   sourceNotes: string[];
-  perpetuals: RecurringItem[];
+  routines: RecurringItem[];
   smallActions: SmallAction[];
   actionCount: number;
   order?: number;
@@ -98,7 +100,13 @@ export interface RecurringItem {
   cardPath: string;
   cardTitle: string;
   text: string;
-  cadence: 'daily' | 'weekly' | 'monthly';
+  cadence: 'daily' | 'weekly' | 'monthly' | 'custom';
+  startDate: string;
+  interval: number;
+  unit: 'day' | 'week' | 'month';
+  lineNumber: number;
+  raw: string;
+  completedDates: string[];
 }
 
 export type TimelineScope = 'all' | 'review' | 'due' | 'tasks' | 'recurring';

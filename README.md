@@ -43,6 +43,7 @@ docs/Install.md
 docs/Baseline QA.md
 docs/Release QA.md
 docs/Release Notes.md
+docs/Migration v0.1 to v0.2.md
 docs/Card Schema.md
 docs/Attribution.md
 docs/KanbanRPM Manual.md
@@ -76,7 +77,7 @@ node scripts/build.mjs
 `npm run package` prepares a local release bundle under:
 
 ```text
-dist/kanban-rpm-0.1.0/
+dist/kanban-rpm-0.2.0/
 ```
 
 `npm run smoke` checks the live plugin folder, release bundle, manifest/version mapping, and release documentation for consistency.
@@ -133,7 +134,7 @@ subprojects:
 order:
 ```
 
-Readable planning context lives in Markdown sections such as `Current Focus`, `Waiting`, `Blockers`, `Dependencies`, `Timeline`, `References`, and `PM Metadata`.
+Readable planning context lives in Markdown sections such as `Current Focus`, `Waiting`, `Blockers`, `Flow`, `Timeline`, `References`, and `PM Metadata`.
 
 Flexible architecture terms:
 
@@ -143,7 +144,7 @@ Flexible architecture terms:
 - `projects` / `subprojects`: multi-link hierarchy arrays stored in frontmatter.
 - `primary_project` / `primary_subproject`: the default breadcrumb and future folder placement anchors.
 - `Checkbox task`: a detailed action that stays inside source notes.
-- `Depends on` and `Blocks`: lightweight dependency sections inspired by Laminar arrows.
+- `Preceded by` and `Followed by`: lightweight flow sections inspired by Laminar arrows.
 - `References`: notes to scan for unchecked checkbox actions and `#todo` lines.
 - `Category`: one optional classification value stored as `workstream_type`.
 
@@ -151,7 +152,7 @@ The workspace also keeps Laminar-style support folders:
 
 ```text
 KanbanRPM Workspace/arrows/
-KanbanRPM Workspace/perpetual/
+KanbanRPM Workspace/routines/
 KanbanRPM Workspace/timeline/
 KanbanRPM Workspace/attachments/
 KanbanRPM Workspace/archive/
@@ -163,7 +164,7 @@ KanbanRPM Workspace/archive/
 - Switch between `Board`, `Table`, `List`, and `Timeline` views from the toolbar.
 - Search/filter cards from the board toolbar.
 - Filter cards by `Project`, `Subproject`, and `Category`.
-- Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and dependency cycles.
+- Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and flow cycles.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
 - Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
 - Select primary `Project` and, for Big Actions, primary `Subproject` from existing documents, with optional additional Project/Subproject links.
@@ -173,23 +174,27 @@ KanbanRPM Workspace/archive/
 - Archive cards to `KanbanRPM Workspace/archive/`.
 - Delete cards through a confirmation modal.
 - Show visual badges for status, type, category, dependencies, priority, and overdue dates.
-- Show an `Action index` that collects unchecked checkboxes and `#todo` lines from notes linked in `## References` without modifying the original notes.
+- Show an `Action index` that collects unchecked checkboxes, `#todo` lines from notes linked in `## References`, and recurring `Routine` items without modifying the original notes.
 - Open source notes from the `Action index`.
 - Promote an indexed action into a card's `## Current Focus` with `Set next`.
 - Group `Action index` entries by card.
-- Show a `Command center` panel for review queue, waiting cards, blocked cards, and dependency-heavy cards.
+- Show a `Command center` panel for review queue, waiting cards, blocked cards, and flow-heavy cards.
 - Toggle `Data warnings`, `Command center`, and `Action index` from the filter row; closed panels are removed from the board area.
 - Keep secondary board actions under `More`, including `Weekly review`, `Export arrows`, and `Normalize order`.
 - Use the Laminar-style `Timeline` view and date `Memo` row for lightweight daily notes instead of writing to external Daily notes.
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
-- Show compact card relation rows for `Depends on`, `Blocks`, and `References`.
-- Export dependency sections to Laminar-style `arrows/` notes with `Export arrows`.
+- Generate an LLM-friendly `KanbanRPM Management Brief.md` with `Management brief`.
+- Show compact card relation rows for `Preceded by`, `Followed by`, and `References`.
+- Export flow sections to Laminar-style `arrows/` notes with `Export arrows`.
 - Configure which board-card fields are visible from plugin settings.
 - Configure Category values from plugin settings.
 - Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
 - Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
 - Sort cards in `Table` view and inspect a collapsible `Project -> Subproject -> Big Action` tree in `List` view.
-- Inspect a Laminar-style kanban-like `Timeline` view with a `Perpetual` sidebar, base-date/range controls, status filters, marker-kind display filters, date columns, editable date Memo cards, status dropdowns, and compact small-action controls.
+- Inspect and edit flow directly on the Board with card connector dots and arrows; unfinished preceding work is shown with warning-colored arrows.
+- Drag a card's right flow dot to another card's left connector area to add a `Preceded by` link.
+- Click an existing board arrow to remove that flow link after confirmation.
+- Inspect a Laminar-style kanban-like `Timeline` view with a grouped/collapsible `Routine` sidebar, start-date and custom-interval recurring routines, next visible routine dates, completion logs, base-date/range controls, status filters, marker-kind display filters, date columns, editable date Memo cards, status dropdowns, and compact small-action controls.
 - Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
 - Check or uncheck small actions from board cards while updating the original Markdown line.
 - Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.
