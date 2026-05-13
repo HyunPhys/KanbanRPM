@@ -24,7 +24,7 @@ KanbanRPM creates its workspace when needed:
 KanbanRPM Workspace/
   cards/
   arrows/
-  routine/
+  routines/
   timeline/
   attachments/
   archive/
@@ -184,7 +184,7 @@ Drag a card to another lane to update `status`. Drag within a lane to update `or
 
 `List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-Board cards include small left/right flow dots. The left dot represents incoming `Preceded by` flow, and the right dot represents outgoing `Followed by` flow. Drag a card's right dot toward another card's left connector area to create a flow arrow; the drop target is intentionally wider than the visible dot and highlights while dragging. KanbanRPM stores that arrow by adding the source card to the target card's `Preceded by` list. Existing flow links are drawn directly on the board as curved arrows from predecessor to follower. Click an arrow to remove the link after confirmation. Grey arrows mean the predecessor is in a completion status such as `Done`, `Completed`, or `?꾨즺`; warning-colored arrows mean the follower is still waiting on unfinished preceding work. If your custom status set has no completion status, flow arrows stay in the warning state until one is added or renamed.
+Board cards include small left/right flow dots. The left dot represents incoming `Preceded by` flow, and the right dot represents outgoing `Followed by` flow. Drag a card's right dot toward another card's left connector area to create a flow arrow; the drop target is intentionally wider than the visible dot and highlights while dragging. KanbanRPM stores that arrow by adding the source card to the target card's `Preceded by` list. Existing flow links are drawn directly on the board as curved arrows from predecessor to follower. Click an arrow to remove the link after confirmation. Grey arrows mean the predecessor is in a completion status such as `Done`, `Completed`, or `Complete`; warning-colored arrows mean the follower is still waiting on unfinished preceding work. If your custom status set has no completion status, flow arrows stay in the warning state until one is added or renamed.
 
 `Timeline` view uses a Laminar-style kanban-like layout: a left `Routine` sidebar, top range/search/display controls, and horizontal date columns. By default it shows 7 days before through 7 days after the base date, which starts as today. Use `Today`, `-7`, `+7`, the base date field, or the explicit `YYYY.MM.DD` to `YYYY.MM.DD` range fields to change the window. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Routine` items.
 
@@ -226,23 +226,23 @@ Use `Card display fields` in settings to choose which card fields appear on the 
 
 Small actions are checkbox tasks inside the living document. They stay in the Markdown body instead of becoming separate cards.
 
-KanbanRPM reads Tasks-style emoji metadata:
+KanbanRPM reads a Tasks-style metadata subset:
 
 ```markdown
-- [ ] Stack TTT sample ??2026-05-10 ?뱟 2026-05-14 ?뵾
-- [x] Confirm mask design ??2026-05-07
+- [ ] Stack TTT sample scheduled 2026-05-10 due 2026-05-14 priority high
+- [x] Confirm mask design done 2026-05-07
 ```
 
 Supported metadata:
 
-- `scheduled`: `??YYYY-MM-DD`
-- `due`: `?뱟 YYYY-MM-DD`
-- `done`: `??YYYY-MM-DD`
-- priority: `??, `?뵾`, `?뵿`, `??
+- `scheduled`: Tasks-style scheduled date marker followed by `YYYY-MM-DD`
+- `due`: Tasks-style due date marker followed by `YYYY-MM-DD`
+- `done`: Tasks-style done date marker followed by `YYYY-MM-DD`
+- `priority`: Tasks-style priority marker
 
-Board cards show a collapsible small-action row. Click `??Small actions` to expand and `??Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
+Board cards show a collapsible small-action row. Click the `Small actions` row to expand or collapse it. Expanded small actions are grouped by the heading they came from.
 
-You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `??YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
 
 Small-action settings:
 
