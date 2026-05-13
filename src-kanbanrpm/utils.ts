@@ -1,6 +1,6 @@
 import { normalizePath } from 'obsidian';
-import { LANES, WEEKDAYS_KO } from './constants';
-import type { KanbanRPMSettings, ProjectCard, Status } from './types';
+import { LANES } from './constants';
+import type { KanbanRPMSettings, ProjectCard, Status, StatusDefinition } from './types';
 
 export function text(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -48,7 +48,58 @@ export function sanitizeFileName(name: string): string {
 }
 
 export function isStatus(value: unknown): value is Status {
-  return LANES.some((lane) => lane.id === value);
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export function normalizeStatus(value: unknown, statuses: StatusDefinition[]): Status {
+  const raw = text(value).trim().toLowerCase().replace(/\s+/g, '-');
+  if (statuses.some((status) => status.id === raw)) return raw;
+  return statuses[0]?.id ?? LANES[0].id;
+}
+
+export function parseStatuses(value: string): StatusDefinition[] {
+  const statuses = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [idPart, labelPart] = line.split('|').map((part) => part.trim());
+      const id = (idPart || labelPart || 'status').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+      return {
+        id,
+        label: labelPart || idPart || id,
+      };
+    })
+    .filter((status) => status.id);
+
+  const seen = new Set<string>();
+  return statuses.filter((status) => {
+    if (seen.has(status.id)) return false;
+    seen.add(status.id);
+    return true;
+  });
+}
+
+export function serializeStatuses(statuses: StatusDefinition[]): string {
+  return statuses.map((status) => `${status.id} | ${status.label}`).join('\n');
+}
+
+export function parseCategories(value: string): string[] {
+  const seen = new Set<string>();
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''))
+    .filter((category) => {
+      if (!category || seen.has(category)) return false;
+      seen.add(category);
+      return true;
+    });
+}
+
+export function serializeCategories(categories: string[]): string {
+  return categories.join('\n');
 }
 
 export function isValidDateString(value: string): boolean {
@@ -64,11 +115,11 @@ export function toDateSortValue(card: ProjectCard): string {
 }
 
 export function compareCards(a: ProjectCard, b: ProjectCard): number {
-  const aManual = Number.isFinite(a.rpmOrder);
-  const bManual = Number.isFinite(b.rpmOrder);
+  const aManual = Number.isFinite(a.order);
+  const bManual = Number.isFinite(b.order);
 
-  if (aManual && bManual && a.rpmOrder !== b.rpmOrder) {
-    return (a.rpmOrder ?? 0) - (b.rpmOrder ?? 0);
+  if (aManual && bManual && a.order !== b.order) {
+    return (a.order ?? 0) - (b.order ?? 0);
   }
 
   if (aManual !== bManual) return aManual ? -1 : 1;
@@ -91,14 +142,6 @@ export function parsePriority(value: unknown): number {
 export function parseOrder(value: unknown): number | undefined {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
-}
-
-export function getDailyPath(settings: KanbanRPMSettings, date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const weekday = WEEKDAYS_KO[date.getDay()];
-  return normalizePath(`${settings.dailyFolder}/${yyyy}-${mm}-${dd} (${weekday}).md`);
 }
 
 export function getIsoDate(date = new Date()): string {

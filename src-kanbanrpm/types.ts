@@ -2,12 +2,23 @@ import type { TFile } from 'obsidian';
 
 export interface KanbanRPMSettings {
   workspaceFolder: string;
-  dailyFolder: string;
-  dailySection: string;
   weeklyReviewFolder: string;
+  statuses: StatusDefinition[];
+  categories: string[];
+  cardDisplayFields: CardDisplaySettings;
+  smallActionDisplay: SmallActionDisplaySettings;
 }
 
-export type Status = 'inbox' | 'active' | 'waiting' | 'blocked' | 'someday' | 'done';
+export type Status = string;
+
+export type CardType = 'project' | 'subproject' | 'big_action';
+
+export type ViewMode = 'board' | 'table' | 'list' | 'timeline';
+
+export interface StatusDefinition {
+  id: string;
+  label: string;
+}
 
 export interface Lane {
   id: Status;
@@ -17,51 +28,59 @@ export interface Lane {
 export interface ProjectCard {
   file: TFile;
   path: string;
+  id: string;
   title: string;
+  type: CardType;
   status: Status;
   priority: number;
-  area: string;
-  group: string;
+  parent: string;
+  project: string;
+  subproject: string;
+  projects: string[];
+  subprojects: string[];
+  primaryProject: string;
+  primarySubproject: string;
+  parentPath: string;
+  parentTitle: string;
+  projectTitles: string[];
+  subprojectTitles: string[];
+  projectTitle: string;
+  subprojectTitle: string;
+  breadcrumb: string;
+  colorKey: string;
   workstreamType: string;
-  projectKind: string;
-  stage: string;
   nextAction: string;
   waitingFor: string;
   blocker: string;
   nextReview: string;
   dueDate: string;
-  importance: string;
-  legacyLinks: string[];
-  relatedSamples: string[];
-  relatedPhenomena: string[];
-  relatedPeople: string[];
-  relatedNotes: string[];
+  precededBy: string[];
+  followedBy: string[];
   dependsOn: string[];
   blocks: string[];
+  blockedBy: string[];
   sourceNotes: string[];
-  rpmOrder?: number;
+  routines: RecurringItem[];
+  smallActions: SmallAction[];
+  actionCount: number;
+  order?: number;
 }
 
 export interface NewCardValues {
   title: string;
+  type: CardType;
+  project: string;
+  subproject: string;
+  projects: string;
+  subprojects: string;
   status: Status;
   priority: string;
-  area: string;
-  group: string;
   workstreamType: string;
-  projectKind: string;
-  stage: string;
   nextAction: string;
   waitingFor: string;
   blocker: string;
   nextReview: string;
   dueDate: string;
-  importance: string;
-  legacyLinks: string;
-  relatedSamples: string;
-  relatedPhenomena: string;
-  relatedPeople: string;
-  relatedNotes: string;
   dependsOn: string;
   blocks: string;
   sourceNotes: string;
@@ -74,26 +93,74 @@ export interface ActionItem {
   sourceLabel: string;
   lineNumber: number;
   text: string;
+  recurring?: boolean;
 }
 
-export interface LegacyProjectCandidate {
-  file: TFile;
-  path: string;
-  title: string;
-  status: Status;
-  priority: number;
-  area: string;
-  group: string;
-  projectKind: string;
-  workstreamType: string;
-  stage: string;
-  reasons: string[];
-  legacyLink: string;
-  alreadySeeded: boolean;
-  existingCardTitle: string;
+export interface RecurringItem {
+  cardPath: string;
+  cardTitle: string;
+  text: string;
+  cadence: 'daily' | 'weekly' | 'monthly' | 'custom';
+  startDate: string;
+  interval: number;
+  unit: 'day' | 'week' | 'month';
+  lineNumber: number;
+  raw: string;
+  completedDates: string[];
 }
 
-export type DailyPullMode = 'review' | 'active' | 'waiting' | 'blocked' | 'all-visible';
+export type TimelineScope = 'all' | 'review' | 'due' | 'tasks' | 'recurring';
+
+export type SmallActionPriority = 'highest' | 'high' | 'medium' | 'normal' | 'low' | 'lowest';
+
+export interface SmallAction {
+  cardPath: string;
+  cardTitle: string;
+  text: string;
+  done: boolean;
+  dueDate: string;
+  scheduledDate: string;
+  doneDate: string;
+  priority: SmallActionPriority;
+  heading: string;
+  lineNumber: number;
+  lineText: string;
+  raw: string;
+}
+
+export interface CardDisplaySettings {
+  breadcrumb: boolean;
+  type: boolean;
+  status: boolean;
+  priority: boolean;
+  category: boolean;
+  currentFocus: boolean;
+  waiting: boolean;
+  blockers: boolean;
+  dates: boolean;
+  dependencies: boolean;
+  sources: boolean;
+  smallActionSummary: boolean;
+}
+
+export type SmallActionSourceFilter = 'dated' | 'done' | 'all';
+export type SmallActionDateWindow = 'all' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'month';
+
+export interface SmallActionDisplaySettings {
+  collapsedByDefault: boolean;
+  sourceFilter: SmallActionSourceFilter;
+  dateWindow: SmallActionDateWindow;
+}
+
+export interface DependencyEdge {
+  fromPath: string;
+  fromTitle: string;
+  toPath: string;
+  toTitle: string;
+  relationship: 'depends_on' | 'blocks';
+  raw: string;
+  broken: boolean;
+}
 
 export type CardIssueLevel = 'warning' | 'error';
 

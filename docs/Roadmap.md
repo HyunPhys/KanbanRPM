@@ -2,6 +2,8 @@
 
 This roadmap tracks KanbanRPM from the current TypeScript MVP toward a practical research project manager for Obsidian.
 
+For the living-document structural redesign, use `docs/Roadmap v0.2.md`.
+
 ## Current Status
 
 KanbanRPM is currently through Phase 7 Release Readiness, with Phase 1/2 foundations, Phase 3 Data Model stabilization, Phase 4 Architecture refactor, Phase 5 Legacy Import, and Phase 6 Daily/Weekly Workflow already implemented.

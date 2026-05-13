@@ -8,18 +8,18 @@ import {
 import { KanbanRPMView } from './board-view';
 import { CardRepository } from './card-repository';
 import { DEFAULT_SETTINGS, VIEW_TYPE } from './constants';
-import { openWeeklyReview, sendCardToDaily, sendCardsToDaily as sendCardBatchToDaily } from './daily';
-import { DailyPullModal, LegacyImportModal, NewGroupModal, NewProjectCardModal } from './modals';
+import { NewProjectCardModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
-import type { ActionItem, CardIssue, KanbanRPMSettings, LegacyProjectCandidate, NewCardValues, ProjectCard, Status } from './types';
+import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, SmallAction, Status } from './types';
+import { openWeeklyReview } from './weekly-review';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
   private repository!: CardRepository;
 
   async onload(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = this.normalizeSettings(await this.loadData());
     this.repository = new CardRepository(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new KanbanRPMView(leaf, this));
@@ -37,25 +37,13 @@ export default class KanbanRPMPlugin extends Plugin {
 
     this.addCommand({
       id: 'new-project-card',
-      name: 'New project card',
+      name: 'New document',
       callback: () => new NewProjectCardModal(this.app, this).open(),
     });
 
     this.addCommand({
-      id: 'new-group-note',
-      name: 'New group note',
-      callback: () => new NewGroupModal(this.app, this).open(),
-    });
-
-    this.addCommand({
-      id: 'import-legacy-project-notes',
-      name: 'Import legacy project notes',
-      callback: () => new LegacyImportModal(this.app, this).open(),
-    });
-
-    this.addCommand({
       id: 'write-dependency-arrows',
-      name: 'Write dependency arrows',
+      name: 'Export dependency arrows',
       callback: () => void this.writeDependencyArrows(),
     });
 
@@ -72,15 +60,15 @@ export default class KanbanRPMPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: 'pull-cards-to-daily',
-      name: 'Pull cards to Daily',
-      callback: () => void this.openDailyPullModal(),
-    });
-
-    this.addCommand({
       id: 'open-weekly-review',
       name: 'Open weekly review',
       callback: () => void this.openWeeklyReview(),
+    });
+
+    this.addCommand({
+      id: 'write-management-brief',
+      name: 'Write management brief',
+      callback: () => void this.writeManagementBrief(),
     });
 
     this.addSettingTab(new KanbanRPMSettingTab(this.app, this));
@@ -88,6 +76,29 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  private normalizeSettings(data: Partial<KanbanRPMSettings> | null): KanbanRPMSettings {
+    const saved = data ?? {};
+    const weeklyReviewFolder =
+      saved.weeklyReviewFolder === 'KanbanRPM Workspace/perpetual' || saved.weeklyReviewFolder?.match(/[\\/]perpetual$/)
+        ? saved.weeklyReviewFolder.replace(/[\\/]perpetual$/, '/routines')
+        : saved.weeklyReviewFolder;
+    return {
+      ...DEFAULT_SETTINGS,
+      ...saved,
+      weeklyReviewFolder: weeklyReviewFolder || DEFAULT_SETTINGS.weeklyReviewFolder,
+      statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
+      categories: saved.categories?.length ? saved.categories : DEFAULT_SETTINGS.categories,
+      cardDisplayFields: {
+        ...DEFAULT_SETTINGS.cardDisplayFields,
+        ...(saved.cardDisplayFields ?? {}),
+      },
+      smallActionDisplay: {
+        ...DEFAULT_SETTINGS.smallActionDisplay,
+        ...(saved.smallActionDisplay ?? {}),
+      },
+    };
   }
 
   private registerCardRefreshEvents(): void {
@@ -128,16 +139,20 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/archive`);
   }
 
-  get groupsFolder(): string {
-    return normalizePath(`${this.workspaceFolder}/groups`);
-  }
-
   get arrowsFolder(): string {
     return normalizePath(`${this.workspaceFolder}/arrows`);
   }
 
+  get routinesFolder(): string {
+    return normalizePath(`${this.workspaceFolder}/routines`);
+  }
+
   get schemaReferencePath(): string {
     return normalizePath(`${this.workspaceFolder}/KanbanRPM Card Schema.md`);
+  }
+
+  get managementBriefPath(): string {
+    return normalizePath(`${this.workspaceFolder}/KanbanRPM Management Brief.md`);
   }
 
   isCardPath(path: string): boolean {
@@ -149,13 +164,14 @@ export default class KanbanRPMPlugin extends Plugin {
   }
 
   async ensureWorkspace(): Promise<void> {
+    await this.migrateLegacyRoutineFolder();
     const folders = [
       this.workspaceFolder,
       this.cardsFolder,
       this.archiveFolder,
-      this.groupsFolder,
       this.arrowsFolder,
-      `${this.workspaceFolder}/perpetual`,
+      this.routinesFolder,
+      `${this.workspaceFolder}/timeline`,
       `${this.workspaceFolder}/attachments`,
     ].map(normalizePath);
 
@@ -164,6 +180,15 @@ export default class KanbanRPMPlugin extends Plugin {
         await this.app.vault.createFolder(folder);
       }
     }
+  }
+
+  private async migrateLegacyRoutineFolder(): Promise<void> {
+    const legacy = normalizePath(`${this.workspaceFolder}/perpetual`);
+    const next = this.routinesFolder;
+    const legacyFolder = this.app.vault.getAbstractFileByPath(legacy);
+    const nextFolder = this.app.vault.getAbstractFileByPath(next);
+    if (!legacyFolder || nextFolder) return;
+    await this.app.fileManager.renameFile(legacyFolder, next);
   }
 
   async openBoard(): Promise<void> {
@@ -217,6 +242,26 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.setNextAction(cardPath, nextAction);
   }
 
+  async promoteActionToBigAction(action: ActionItem): Promise<TFile> {
+    return this.repository.promoteActionToBigAction(action);
+  }
+
+  async toggleSmallAction(action: SmallAction): Promise<void> {
+    await this.repository.toggleSmallAction(action);
+  }
+
+  async completeRoutine(cardPath: string, routineText: string, date: string): Promise<void> {
+    await this.repository.completeRoutine(cardPath, routineText, date);
+  }
+
+  async addPrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    await this.repository.addPrecededBy(targetPath, sourceCard);
+  }
+
+  async removePrecededBy(targetPath: string, sourceCard: ProjectCard): Promise<void> {
+    await this.repository.removePrecededBy(targetPath, sourceCard);
+  }
+
   async archiveCard(card: ProjectCard): Promise<void> {
     await this.repository.archiveCard(card);
   }
@@ -227,18 +272,6 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async duplicateCard(card: ProjectCard): Promise<TFile | undefined> {
     return this.repository.duplicateCard(card);
-  }
-
-  async createGroup(name: string): Promise<TFile> {
-    return this.repository.createGroup(name);
-  }
-
-  async scanLegacyProjectNotes(): Promise<LegacyProjectCandidate[]> {
-    return this.repository.scanLegacyProjectNotes();
-  }
-
-  async seedLegacyProjectCards(candidates: LegacyProjectCandidate[]): Promise<TFile[]> {
-    return this.repository.seedLegacyProjectCards(candidates);
   }
 
   async collectActionIndex(cards: ProjectCard[]): Promise<ActionItem[]> {
@@ -253,6 +286,10 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.writeDependencyArrows(cards);
   }
 
+  async writeManagementBrief(cards?: ProjectCard[]): Promise<void> {
+    await this.repository.writeManagementBrief(cards);
+  }
+
   resolveLinkedFile(link: string, sourcePath: string): TFile | null {
     return this.repository.resolveLinkedFile(link, sourcePath);
   }
@@ -260,18 +297,6 @@ export default class KanbanRPMPlugin extends Plugin {
   computeOrder(laneCards: ProjectCard[], insertIndex: number): number {
     return this.repository.computeOrder(laneCards, insertIndex);
   }
-  async sendToDaily(card: ProjectCard): Promise<void> {
-    await sendCardToDaily(this.app, this.settings, card);
-  }
-
-  async sendCardsToDaily(cards: ProjectCard[]): Promise<void> {
-    await sendCardBatchToDaily(this.app, this.settings, cards);
-  }
-
-  async openDailyPullModal(cards?: ProjectCard[]): Promise<void> {
-    new DailyPullModal(this.app, this, cards ?? (await this.loadCards())).open();
-  }
-
   async openWeeklyReview(cards?: ProjectCard[]): Promise<void> {
     await openWeeklyReview(this.app, this.settings, cards ?? (await this.loadCards()));
   }

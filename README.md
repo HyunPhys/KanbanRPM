@@ -11,12 +11,12 @@ KanbanRPM keeps the upstream Kanban source tree for reference and attribution, b
 ```text
 src-kanbanrpm/main.ts             Plugin lifecycle and command orchestration
 src-kanbanrpm/board-view.ts       Board UI, toolbar, lanes, cards, and drag/drop
-src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, groups, and action indexing
-src-kanbanrpm/daily.ts            Daily note integration
+src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, hierarchy, and action indexing
+src-kanbanrpm/weekly-review.ts    Weekly review note integration
 src-kanbanrpm/types.ts            Shared TypeScript interfaces
 src-kanbanrpm/constants.ts        Shared constants and vocabularies
 src-kanbanrpm/utils.ts            Pure helper functions
-src-kanbanrpm/modals.ts           Card, group, and confirmation modals
+src-kanbanrpm/modals.ts           Document and confirmation modals
 src-kanbanrpm/schema.ts           Schema reference content
 src-kanbanrpm/settings-tab.ts     Settings tab
 src-kanbanrpm/styles.css          Board and modal styles
@@ -38,10 +38,12 @@ The roadmap, baseline checklist, and user manuals are maintained at:
 
 ```text
 docs/Roadmap.md
+docs/Roadmap v0.2.md
 docs/Install.md
 docs/Baseline QA.md
 docs/Release QA.md
 docs/Release Notes.md
+docs/Migration v0.1 to v0.2.md
 docs/Card Schema.md
 docs/Attribution.md
 docs/KanbanRPM Manual.md
@@ -75,7 +77,7 @@ node scripts/build.mjs
 `npm run package` prepares a local release bundle under:
 
 ```text
-dist/kanban-rpm-0.1.0/
+dist/kanban-rpm-0.2.0/
 ```
 
 `npm run smoke` checks the live plugin folder, release bundle, manifest/version mapping, and release documentation for consistency.
@@ -100,6 +102,16 @@ KanbanRPM stores project cards as individual Markdown files under:
 KanbanRPM Workspace/cards/
 ```
 
+New documents are placed by primary hierarchy:
+
+```text
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
+```
+
+Cards with additional Project/Subproject links stay in the primary folder chosen at creation time. Existing flat files under `cards/` are still loaded.
+
 Each card is a research workstream, not a task. The board reads card frontmatter and maps `status` to lanes:
 
 ```text
@@ -110,46 +122,38 @@ Card files use this frontmatter shape:
 
 ```yaml
 kanban_rpm: true
-type: project
+type: big_action
+id: example-big-action
 status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
+order:
 ```
+
+Readable planning context lives in Markdown sections such as `Current Focus`, `Waiting`, `Blockers`, `Flow`, `Timeline`, `References`, and `PM Metadata`.
 
 Flexible architecture terms:
 
-- `group`: the larger project or operating area, such as `TTT` or `Lab Setup`.
-- `card`: the workstream unit, such as `TTT Analysis` or `Glove Box Setup`.
-- `depends_on` and `blocks`: lightweight dependency metadata inspired by Laminar arrows.
-- `source_notes`: notes to scan for unchecked checkbox actions and `#todo` lines.
-- `related_samples`, `related_phenomena`, and `related_people`: research/operations context that should stay connected to the card.
+- `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
+- `Subproject`: a workstream under a Project, such as `TTT Analysis` or `Glove Box Setup`.
+- `Big Action`: a trackable chunk of work under a Project/Subproject.
+- `projects` / `subprojects`: multi-link hierarchy arrays stored in frontmatter.
+- `primary_project` / `primary_subproject`: the default breadcrumb and future folder placement anchors.
+- `Checkbox task`: a detailed action that stays inside source notes.
+- `Preceded by` and `Followed by`: lightweight flow sections inspired by Laminar arrows.
+- `References`: notes to scan for unchecked checkbox actions and `#todo` lines.
+- `Category`: one optional classification value stored as `workstream_type`.
 
 The workspace also keeps Laminar-style support folders:
 
 ```text
-KanbanRPM Workspace/groups/
 KanbanRPM Workspace/arrows/
-KanbanRPM Workspace/perpetual/
+KanbanRPM Workspace/routines/
+KanbanRPM Workspace/timeline/
 KanbanRPM Workspace/attachments/
 KanbanRPM Workspace/archive/
 ```
@@ -157,37 +161,48 @@ KanbanRPM Workspace/archive/
 ## MVP Features
 
 - Open the KanbanRPM board from the command palette or ribbon.
+- Switch between `Board`, `Table`, `List`, and `Timeline` views from the toolbar.
 - Search/filter cards from the board toolbar.
-- Filter cards by `Group`, `Project kind`, and `Workstream type`.
-- Show `Data warnings` for invalid card frontmatter, unusual dates, invalid priority values, unknown vocabulary values, and broken source links.
+- Filter cards by `Project`, `Subproject`, and `Category`.
+- Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and flow cycles.
 - Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
-- Create project cards from a modal.
-- Create group notes in `KanbanRPM Workspace/groups/`.
-- Import legacy project notes with a preview-only scan and selected card seeding.
+- Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
+- Select primary `Project` and, for Big Actions, primary `Subproject` from existing documents, with optional additional Project/Subproject links.
 - Create cards directly in a lane with the lane `+` quick add button.
 - Edit card metadata from the board.
 - Duplicate existing cards.
 - Archive cards to `KanbanRPM Workspace/archive/`.
 - Delete cards through a confirmation modal.
-- Show visual badges for status, group, type, kind, stage, dependencies, priority, importance, and overdue dates.
-- Show an `Action index` that collects unchecked checkboxes and `#todo` lines from linked source notes without modifying the original notes.
+- Show visual badges for status, type, category, dependencies, priority, and overdue dates.
+- Show an `Action index` that collects unchecked checkboxes, `#todo` lines from notes linked in `## References`, and recurring `Routine` items without modifying the original notes.
 - Open source notes from the `Action index`.
-- Promote an indexed action into a card's `next_action` with `Set next`.
+- Promote an indexed action into a card's `## Current Focus` with `Set next`.
 - Group `Action index` entries by card.
-- Show a `Command center` panel for review queue, waiting cards, blocked cards, and dependency-heavy cards.
-- Collapse or expand `Command center` and `Action index`.
-- Send review queue actions to Daily in a batch with `Daily review`.
-- Select review/active/waiting/blocked/all-visible cards with `Pull Daily`.
-- Append Daily actions under a configurable `Daily section`.
+- Show a `Command center` panel for review queue, waiting cards, blocked cards, and flow-heavy cards.
+- Toggle `Data warnings`, `Command center`, and `Action index` from the filter row; closed panels are removed from the board area.
+- Keep secondary board actions under `More`, including `Weekly review`, `Export arrows`, and `Normalize order`.
+- Use the Laminar-style `Timeline` view and date `Memo` row for lightweight daily notes instead of writing to external Daily notes.
 - Create or open a KanbanRPM weekly review note with `Weekly review`.
-- Show compact card relation rows for `depends_on`, `blocks`, and `source_notes`.
-- Move cards quickly with inline `Active`, `Waiting`, `Blocked`, and `Done` status buttons.
-- Write dependency metadata to Laminar-style `arrows/` notes with `Write arrows`.
+- Generate an LLM-friendly `KanbanRPM Management Brief.md` with `Management brief`.
+- Show compact card relation rows for `Preceded by`, `Followed by`, and `References`.
+- Export flow sections to Laminar-style `arrows/` notes with `Export arrows`.
+- Configure which board-card fields are visible from plugin settings.
+- Configure Category values from plugin settings.
+- Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
+- Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
+- Sort cards in `Table` view and inspect a collapsible `Project -> Subproject -> Big Action` tree in `List` view.
+- Inspect and edit flow directly on the Board with card connector dots and arrows; unfinished preceding work is shown with warning-colored arrows.
+- Drag a card's right flow dot to another card's left connector area to add a `Preceded by` link.
+- Click an existing board arrow to remove that flow link after confirmation.
+- Inspect a Laminar-style kanban-like `Timeline` view with a grouped/collapsible `Routine` sidebar, start-date and custom-interval recurring routines, next visible routine dates, completion logs, base-date/range controls, status filters, marker-kind display filters, date columns, editable date Memo cards, status dropdowns, and compact small-action controls.
+- Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
+- Check or uncheck small actions from board cards while updating the original Markdown line.
+- Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.
+- Use compact board cards with title-to-open behavior, icon edit actions, overflow menus, and collapsed details.
 - Drag cards between lanes to update `status`.
-- Drag cards within a lane to set `rpm_order`.
+- Drag cards within a lane to set `order`.
 - Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.
 - Refresh automatically when card files change.
-- Send a card's `next_action` to today's existing Daily note.
 
 ## License Note
 

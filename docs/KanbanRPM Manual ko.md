@@ -1,314 +1,308 @@
-# KanbanRPM Manual 한국어판
+# KanbanRPM Manual ko
 
-이 문서는 Obsidian vault에서 KanbanRPM을 처음 쓰는 사람을 위한 안내서입니다. plugin 안에 표시되는 UI 용어는 영어 그대로 씁니다.
+??臾몄꽌??KanbanRPM??泥섏쓬 ?곕뒗 ?щ엺???꾪븳 ?쒓뎅??manual?낅땲?? Plugin UI???쒖떆?섎뒗 ?⑹뼱???곸뼱濡??좎??⑸땲??
 
-KanbanRPM은 작은 task 하나하나가 아니라 `workstream card`를 중심으로 연구와 운영 프로젝트를 관리합니다. 예를 들어 `TTT Experiment`, `TTT Analysis`, `Glove Box Setup`, `Furnace Purchase`, `Teaching Admin`처럼 일정 기간 계속 추적해야 하는 흐름 하나를 card 하나로 둡니다.
-
-## 1. Plugin 활성화
-
-1. Obsidian `Settings`를 엽니다.
-2. `Community plugins`로 이동합니다.
-3. `KanbanRPM`을 활성화합니다.
-4. Command palette에서 `KanbanRPM: Open board`를 실행합니다.
-
-왼쪽 sidebar의 KanbanRPM ribbon icon으로도 board를 열 수 있습니다.
-
-## 2. Workspace folders
-
-KanbanRPM은 project data를 vault 안의 Markdown file로 저장합니다.
+## Core Model
 
 ```text
-KanbanRPM Workspace/cards/
-KanbanRPM Workspace/groups/
-KanbanRPM Workspace/arrows/
-KanbanRPM Workspace/perpetual/
-KanbanRPM Workspace/attachments/
-KanbanRPM Workspace/archive/
+Project -> Subproject -> Big Action -> Checkbox task
 ```
 
-active workstream card는 `cards/`에 들어갑니다. archived card는 `archive/`로 이동합니다. group note는 `groups/`에 들어갑니다. `arrows/`, `perpetual/`, `attachments/`는 Laminar-style dependency, routine, supporting-file workflow를 위해 준비된 folder입니다.
+- `Project`: 理쒖긽??living document?낅땲?? ?? `TTT`, `Lab Setup`.
+- `Subproject`: Project ?덉쓽 蹂묐젹 workstream?낅땲?? ?? `TTT Experiment`, `Glove Box Setup`.
+- `Big Action`: board?먯꽌 ?곹깭 異붿쟻??媛移섍? ?덈뒗 ???ㅽ뻾 ?⑥쐞?낅땲??
+- `Checkbox task`: meeting note, source note, living document 蹂몃Ц???④꺼?먮뒗 ?묒? ???쇱엯?덈떎.
 
-## 3. Board lanes
+?묒? checkbox瑜?紐⑤몢 card濡?留뚮뱾吏 ?딆뒿?덈떎. 以묒슂??寃껊쭔 `Promote`?댁꽌 `Big Action`?쇰줈 ?щ┰?덈떎.
 
-KanbanRPM board는 다음 lane을 사용합니다.
+## Open Board
+
+1. Obsidian `Community plugins`?먯꽌 `KanbanRPM`??enable?⑸땲??
+2. `KanbanRPM: Open board`瑜??ㅽ뻾?섍굅??ribbon icon???대┃?⑸땲??
+
+KanbanRPM? ?꾩슂????workspace瑜?留뚮벊?덈떎.
+
+```text
+KanbanRPM Workspace/
+  cards/
+  arrows/
+  routine/
+  timeline/
+  attachments/
+  archive/
+```
+
+?ㅼ젣 Project/Subproject/Big Action 臾몄꽌??`cards/`????λ맗?덈떎. ??臾몄꽌??primary hierarchy folder瑜??ъ슜?⑸땲??
+
+```text
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
+```
+
+異붽? Project/Subproject link媛 ?덉뼱???뚯씪? ?앹꽦 ???좏깮??primary folder??洹몃?濡??〓땲?? 湲곗〈 flat file??怨꾩냽 ?쎌뒿?덈떎.
+
+## Status Lanes
+
+湲곕낯 lane? ?ㅼ쓬怨?媛숈뒿?덈떎.
 
 ```text
 Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
-- `Inbox`: 아직 정리하거나 판단하지 않은 workstream입니다.
-- `Active`: 지금 실제로 진행 중인 workstream입니다.
-- `Waiting`: 사람, 답변, 배송, 승인, 외부 조건을 기다리는 상태입니다.
-- `Blocked`: 구체적인 blocker 때문에 진행할 수 없는 상태입니다.
-- `Someday`: 실제로 존재하지만 지금은 의도적으로 보류한 상태입니다.
-- `Done`: 완료되었거나 닫힌 상태입니다.
+`status`???ㅽ뻾 ?곹깭?낅땲?? quotation, drawing, deposition, analysis, writing 媛숈? ?덉감 ?뺣낫??蹂꾨룄 `stage` field媛 ?꾨땲??Markdown body???곸뒿?덈떎.
 
-`status`는 실행 상태입니다. `stage`는 절차상 위치입니다. 예를 들어 `quotation`, `drawing`, `purchase`, `installation`, `writing` 같은 값이 들어갈 수 있습니다.
+`Statuses`??settings?먯꽌 ?꾩뿭?쇰줈 ?섏젙?????덉뒿?덈떎. ?????녿뒗 status??`Data warnings`???쒖떆?섍퀬 泥?踰덉㎏ status濡?fallback?⑸땲??
 
-## 4. Card 만들기
+## New Document
 
-1. KanbanRPM board를 엽니다.
-2. `New card`를 클릭합니다.
-3. 최소한 `Title`을 입력합니다.
-4. `Status`와 `Priority`를 선택합니다.
-5. 필요하면 `Group`, `Workstream type`, `Project kind`, `Stage`, `Next action`을 입력합니다.
-6. `Create card`를 클릭합니다.
+`New document`瑜??꾨Ⅴ嫄곕굹 lane??`+` 踰꾪듉???꾨쫭?덈떎.
 
-각 lane의 `+` button을 쓰면 해당 lane에 바로 card를 만들 수 있습니다.
+?꾩닔 field??鍮④컙??`*`濡??쒖떆?⑸땲??
 
-## 5. Flexible card schema
+- `Title`
+- `Status`
+- `Type`
+- `Project`: `Type`??`Subproject` ?먮뒗 `Big Action`?????꾩닔
+- `Subproject`: `Type`??`Big Action`?????꾩닔
 
-card는 다음 frontmatter 구조를 사용합니다.
+`Project`? `Subproject`??吏곸젒 ?낅젰?섏? ?딄퀬 湲곗〈 document 紐⑸줉?먯꽌 ?좏깮?⑸땲?? `Big Action`? 癒쇱? `Project`瑜?怨좊Ⅸ ?ㅼ쓬, 洹?Project ?덉쓽 `Subproject`瑜?怨좊쫭?덈떎.
+
+`Advanced metadata`?먮뒗 ?좏깮 field留??〓땲??
+
+- `Priority`
+- `Category`
+- `Current Focus`
+- `Waiting for`
+- `Blocker`
+- `Next review`
+- `Due date`
+- `Source notes`
+- `Preceded by`
+- `Followed by`
+
+`Category`???대??곸쑝濡?`workstream_type`????λ맗?덈떎. KanbanRPM? ???댁긽 `area`, `project_kind`, `importance`, `stage`瑜??곗? ?딆뒿?덈떎.
+
+plugin settings??`Category set`?먯꽌 Category 紐⑸줉???섏젙?????덉뒿?덈떎. Category dropdown, Category filter, card display, validation? 紐⑤몢 ???ㅼ젙媛믪쓣 ?ъ슜?⑸땲??
+
+## Living Document Template
+
+??臾몄꽌??frontmatter??吏㏐쾶 ?좎??⑸땲??
 
 ```yaml
 kanban_rpm: true
-type: project
-status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+type: big_action
+id: example-big-action
+status: active
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
+order:
 ```
 
-주요 field:
+Hierarchy??multi-link array濡???ν빀?덈떎. `projects`, `subprojects`?먮뒗 ?щ윭 linked document瑜??ｌ쓣 ???덉뒿?덈떎. `primary_project`, `primary_subproject`??湲곕낯 breadcrumb? ?ν썑 folder placement 湲곗??낅땲?? 湲곗〈 `project`, `subproject` field??fallback?쇰줈留??쎌뒿?덈떎.
 
-- `group`: 큰 project 또는 운영 영역입니다. 예: `TTT`, `Lab Setup`.
-- `workstream_type`: `research`, `experiment`, `analysis`, `writing`, `setup`, `purchase`, `admin`, `communication`.
-- `project_kind`: `research`, `lab_setup`, `equipment`, `teaching`, `admin`.
-- `stage`: workstream 안에서의 절차상 위치입니다.
-- `next_action`: 다음에 실제로 할 구체적 행동입니다.
-- `waiting_for`: 기다리는 사람, 답변, 배송, 승인, 조건입니다.
-- `blocker`: 진행을 막는 구체적 장애물입니다.
-- `related_samples`: card와 연결된 sample/specimen note입니다.
-- `related_phenomena`: 현상 또는 analysis thread입니다.
-- `related_people`: vendor, collaborator, professor, admin, student 같은 관련자입니다.
-- `related_notes`: card와 연결된 다른 note입니다.
-- `depends_on`: 먼저 일어나야 하는 dependency입니다.
-- `blocks`: 이 card 때문에 막혀 있는 downstream item입니다.
-- `source_notes`: KanbanRPM이 unchecked checkbox action과 `#todo` line을 읽어올 source note입니다.
-
-## 6. Groups and filters
-
-`Group`은 큰 project 또는 운영 영역에 사용합니다. `KanbanRPM: New group note` 또는 board의 `New group`을 사용하면 `KanbanRPM Workspace/groups/`에 group note가 만들어집니다.
-
-filter bar에서는 `Group`, `Project kind`, `Workstream type` 기준으로 board를 좁힐 수 있습니다. `Search cards`는 card title과 metadata를 검색합니다.
-
-## 7. Import legacy project notes
-
-기존 `💼` project note나 project tag note를 KanbanRPM card로 연결하려면 `KanbanRPM: Import legacy project notes` command를 실행하거나 board toolbar의 `Import legacy`를 클릭합니다.
-
-KanbanRPM은 기존 Markdown note를 scan해서 project note 후보를 찾습니다. 현재 candidate signal은 다음과 같습니다.
-
-- path 또는 title에 `💼`가 있음
-- `type: project`
-- `category: project`
-- `project` 또는 `project/...` tag
-- project-like file 또는 folder name
-
-import modal은 preview-only입니다. 각 candidate가 왜 감지되었는지, 이미 seeded 되었는지, 어떤 card가 이미 연결하고 있는지를 보여줍니다.
-
-원하는 note만 선택하고 `Seed selected cards`를 클릭하면 새 card가 `KanbanRPM Workspace/cards/`에 만들어집니다. 생성된 card는 감지된 title, normalize된 `status`, `priority`, 가능한 group metadata, 그리고 원본 note로 돌아가는 `legacy_links`를 가집니다.
-
-중요한 원칙: 원본 legacy note는 수정하지 않습니다. 같은 note를 다시 import하려고 하면 기존 card의 `legacy_links`를 기준으로 already seeded 상태로 표시하고, 기본 선택에서 제외합니다.
-
-## 8. Data warnings
-
-KanbanRPM은 card metadata에서 고칠 만한 문제를 찾으면 board 위에 `Data warnings` panel을 보여줍니다.
-
-현재 확인하는 항목:
-
-- 잘못되었거나 비어 있는 `status`
-- `1`부터 `5` 사이가 아닌 `priority`
-- `YYYY-MM-DD` 형식이 아닌 `next_review` 또는 `due_date`
-- 권장 vocabulary에 없는 `workstream_type` 또는 `project_kind`
-- `source_notes`, `legacy_links`, `related_notes` 안의 broken wikilink
-
-warning row를 클릭하면 해당 card를 엽니다. KanbanRPM은 imperfect card를 숨기지 않고 가능한 한 board에 보여주되, 고칠 지점을 알려줍니다.
-
-`KanbanRPM: Open schema reference` command를 실행하면 vault 안에 다음 schema reference note를 만들거나 엽니다.
-
-```text
-KanbanRPM Workspace/KanbanRPM Card Schema.md
-```
-
-source project에는 developer-facing schema 문서인 `docs/Card Schema.md`도 있습니다.
-
-## 9. Command center
-
-board 위의 `Command center`는 네 가지 compact queue를 보여줍니다.
-
-- `Review queue`: `next_review` 또는 `due_date`가 지났거나 가까운 card입니다.
-- `Waiting`: `Waiting` lane에 있거나 `waiting_for`가 있는 card입니다.
-- `Blocked`: `Blocked` lane에 있거나 `blocker`가 있는 card입니다.
-- `Dependencies`: `depends_on` 또는 `blocks`가 있는 card입니다.
-
-row를 클릭하면 해당 card를 엽니다. `Collapse` / `Expand`로 panel을 숨기거나 다시 펼 수 있습니다. `Daily review`는 `Review queue`의 card 중 `next_action`이 있는 것들을 오늘 Daily note로 한 번에 보냅니다.
-
-board toolbar의 `Pull Daily` 또는 `KanbanRPM: Pull cards to Daily` command를 사용하면 Daily로 보낼 card 묶음을 직접 고를 수 있습니다. modal은 `Review due`, `Active`, `Waiting`, `Blocked`, `All visible` mode를 지원합니다. `next_action`이 있는 card만 Daily로 보낼 수 있고, duplicate line은 건너뜁니다.
-
-## 10. Action index
-
-`Action index`는 현재 보이는 card의 `source_notes`, `legacy_links`, `related_notes`에서 unchecked checkbox action과 `#todo` line을 모아 보여줍니다. action은 card별로 group됩니다.
-
-사용 가능한 control:
-
-- action row 또는 `Open source`를 클릭하면 source note를 엽니다.
-- `Set next`를 클릭하면 해당 action을 card의 `next_action`으로 복사합니다.
-
-원본 note는 수정하지 않습니다. `Collapse` / `Expand`로 `Action index`를 숨기거나 다시 펼 수 있습니다.
-
-## 11. Edit, move, sort
-
-`Edit`은 card metadata를 수정합니다. `Open`은 Markdown body를 엽니다.
-
-card를 다른 lane으로 drag하면 `status`가 바뀝니다. card 안의 `Active`, `Waiting`, `Blocked`, `Done` button으로도 빠르게 `status`를 바꿀 수 있습니다.
-
-같은 lane 안에서 card를 drag하면 manual order가 `rpm_order`에 기록됩니다. board toolbar의 `Normalize order` 또는 `KanbanRPM: Normalize card order` command를 실행하면 각 lane의 `rpm_order`를 `1000`, `2000`, `3000`처럼 다시 정리합니다.
-
-card에 dependency/context 정보가 있으면 compact relation row를 표시합니다.
-
-- `Depends`: `depends_on`의 upstream dependency입니다.
-- `Blocks`: `blocks`의 downstream item입니다.
-- `Sources`: `source_notes`의 source note입니다.
-
-relation row 안의 wikilink는 클릭해서 linked note를 열 수 있습니다.
-
-`Write arrows` 또는 `KanbanRPM: Write dependency arrows`는 `depends_on`과 `blocks` metadata를 Laminar-style arrow note로 내보냅니다.
-
-```text
-KanbanRPM Workspace/arrows/
-```
-
-이 기능은 card metadata를 바꾸지 않습니다. 없는 arrow note만 생성하고 이미 있는 arrow note는 건너뜁니다.
-
-## 12. Duplicate, Archive, Delete
-
-`Duplicate`은 기존 card를 복사해서 `cards/` 안에 새 file을 만들고 title에 `Copy`를 붙입니다.
-
-`Archive`는 card를 `KanbanRPM Workspace/archive/`로 이동합니다.
-
-`Delete`는 confirmation modal을 보여준 뒤 file을 system trash로 이동합니다.
-
-## 13. Send to Daily
-
-`Send to Daily`는 오늘 Daily note에 다음 task line을 추가합니다.
+??臾몄꽌??plugin???쎈뒗 control ?곸뿭怨??ъ슜?먭? ?먯쑀濡?쾶 ?곕뒗 working ?곸뿭???섎닏?덈떎.
 
 ```markdown
-- [ ] [[Card Title]]: next_action
+# Project Title
+
+> [!kanban-rpm]
+> type: Project
+> status: active
+> project: [[TTT]]
+> subproject: [[TTT Experiment]]
+
+## PM Control
+
+### Current Focus
+
+### Waiting
+
+### Blockers
+
+### Flow
+
+### Timeline
+
+### Routine
+
+### References
+
+### PM Metadata
+
+---
+
+## Working Notes
+
+### Project Brief
+
+### Desired Outcomes
+
+### Decisions
 ```
 
-기본 Daily folder:
+`PM Control`? KanbanRPM??board???ъ쁺?섍린 ?꾪빐 ?쎈뒗 ?곸뿭?낅땲?? `Working Notes`??寃곗젙, 誘명똿 ?붿빟, sample context, 遺꾩꽍 硫붾え, communication history瑜??먯쑀濡?쾶 ?곕뒗 ?곸뿭?낅땲?? Project, Subproject, Big Action? 媛??깃꺽??留욌뒗 ?ㅻⅨ `Working Notes` section???ъ슜?⑸땲??
+
+## Board
+
+`Data warnings`, `Command center`, `Action index`??filter ??panel button?쇰줈 ?닿퀬 ?レ뒿?덈떎. ?ロ엺 panel? board?먯꽌 ?꾩삁 ?쒖떆?섏? ?딆뒿?덈떎. `Project notes` pane? `Collapse` / `Expand`濡??묎퀬 ?쇱튌 ???덉뒿?덈떎.
+
+card ?됱긽? Project ?뚯냽留??섑??낅땲?? `Project`, `Subproject`, `Big Action` ??븷? ?쒕줈 ?ㅻⅨ stripe ?먭퍡濡?援щ텇?⑸땲?? stripe gutter ??? 怨좎젙?섏뼱 ?덉뼱??type???щ씪??card text ?쒖옉 ?꾩튂??媛숈뒿?덈떎.
+
+`Subproject` card??breadcrumb?먮뒗 ?랁븳 `Project`留??쒖떆?⑸땲?? `Big Action` card??primary hierarchy瑜???以꾨줈 ?쒖떆?⑸땲?? `Project`, 洹??꾨옒 `> Subproject`.
+
+Project document??status lane ?덉뿉 ?쒖떆?섏? ?딆뒿?덈떎. ???board 諛붾줈 ?꾩쓽 `Project notes` strip???곕줈 ?쒖떆?⑸땲?? Project ?대쫫???대┃?섎㈃ ?대떦 living Project document瑜??쎈땲??
+
+`Project` filter媛 `All`?대㈃ 紐⑤뱺 Project note瑜?蹂댁뿬二쇨퀬, ?뱀젙 Project瑜??좏깮?섎㈃ ?대떦 Project note留?蹂댁뿬以띾땲??
+
+?곷떒 toolbar??primary action:
+
+- `Board`, `Table`, `List`, `Timeline`
+- `New document`
+- `Group by Project`, `Group by Subproject`, `Flat board`
+- `Refresh`
+- `More`
+
+`More` ?덉쓽 secondary action:
+
+- `Weekly review`
+- `Export arrows`
+- `Normalize order`
+
+湲곕낯 grouped board??Project filter???곕씪 ?먮룞?쇰줈 grouping 湲곗???諛붽퓠?덈떎.
+
+- `Project: All`: lane ?덉뿉??Project蹂꾨줈 group?⑸땲??
+- ?뱀젙 Project ?좏깮: lane ?덉뿉??Subproject蹂꾨줈 group?⑸땲??
+
+`Search cards`, `Project`, `Subproject`, `Category` filter濡?board瑜?醫곹옄 ???덉뒿?덈떎.
+
+?щ윭 Project/Subproject???곌껐??card??媛?filter 寃곌낵???섑??????덉뒿?덈떎. ?붾㈃??湲곕낯 breadcrumb??primary hierarchy瑜??ъ슜?⑸땲??
+
+card瑜??ㅻⅨ lane?쇰줈 drag?섎㈃ `status`媛 諛붾앸땲?? 媛숈? lane ?덉뿉??drag?섎㈃ `order`媛 諛붾앸땲?? card ?덉쓽 button click? drag濡??ㅼ옉?숉븯吏 ?딅룄濡?遺꾨━?섏뼱 ?덉뒿?덈떎.
+
+`Table` view???꾩옱 filter??嫄몃┛ card?ㅼ쓣 sortable row濡?蹂댁뿬以띾땲?? column header瑜??대┃?섎㈃ title, project, type, status, priority, date, dependency count, action count 湲곗??쇰줈 ?뺣젹?????덉뒿?덈떎. row ?덉쓽 `Status` dropdown?쇰줈 board濡??뚯븘媛吏 ?딄퀬 status瑜?蹂寃쏀븷 ???덉뒿?덈떎.
+
+`List` view??`Project -> Subproject -> Big Action` tree瑜?collapsible?섍쾶 蹂댁뿬以띾땲?? Project/Subproject ?대쫫???꾨Ⅴ硫?living document瑜??닿퀬, Big Action row?먮뒗 status, date, task count媛 ?쒖떆?⑸땲??
+
+Board card에는 왼쪽/오른쪽 flow dot이 표시됩니다. 왼쪽 dot은 incoming `Preceded by`, 오른쪽 dot은 outgoing `Followed by`를 뜻합니다. 오른쪽 dot을 다른 card의 왼쪽 connector 영역으로 drag하면 flow arrow가 생성됩니다. Drop target은 보이는 dot보다 넓게 잡혀 있고, drag 중에는 target card가 highlight됩니다. 이때 KanbanRPM은 target card의 `Preceded by` list에 source card link를 저장합니다. 기존 `Flow` 관계는 Board 위에 곡선 arrow로 표시됩니다. Arrow를 클릭하면 확인 후 해당 flow link를 제거할 수 있습니다. 선행 card가 `Done`, `Completed`, `완료` 같은 completion status이면 muted arrow, 아직 끝나지 않았으면 warning-colored arrow로 표시됩니다. Custom status set에 completion status가 없으면 모든 flow arrow가 warning 상태로 남습니다.
+
+`Timeline` view??Laminar-style kanban-like layout?낅땲?? ?쇱そ `Routine` sidebar, ?곷떒 range/search/display controls, horizontal date columns瑜??ъ슜?⑸땲?? 湲곕낯媛믪? base date 湲곗? 7???꾨???7???꾧퉴吏?대ŉ, base date??泥섏쓬?먮뒗 today?낅땲?? `Today`, `-7`, `+7`, base date field, ?먮뒗 紐낆떆?곸씤 `YYYY.MM.DD` to `YYYY.MM.DD` range field濡?議고쉶 援ш컙??諛붽? ???덉뒿?덈떎. 媛?date column ?덉뿉??toggle 媛?ν븳 `Memo` section怨?project/subproject marker section???ㅼ뼱媛묐땲?? `Due date`, `Next review`, ?좎쭨媛 ?덈뒗 unchecked small action, `Routine` routine marker瑜??쒖떆?⑸땲??
+
+Timeline? ?묓? ?덈뒗 Timeline `Statuses` filter?먯꽌 耳쒖쭊 status??card留?蹂댁뿬以띾땲?? default??`Active`?낅땲?? Timeline marker date媛 ?녿뒗 card??date column???섑??섏? ?딆뒿?덈떎. Timeline marker?먮뒗 card breadcrumb, status, priority, status dropdown, compact small-action list媛 ?쒖떆?⑸땲?? marker title???꾨Ⅴ硫??대떦 living document瑜??쎈땲??
+
+Timeline??`Show` dropdown? card-level field媛 ?꾨땲??marker kind瑜?怨좊Ⅴ??display filter?낅땲?? `Show: Review`??review marker留? `Show: Due`??due marker留? `Show: Tasks`???좎쭨媛 ?덈뒗 small action留? `Show: Recurring`? routine留?蹂댁뿬以띾땲??
+
+Timeline Memo entry???대떦 ?좎쭨 memo瑜???ν븳 ?ㅼ뿉留?`KanbanRPM Workspace/timeline/YYYY-MM-DD.md`????λ맗?덈떎. Timeline? range瑜?蹂닿린留??쒕떎怨??좎쭨 memo file???앹꽦?섏? ?딆뒿?덈떎. `+ todo`, `+ text`, ?먮뒗 pencil icon???꾨Ⅴ硫??좎쭨 Memo modal???대┰?덈떎. Modal? ?대떦 ?좎쭨 file??`## Memo` section???쇰컲 multi-line Markdown?쇰줈 ?몄쭛?⑸땲?? Preview??媛꾨떒??Markdown heading, bullet list, paragraph, checkbox瑜??뚮뜑留곹빀?덈떎. Checked checkbox line? 痍⑥냼?좎쑝濡??쒖떆?섎ŉ preview mode?먯꽌 吏곸젒 check/uncheck?????덉뒿?덈떎.
+
+`Routine`은 card의 `### Routine` 또는 `## Routine` section에 있는 checkbox line을 읽습니다. 기존 문서의 `### Perpetual`과 `### Perpetual Log`도 legacy alias로 계속 읽지만, 새 문서는 `### Routine`과 `### Routine Log`를 사용합니다.
+
+`Routine` sidebar는 routine을 frequency별로 묶고, 현재 Timeline range 안에서 다음에 보이는 날짜를 표시합니다. Routine은 Timeline에 표시되려면 `@start YYYY-MM-DD`가 필요하며, 현재 range 안에 occurrence가 없는 routine은 sidebar에서 숨깁니다. 날짜 column에서 recurring marker만 보고 싶을 때는 Timeline의 `Show: Recurring` filter를 사용합니다. Recurring routine은 Timeline main view에서 full card가 아니라 compact chip으로 표시되며, 완료 처리는 `Routine` sidebar의 `Done`에서 합니다. Recurring routine은 `Action index`에도 recurring item으로 표시되며, card를 열거나 `Current Focus`로 복사할 수 있지만 새 `Big Action`으로 promote하지는 않습니다.
+
+Routine은 `@daily`, `@weekly`, `@monthly` 또는 `@every 3d/2w/1m` 형식으로 설정합니다. 모든 routine에는 `@start YYYY-MM-DD`를 붙여야 하며, start date가 없으면 `Data warnings`에 표시되고 Timeline에는 표시되지 않습니다. Timeline의 Routine sidebar는 접어도 Board view로 이동하지 않고 sidebar만 collapse합니다. `Done`을 누르면 반복 항목 자체를 영구적으로 check하지 않고 해당 card의 `### Routine Log`에 완료 기록을 남깁니다.
+
+`daily` routine은 Timeline range 안의 모든 날짜가 아니라 오늘 것만 Timeline과 Routine sidebar에 표시됩니다. 오늘 `Done` 처리하면 오늘의 daily routine은 숨겨집니다.
+
+settings??`Card display fields`?먯꽌 board card???쒖떆???뺣낫瑜?怨좊? ???덉뒿?덈떎.
+
+## Small Actions
+
+Small action? living document ?덉뿉 ?덈뒗 checkbox task?낅땲?? 蹂꾨룄 card濡?留뚮뱾吏 ?딄퀬 Markdown body ?덉뿉 ?〓땲??
+
+KanbanRPM? Tasks-style emoji metadata瑜??쎌뒿?덈떎.
+
+```markdown
+- [ ] Stack TTT sample ??2026-05-10 ?뱟 2026-05-14 ?뵾
+- [x] Confirm mask design ??2026-05-07
+```
+
+吏?먰븯??metadata:
+
+- `scheduled`: `??YYYY-MM-DD`
+- `due`: `?뱟 YYYY-MM-DD`
+- `done`: `??YYYY-MM-DD`
+- priority: `??, `?뵾`, `?뵿`, `??
+
+board card?먮뒗 small action row媛 ?묓엺 ?곹깭濡??쒖떆?⑸땲?? `??Small actions`瑜??꾨Ⅴ硫??쇱퀜吏怨? `??Small actions`瑜??꾨Ⅴ硫??ㅼ떆 ?묓옓?덈떎. ?쇱퀜吏?small action? ?먮옒 臾몄꽌??heading蹂꾨줈 臾띠뿬 ?쒖떆?⑸땲??
+
+card?먯꽌 small action??吏곸젒 check/uncheck?????덉뒿?덈떎. check?섎㈃ ?먮낯 Markdown line??`[ ]`?먯꽌 `[x]`濡?諛붾뚭퀬 ?ㅻ뒛 ?좎쭨??`??YYYY-MM-DD` done date媛 異붽??섎ŉ, `### Timeline Log`??card document濡??뚯븘媛??Obsidian link媛 ?ы븿??理쒖떊??list item??異붽??⑸땲?? uncheck?섎㈃ `[x]`媛 `[ ]`濡??뚯븘媛怨?done date媛 ?쒓굅?섏?留?Timeline Log entry???쒓굅?섏? ?딆뒿?덈떎.
+
+Small-action settings:
+
+- `Small actions collapsed by default`
+- `Small action source`: `Due or scheduled only`, `Done only`, `All small actions`
+- `Small action date window`: `Any date`, `Overdue only`, `Today only`, `Through tomorrow`, `Through one week`, `Through one month`
+
+default??`Due or scheduled only`, `Through one week`?낅땲??
+
+## Action Index
+
+`Action index`??card??`### References`???곹엺 source note?먯꽌 unchecked checkbox? `#todo` line???쎌뒿?덈떎. ?먮낯 note???섏젙?섏? ?딆뒿?덈떎.
+
+- `Open source`: source note瑜??쎈땲??
+- `Set next`: ?대떦 action??card??`### Current Focus`濡?蹂듭궗?⑸땲??
+- `Promote`: ?대떦 action?쇰줈 ??`Big Action` document瑜?留뚮벊?덈떎.
+
+## Flow
+
+flow link는 document body에 씁니다.
+
+```markdown
+### Flow
+
+Preceded by:
+- [[TTT Data Processing]]
+
+Followed by:
+- [[TTT Manuscript]]
+```
+
+KanbanRPM은 flow를 별도 panel보다 Board 위 connector dot과 arrow로 직접 보여줍니다. 오른쪽 dot에서 다른 card의 왼쪽 connector 영역으로 drag하면 flow link가 생성되고, arrow를 클릭하면 확인 후 제거됩니다.
+
+KanbanRPM은 Board/Table/List surface에도 flow count와 waiting badge를 표시합니다. Broken flow link와 circular flow는 `Data warnings`에 표시됩니다. `Export arrows`는 optional 기능이며, compatibility/reference 용도로 `KanbanRPM Workspace/arrows/`에 Laminar-style arrow note를 만듭니다.
+
+## Timeline Memo / Weekly
+
+KanbanRPM? ???댁긽 ?몃? Daily note??planning line???곗? ?딆뒿?덈떎. 媛踰쇱슫 day note, 鍮좊Ⅸ checkbox task, 蹂꾨룄 living document源뚯????꾩슂 ?녿뒗 reminder??`Timeline` view??toggle 媛?ν븳 `Memo` section???곸뒿?덈떎.
+
+媛?memo cell? ?꾨옒 ?뚯씪????λ맗?덈떎.
 
 ```text
-100. 개인/110. 다이어리/111. Daily/
+KanbanRPM Workspace/timeline/YYYY-MM-DD.md
 ```
 
-예상 filename 형식:
+`Weekly review`??`KanbanRPM Workspace/routines/` ?꾨옒??KanbanRPM-owned weekly review note瑜??앹꽦?섍굅???쎈땲??
 
-```text
-YYYY-MM-DD (요일).md
-```
+`Management brief`는 `KanbanRPM Workspace/KanbanRPM Management Brief.md`를 생성하거나 갱신한 뒤 엽니다. 이 파일은 사람과 LLM이 전체 프로젝트 상태를 빠르게 읽기 위한 generated snapshot입니다. Status counts, Project sections, upcoming due/review dates, Waiting, Blocked, Flow risks, Routines, Data warnings를 포함합니다. 원천 데이터는 living document이므로 brief 자체를 source data처럼 편집하기보다는 필요할 때 다시 생성합니다.
 
-예시:
+## Data Warnings
 
-```text
-2026-05-06 (수).md
-```
+`Data warnings`??filter ??panel button?쇰줈 ?닿퀬 ?レ뒿?덈떎. ?レ쑝硫?board?먯꽌 ?꾩삁 蹂댁씠吏 ?딆뒿?덈떎.
 
-KanbanRPM은 Daily note를 새로 만들지 않습니다. 오늘 Daily note가 없으면 예상 경로를 notice로 보여주고 작업을 멈춥니다. 같은 line이 이미 있으면 중복 추가하지 않습니다.
+二쇱슂 warning:
 
-`Daily section` setting이 있으면 KanbanRPM은 해당 heading 아래에 action을 추가합니다. heading이 Daily note에 없으면 새로 추가합니다. `Daily section`을 비워두면 file 끝에 append합니다.
+- ?????녿뒗 `status`
+- ?섎せ??`priority`
+- ?????녿뒗 `Category`
+- ?꾨씫??`project` ?먮뒗 `subproject`
+- ?レ옄媛 ?꾨땶 `order`
+- `### References` 또는 `### Flow`의 broken wikilink
+- circular flow
 
-## 14. Weekly Review
+## Settings
 
-board toolbar의 `Weekly review` 또는 `KanbanRPM: Open weekly review` command를 실행하면 이번 주 weekly review note를 만들거나 엽니다.
+?ъ슜 媛?ν븳 settings:
 
-기본 위치:
+- `Workspace folder`
+- `Weekly review folder`
+- `Statuses`
+- `Category set`
+- `Card display fields`
+- `Small actions`
 
-```text
-KanbanRPM Workspace/perpetual/
-```
+## Developer Note
 
-filename 형식:
-
-```text
-YYYY-Www Weekly Review.md
-```
-
-생성된 note에는 `Review Queue`, `Active`, `Waiting`, `Blocked`, `Decisions`, `Next Week Focus` section이 들어갑니다. Weekly review note는 KanbanRPM-owned routine note이므로 없으면 생성합니다. Daily note는 기존 원칙대로 이미 존재해야만 append합니다.
-
-## 15. Example structures
-
-TTT research group:
-
-```text
-Group: TTT
-Cards:
-- TTT Background Research
-- TTT Experiment
-- TTT Data Processing
-- TTT Analysis
-- TTT Discussion / Writing
-- TTT Manuscript
-```
-
-Lab setup group:
-
-```text
-Group: Lab Setup
-Cards:
-- Glove Box Setup
-- Furnace Setup
-- Probe Station Setup
-- Gas Line Installation
-- Safety Review
-```
-
-sample 중심 흐름은 `related_samples`에 연결합니다. 현상 중심 analysis는 `related_phenomena`에 둡니다. meeting이나 communication에서 나온 action을 수집하려면 해당 note를 `source_notes`에 연결합니다.
-
-## 16. Settings
-
-Obsidian `Settings`에서 `KanbanRPM` 설정을 찾을 수 있습니다.
-
-- `Workspace folder`: KanbanRPM card와 support file을 저장하는 위치입니다.
-- `Daily folder`: `Send to Daily`가 오늘 Daily note를 찾는 위치입니다.
-- `Daily section`: Daily action을 넣을 heading입니다.
-- `Weekly review folder`: weekly review note를 생성할 위치입니다.
-
-## 17. Troubleshooting
-
-board가 비어 있다면 `cards/` 위치, `kanban_rpm: true`, search/filter, archive 여부를 확인합니다.
-
-`Import legacy`가 note를 찾지 못하면 해당 note에 `project` tag 또는 `type: project`를 추가하거나 project-like path에 있는지 확인한 뒤 import modal에서 `Rescan`을 클릭합니다.
-
-`Data warnings`가 보이면 warning row를 클릭해 card를 열고 `status`, `priority`, `next_review`, `due_date`, broken wikilink를 확인합니다. 수정 후 board의 `Refresh`를 클릭합니다.
-
-`Action index`가 비어 있다면 `source_notes`, `legacy_links`, `related_notes`가 있는지, linked note가 resolve되는지, source note에 unchecked checkbox 또는 `#todo`가 있는지 확인합니다.
-
-`Send to Daily`가 동작하지 않으면 오늘 Daily note가 존재하는지, `Daily folder` setting이 맞는지, 같은 line이 이미 있는지 확인합니다.
-
-`Pull Daily`에서 card가 선택되지 않으면 해당 card에 `next_action`이 있는지 확인합니다.
-
-`Weekly review`가 예상과 다른 위치에 만들어지면 `Weekly review folder` setting을 확인합니다.
-
-## 18. Developer note
-
-KanbanRPM의 user-facing behavior가 바뀌면 이 한국어 manual과 `docs/KanbanRPM Manual.md`를 같은 change에서 함께 업데이트합니다.
+User-facing behavior媛 諛붾뚮㈃ `docs/KanbanRPM Manual.md`? ???쒓뎅??manual???④퍡 ?낅뜲?댄듃?⑸땲??

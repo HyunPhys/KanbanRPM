@@ -1,430 +1,324 @@
-﻿# KanbanRPM Manual
+# KanbanRPM Manual
 
-This manual explains how to start using KanbanRPM in an Obsidian vault.
+KanbanRPM is an Obsidian project manager for research and lab operations. It treats every managed item as a living Markdown document, not as a disposable card.
 
-KanbanRPM is a research project manager built around workstream cards. A card should represent something you actually manage over time, such as `TTT Experiment`, `TTT Analysis`, `Glove Box Setup`, `Furnace Purchase`, or `Teaching Admin`, rather than a tiny one-off task.
+## Core Model
 
-## 1. Enable the Plugin
+```text
+Project -> Subproject -> Big Action -> Checkbox task
+```
 
-1. Open Obsidian `Settings`.
-2. Go to `Community plugins`.
-3. Find and enable `KanbanRPM`.
-4. Open the command palette and run `KanbanRPM: Open board`.
+- `Project`: a top-level living document, such as `TTT` or `Lab Setup`.
+- `Subproject`: a workstream inside a Project, such as `TTT Experiment` or `Glove Box Setup`.
+- `Big Action`: a trackable chunk of work under a Project/Subproject.
+- `Checkbox task`: a small task that stays inside meeting notes, source notes, or the living document body.
 
-You can also use the KanbanRPM ribbon icon in the left sidebar.
+## Open The Board
 
-## 2. Workspace Folders
+1. Enable `KanbanRPM` in Obsidian `Community plugins`.
+2. Run `KanbanRPM: Open board`, or click the ribbon icon.
 
-KanbanRPM stores its project data as Markdown files in your vault.
-
-Default workspace:
+KanbanRPM creates its workspace when needed:
 
 ```text
 KanbanRPM Workspace/
+  cards/
+  arrows/
+  routine/
+  timeline/
+  attachments/
+  archive/
 ```
 
-Main folders:
+Active living documents are stored in `cards/`. New documents use primary hierarchy folders:
 
 ```text
-KanbanRPM Workspace/cards/
-KanbanRPM Workspace/groups/
-KanbanRPM Workspace/arrows/
-KanbanRPM Workspace/perpetual/
-KanbanRPM Workspace/attachments/
-KanbanRPM Workspace/archive/
+cards/Project.md
+cards/Project/Subproject.md
+cards/Project/Subproject/Big Action.md
 ```
 
-Active workstream cards live in `cards/`. Archived cards move to `archive/`. Group notes live in `groups/`. `arrows/`, `perpetual/`, and `attachments/` are Laminar-style folders reserved for dependency, routine, and supporting-file workflows.
+If a document has additional Project/Subproject links, the file remains in the primary folder chosen at creation time. Older flat files in `cards/` still load normally.
 
-## 3. Board Lanes
+## Status Lanes
 
-The board uses these lanes:
+Default lanes:
 
 ```text
 Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
-Use them like this:
+`status` is the execution state. Procedure details such as quotation, drawing, deposition, analysis, or writing belong in the Markdown body, not in a separate `stage` field.
 
-- `Inbox`: captured but not clarified yet.
-- `Active`: currently moving forward.
-- `Waiting`: waiting on a person, response, delivery, approval, or external dependency.
-- `Blocked`: stopped by a concrete blocker.
-- `Someday`: real, but intentionally parked.
-- `Done`: completed or closed.
+Statuses are globally editable in KanbanRPM settings. Unknown statuses appear in `Data warnings` and fall back to the first configured status for display.
 
-The lane is stored in each card file:
+## Create A Document
 
-```yaml
-status: active
-```
+Click `New document`, or click the `+` button in a lane.
 
-`status` is the execution state. `stage` is the procedural position, such as `quotation`, `drawing`, `purchase`, `installation`, or `writing`.
+Required fields are marked with a red `*`:
 
-## 4. Create a Card
+- `Title`
+- `Status`
+- `Type`
+- `Project`, when `Type` is `Subproject` or `Big Action`
+- `Subproject`, when `Type` is `Big Action`
 
-1. Open the KanbanRPM board.
-2. Click `New card`.
-3. Fill in at least `Title`.
-4. Choose `Status` and `Priority`.
-5. Optionally add `Group`, `Workstream type`, `Project kind`, `Stage`, and `Next action`.
-6. Click `Create card`.
+`Project` and `Subproject` are selected from existing documents. You do not need to type links manually. For a `Big Action`, choose `Project` first, then choose one of that Project's Subprojects.
 
-KanbanRPM creates a Markdown file in:
+Optional fields are under `Advanced metadata`:
 
-```text
-KanbanRPM Workspace/cards/
-```
+- `Priority`
+- `Category`
+- `Current Focus`
+- `Waiting for`
+- `Blocker`
+- `Next review`
+- `Due date`
+- `Source notes`
+- `Preceded by`
+- `Followed by`
 
-The card body starts with:
+`Category` is stored as `workstream_type`. It is the only broad classification field; KanbanRPM no longer uses separate `area`, `project_kind`, `importance`, or `stage` fields.
 
-```markdown
-## Active Actions
+Edit the global `Category set` in plugin settings. The Category dropdown, Category filter, card display, and validation all use that configured list.
 
-## Waiting
+## Living Document Template
 
-## Decision Log
-
-## Timeline
-
-## References
-```
-
-You can also use a lane's `+` button to create a card directly in that lane.
-
-## 5. Flexible Card Schema
-
-Cards use this frontmatter shape:
+New documents keep frontmatter short:
 
 ```yaml
 kanban_rpm: true
-type: project
-status: inbox
-priority: 3
-area:
-group:
-workstream_type:
-project_kind:
-stage:
-title:
-next_action:
-waiting_for:
-blocker:
-next_review:
-due_date:
-importance: normal
-rpm_order:
-legacy_links: []
-related_samples: []
-related_phenomena: []
-related_people: []
-related_notes: []
-depends_on: []
-blocks: []
-source_notes: []
+type: big_action
+id: example-big-action
+status: active
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
+order:
 ```
 
-Main fields:
+Hierarchy is stored as multi-link arrays. `projects` and `subprojects` can contain more than one linked document. `primary_project` and `primary_subproject` define the default breadcrumb and future folder placement. Legacy `project` and `subproject` fields are read as fallback only.
 
-- `group`: larger project or operating area, such as `TTT` or `Lab Setup`.
-- `workstream_type`: `research`, `experiment`, `analysis`, `writing`, `setup`, `purchase`, `admin`, or `communication`.
-- `project_kind`: `research`, `lab_setup`, `equipment`, `teaching`, or `admin`.
-- `stage`: procedural stage inside the workstream.
-- `next_action`: the next concrete action.
-- `waiting_for`: who or what you are waiting on.
-- `blocker`: the obstacle stopping progress.
-- `related_samples`: sample/specimen notes related to the card.
-- `related_phenomena`: phenomenon or analysis threads.
-- `related_people`: vendors, collaborators, professors, admins, or students.
-- `related_notes`: other notes connected to the card.
-- `depends_on`: dependency items that should happen first.
-- `blocks`: downstream items blocked by this card.
-- `source_notes`: notes KanbanRPM scans for unchecked checkbox actions and `#todo` lines.
-
-## 6. Groups
-
-Use `Group` for a large project or operating area, such as `TTT`, `Lab Setup`, or `Teaching`.
-
-Run `KanbanRPM: New group note` or click `New group` on the board. KanbanRPM creates a group note in:
-
-```text
-KanbanRPM Workspace/groups/
-```
-
-Cards are connected to a group by their `group` field.
-
-## 7. Board Filters
-
-Use `Search cards` to search visible card text and metadata.
-
-Use the filter bar to narrow the board by:
-
-- `Group`
-- `Project kind`
-- `Workstream type`
-
-Click `Clear filters` to reset the structured filters. Click `Clear` to reset search.
-
-## 8. Import Legacy Project Notes
-
-Run `KanbanRPM: Import legacy project notes` or click `Import legacy` on the board toolbar.
-
-KanbanRPM scans existing Markdown notes for likely project notes. Current candidate signals include:
-
-- a `?뮳` path or title
-- `type: project`
-- `category: project`
-- `project` or `project/...` tags
-- project-like file or folder names
-
-The import modal is preview-only. It shows candidates, why each note was detected, whether it was already seeded, and which card already uses it.
-
-Select the notes you want and click `Seed selected cards`. KanbanRPM creates new files in:
-
-```text
-KanbanRPM Workspace/cards/
-```
-
-Each seeded card gets the detected title, normalized `status`, `priority`, basic group metadata when available, and a `legacy_links` entry pointing back to the original note. The original legacy note is never edited.
-
-Duplicate prevention is based on existing card `legacy_links`. Running the import again marks already seeded notes and leaves them unchecked.
-
-## 9. Data Warnings
-
-If KanbanRPM finds card metadata that should be fixed, it shows a `Data warnings` panel above the board.
-
-Current checks:
-
-- invalid or missing `status`
-- `priority` outside `1` to `5`
-- `next_review` or `due_date` not using `YYYY-MM-DD`
-- unknown `workstream_type` or `project_kind`
-- broken wikilinks in `source_notes`, `legacy_links`, or `related_notes`
-
-Click a warning row to open the affected card. KanbanRPM still tries to show imperfect cards instead of hiding them.
-
-Run `KanbanRPM: Open schema reference` to create or open this vault-local note:
-
-```text
-KanbanRPM Workspace/KanbanRPM Card Schema.md
-```
-
-The project source also keeps the developer-facing schema document at `docs/Card Schema.md`.
-
-## 10. Action Index
-
-Above the board, KanbanRPM also shows a `Command center` panel with four compact queues:
-
-- `Review queue`: cards with overdue or upcoming `next_review` / `due_date`.
-- `Waiting`: cards in `Waiting` or cards with `waiting_for`.
-- `Blocked`: cards in `Blocked` or cards with `blocker`.
-- `Dependencies`: cards with `depends_on` or `blocks`.
-
-Click a row in `Command center` to open that card.
-
-Use `Collapse` / `Expand` to hide or show the panel. Use `Daily review` to send review queue cards with `next_action` values to today's existing Daily note in one batch.
-
-Use `Pull Daily` on the board toolbar, or run `KanbanRPM: Pull cards to Daily`, to choose a Daily batch manually. The modal supports `Review due`, `Active`, `Waiting`, `Blocked`, and `All visible` modes. Only cards with `next_action` can be selected for Daily. Duplicate lines are skipped.
-
-The `Action index` collects unchecked checkbox actions and `#todo` lines from each visible card's `source_notes`, `legacy_links`, and `related_notes`.
-
-Example source note:
+New documents split plugin-readable control data from the free writing area:
 
 ```markdown
-- [ ] Ask vendor for updated glove box quotation #todo
+# Project Title
+
+> [!kanban-rpm]
+> type: Project
+> status: active
+> project: [[TTT]]
+> subproject: [[TTT Experiment]]
+
+## PM Control
+
+### Current Focus
+
+### Waiting
+
+### Blockers
+
+### Flow
+
+### Timeline
+
+### Routine
+
+### References
+
+### PM Metadata
+
+---
+
+## Working Notes
+
+### Project Brief
+
+### Desired Outcomes
+
+### Decisions
 ```
 
-KanbanRPM displays that action under `Action index`, grouped by card, with its source note and line number. It does not modify the original note.
+`PM Control` is the projection layer KanbanRPM reads for board fields. `Working Notes` is where you write decisions, meeting summaries, analysis notes, quotes, sample context, and next reasoning. Project, Subproject, and Big Action documents use different `Working Notes` sections suited to their role.
 
-Available action controls:
+## Board Use
 
-- Click an action row or `Open source` to open the source note.
-- Click `Set next` to copy that action into the card's `next_action`.
+Cards use color only for Project identity. Project/Subproject/Big Action roles are shown with different stripe thicknesses inside a fixed-width left gutter, so card text starts at the same position across types.
 
-This lets meeting notes and communication notes remain as the original record while the card keeps the current next action.
+Subproject cards show only the owning `Project` in the breadcrumb. Big Action cards show the primary hierarchy as two compact lines: `Project`, then `> Subproject`.
 
-Use `Collapse` / `Expand` to hide or show the `Action index`.
+Project documents are not shown inside status lanes. They appear in a `Project notes` strip directly above the board. Click a project name to open the living Project document. When the `Project` filter is `All`, the strip shows all Project notes. When one Project is selected, it shows only that Project note. Use the strip's `Collapse` button when you want the board to use more vertical space.
 
-## 11. Edit, Move, and Sort Cards
+Toolbar:
 
-Click `Edit` to update card metadata. Click `Open` to edit the Markdown body.
+- `Board`, `Table`, `List`, `Timeline`
+- `New document`
+- `Group by Project`, `Group by Subproject`, or `Flat board`
+- `Refresh`
+- `More`
 
-Drag a card to another lane to update `status`.
+Secondary actions under `More`:
 
-You can also use the inline `Active`, `Waiting`, `Blocked`, and `Done` buttons on a card to change `status` without dragging.
+- `Weekly review`
+- `Export arrows`
+- `Normalize order`
 
-Drag a card within the same lane to set manual order:
+Use `Search cards`, `Project`, `Subproject filter`, and `Category` filters to narrow the board.
 
-```yaml
-rpm_order:
-```
+Next to the filter controls, use the panel buttons to show or hide `Data warnings`, `Command center`, and `Action index`. When a panel is off, it is removed from the board area entirely.
 
-Click `Normalize order` in the board toolbar, or run `KanbanRPM: Normalize card order`, to rewrite each lane's `rpm_order` values as `1000`, `2000`, `3000`, and so on. This keeps manual ordering stable after many drag/drop operations.
+The default grouped board adapts to the Project filter:
 
-Sorting behavior:
+- `Project: All`: lanes group cards by Project.
+- one selected Project: lanes group cards by Subproject.
 
-1. Cards with `rpm_order` follow manual order.
-2. Cards without manual order are sorted by `priority`.
-3. Then by `due_date` or `next_review`.
-4. Then by `title`.
+Cards with multiple Project/Subproject links can appear under each matching filter. The visible breadcrumb still uses the primary hierarchy.
 
-Cards also show compact dependency/context rows when available:
+Drag a card to another lane to update `status`. Drag within a lane to update `order`. Card buttons do not start drag.
 
-- `Depends`: upstream dependency items from `depends_on`.
-- `Blocks`: downstream items from `blocks`.
-- `Sources`: linked source notes from `source_notes`.
+`Table` view shows the same filtered card set in sortable rows. Click a column header to sort by title, project, type, status, priority, date, flow count, or action count. Use the `Status` dropdown in a row to move that document without returning to the board.
 
-Wikilinks in these relation rows can be clicked to open the linked note.
+`List` view shows a collapsible `Project -> Subproject -> Big Action` tree. Project and Subproject names open their living documents, and Big Action rows show status, date, and task count.
 
-Click `Write arrows` in the board toolbar, or run `KanbanRPM: Write dependency arrows`, to export `depends_on` and `blocks` metadata into Laminar-style arrow notes under:
+Board cards include small left/right flow dots. The left dot represents incoming `Preceded by` flow, and the right dot represents outgoing `Followed by` flow. Drag a card's right dot toward another card's left connector area to create a flow arrow; the drop target is intentionally wider than the visible dot and highlights while dragging. KanbanRPM stores that arrow by adding the source card to the target card's `Preceded by` list. Existing flow links are drawn directly on the board as curved arrows from predecessor to follower. Click an arrow to remove the link after confirmation. Grey arrows mean the predecessor is in a completion status such as `Done`, `Completed`, or `?꾨즺`; warning-colored arrows mean the follower is still waiting on unfinished preceding work. If your custom status set has no completion status, flow arrows stay in the warning state until one is added or renamed.
 
-```text
-KanbanRPM Workspace/arrows/
-```
+`Timeline` view uses a Laminar-style kanban-like layout: a left `Routine` sidebar, top range/search/display controls, and horizontal date columns. By default it shows 7 days before through 7 days after the base date, which starts as today. Use `Today`, `-7`, `+7`, the base date field, or the explicit `YYYY.MM.DD` to `YYYY.MM.DD` range fields to change the window. Each date column contains a toggleable `Memo` section plus project/subproject marker sections. It places markers for `Due date`, `Next review`, dated unchecked small actions, and `Routine` items.
 
-This does not change the card metadata. It creates missing arrow notes and skips ones that already exist.
+Timeline only shows cards whose status is enabled in the collapsed Timeline `Statuses` filter. The default is `Active`. Cards without a timeline marker date do not appear in the date columns. Due, review, and dated small-action markers show the card breadcrumb, status, priority, status dropdown, and a compact small-action list when available. Recurring `Routine` items appear as compact chips instead of full cards; use the `Routine` sidebar for routine completion. Click a marker title or recurring chip to open its living document.
 
-## 12. Duplicate, Archive, or Delete
+The Timeline `Show` dropdown is a display filter for marker kinds, not a card-level field. `Show: Review` only shows review markers, `Show: Due` only shows due markers, `Show: Tasks` shows dated small actions, and `Show: Recurring` shows compact recurring chips for routines.
 
-Use `Duplicate` to copy a card into `cards/` with `Copy` added to the title. The duplicate keeps the same `Status` and `Priority`, but does not keep manual `rpm_order`.
+Timeline Memo entries are stored in `KanbanRPM Workspace/timeline/YYYY-MM-DD.md` only after you save a memo for that date. Timeline does not create date memo files just by viewing a range. Use `+ todo`, `+ text`, or the pencil icon to open the date Memo modal. The modal edits the date file's `## Memo` section as normal multi-line Markdown. The Timeline preview renders simple Markdown headings, bullet lists, paragraphs, and checkboxes. Checked checkbox lines render with a strikethrough and can be toggled directly from preview mode.
 
-Use `Archive` to move a card to:
-
-```text
-KanbanRPM Workspace/archive/
-```
-
-Use `Delete` only when the card is no longer needed. KanbanRPM asks for confirmation and moves the file to the system trash.
-
-## 13. Send to Daily
-
-Click `Send to Daily` on a card.
-
-KanbanRPM appends this line to today's existing Daily note:
+`Routine` reads checkbox lines in a card's `### Routine` or `## Routine` section. Every routine should include a start date:
 
 ```markdown
-- [ ] [[Card Title]]: next_action
+- [ ] Daily Lab Note Check @daily @start 2026-05-13
+- [ ] Weekly TTT Review @weekly @start 2026-05-13
+- [ ] TEM Data Backup @monthly @start 2026-05-13
+- [ ] Change glovebox purifier @every 10d @start 2026-05-13
+- [ ] Safety form audit @every 2w @start 2026-05-13
 ```
 
-Default Daily folder:
+Older documents that still use `### Perpetual` or `### Perpetual Log` continue to load as legacy aliases. New documents use `### Routine` and `### Routine Log`.
+
+Daily routines appear only for today in the Timeline and Routine sidebar, even when the visible range includes other dates. Weekly routines repeat on the same weekday as the start date. Monthly routines repeat on the same day-of-month as the start date. Custom `@every` routines support `d`, `w`, and `m` units.
+
+The `Routine` sidebar groups routines by frequency, from most frequent to least frequent. Custom intervals are grouped separately, such as `Every 2D` and `Every 2W`, and groups can be collapsed with the triangle toggle. The sidebar shows routines from the current Project/Subproject/Category filter even if their card status is hidden from Timeline markers. Routines must include `@start YYYY-MM-DD` to appear on the Timeline, and routines with no occurrence inside the current Timeline range are hidden from the sidebar. Use the Timeline `Show: Recurring` filter when you want the date columns to show only recurring markers. Clicking `Done` logs completion to the owning card's `### Routine Log` as a Markdown table row without permanently checking off the routine. A completed routine is hidden for that active recurrence period. Recurring routines also appear in `Action index` as recurring items; they can be opened or copied into `Current Focus`, but they are not promoted into new Big Action documents.
+
+Routine log format:
+
+```markdown
+### Routine Log
+
+| Date | Routine |
+| --- | --- |
+| 2026-05-13 | Weekly TTT Review |
+```
+
+Use `Card display fields` in settings to choose which card fields appear on the board. These settings can show or hide frontmatter fields such as `Type`, `Status`, `Priority`, and `Category`, and body-backed fields such as `Current Focus`, `Waiting`, `Blockers`, `Flow`, dates, sources, and small-action summaries.
+
+## Small Actions
+
+Small actions are checkbox tasks inside the living document. They stay in the Markdown body instead of becoming separate cards.
+
+KanbanRPM reads Tasks-style emoji metadata:
+
+```markdown
+- [ ] Stack TTT sample ??2026-05-10 ?뱟 2026-05-14 ?뵾
+- [x] Confirm mask design ??2026-05-07
+```
+
+Supported metadata:
+
+- `scheduled`: `??YYYY-MM-DD`
+- `due`: `?뱟 YYYY-MM-DD`
+- `done`: `??YYYY-MM-DD`
+- priority: `??, `?뵾`, `?뵿`, `??
+
+Board cards show a collapsible small-action row. Click `??Small actions` to expand and `??Small actions` to collapse. Expanded small actions are grouped by the heading they came from.
+
+You can check or uncheck a small action directly from the card. Checking a task updates the original Markdown line from `[ ]` to `[x]`, adds today's `??YYYY-MM-DD` done date, and prepends a reverse-chronological list item to `### Timeline Log` with an Obsidian link back to the card document. Unchecking changes `[x]` back to `[ ]` and removes the done date, but does not remove the Timeline Log entry.
+
+Small-action settings:
+
+- `Small actions collapsed by default`
+- `Small action source`: `Due or scheduled only`, `Done only`, or `All small actions`
+- `Small action date window`: `Any date`, `Overdue only`, `Today only`, `Through tomorrow`, `Through one week`, or `Through one month`
+
+Default behavior is `Due or scheduled only` and `Through one week`. Relative windows include overdue actions, today, and the future period. `Today only` and `Overdue only` are exact filters.
+
+## Action Index
+
+`Action index` reads unchecked checkboxes and `#todo` lines from notes listed in a card's `## References` section. It does not modify the source notes.
+
+Use:
+
+- `Open source`: open the source note.
+- `Set next`: copy the action into `## Current Focus`.
+- `Promote`: create a new `Big Action` document from the action.
+
+## Flow
+
+Write flow links in the document body:
+
+```markdown
+## Flow
+
+Preceded by:
+- [[TTT Data Processing]]
+
+Followed by:
+- [[TTT Manuscript]]
+```
+
+KanbanRPM shows flow directly on the Board with connector dots and arrows. Drag from a right dot to another card's left connector area to create a link; click an arrow to remove it. Flow counts and waiting badges also appear on Board/Table/List surfaces. Broken flow links and circular flow appear in `Data warnings`. `Export arrows` is optional: it writes Laminar-style arrow notes under `KanbanRPM Workspace/arrows/` for compatibility/reference. Existing legacy `## Dependencies` sections with `Depends on` / `Blocks` are still read as compatibility input.
+
+## Timeline Memo And Weekly
+
+KanbanRPM no longer writes planning lines to external Daily notes. Use the `Timeline` view's toggleable `Memo` section for lightweight day notes, quick checkbox tasks, and small reminders that do not need their own living document.
+
+Each memo cell is stored in:
 
 ```text
-100. 媛쒖씤/110. ?ㅼ씠?대━/111. Daily/
+KanbanRPM Workspace/timeline/YYYY-MM-DD.md
 ```
 
-Expected filename format:
+`Weekly review` creates or opens a KanbanRPM-owned weekly review note under `KanbanRPM Workspace/routines/`.
 
-```text
-YYYY-MM-DD (?붿씪).md
-```
+`Management brief` creates or updates `KanbanRPM Workspace/KanbanRPM Management Brief.md` and opens it. The brief is a generated project-management snapshot for human review and LLM-assisted planning. It includes status counts, Project sections, upcoming due/review dates, Waiting, Blocked, Flow risks, Routines, and Data warnings. It is safe to regenerate; edit living documents rather than editing the generated brief as source data.
 
-Example:
+## Data Warnings
 
-```text
-2026-05-06 (??.md
-```
+Open `Data warnings` from the panel buttons next to the filters. It warns about:
 
-KanbanRPM does not create a Daily note. If today's Daily note does not exist, it shows a notice with the expected path. Duplicate lines are blocked.
+- unknown `status`
+- invalid `priority`
+- unknown `Category`
+- non-numeric `order`
+- broken wikilinks in `## References` or `## Flow`
+- circular flow
 
-If `Daily section` is set in settings, KanbanRPM inserts actions under that heading. If the heading does not exist, KanbanRPM adds it to the Daily note. Leave `Daily section` blank to append at the end of the file.
+Click a warning row to open the affected document.
 
-## 14. Weekly Review
-
-Click `Weekly review` on the board toolbar or run `KanbanRPM: Open weekly review`.
-
-KanbanRPM creates or opens this week's review note in:
-
-```text
-KanbanRPM Workspace/perpetual/
-```
-
-The note is named like:
-
-```text
-YYYY-Www Weekly Review.md
-```
-
-The generated note includes `Review Queue`, `Active`, `Waiting`, `Blocked`, `Decisions`, and `Next Week Focus`. Weekly review notes are KanbanRPM-owned routine notes, so KanbanRPM creates them when missing. This differs from Daily notes, which must already exist.
-
-## 15. Example Structures
-
-TTT research group:
-
-```text
-Group: TTT
-Cards:
-- TTT Background Research
-- TTT Experiment
-- TTT Data Processing
-- TTT Analysis
-- TTT Discussion / Writing
-- TTT Manuscript
-```
-
-Lab setup group:
-
-```text
-Group: Lab Setup
-Cards:
-- Glove Box Setup
-- Furnace Setup
-- Probe Station Setup
-- Gas Line Installation
-- Safety Review
-```
-
-For sample-driven work, keep samples in `related_samples`. For phenomenon-driven analysis, keep threads in `related_phenomena`. For meeting or communication-derived tasks, link the meeting/communication note in `source_notes`.
-
-## 16. Settings
-
-Open Obsidian `Settings` and find `KanbanRPM`.
+## Settings
 
 Available settings:
 
-- `Workspace folder`: where KanbanRPM card and support files are stored.
-- `Daily folder`: where `Send to Daily` looks for today's Daily note.
-- `Daily section`: heading where Daily actions are inserted.
-- `Weekly review folder`: where weekly review notes are created.
+- `Workspace folder`
+- `Weekly review folder`
+- `Statuses`
 
-Changing the workspace folder does not move existing cards.
+## Troubleshooting
 
-## 17. Troubleshooting
+If the board is empty, confirm the document is in `KanbanRPM Workspace/cards/`, has `kanban_rpm: true`, and is not archived.
 
-If the board is empty:
+If `Action index` is empty, confirm `## References` contains resolvable wikilinks to notes with unchecked checkboxes or `#todo` lines.
 
-- Confirm cards are inside `KanbanRPM Workspace/cards/`.
-- Confirm each card has `kanban_rpm: true`.
-- Confirm `Search cards` and filters are clear.
-- Confirm the card was not archived.
+## Developer Note
 
-If `Import legacy` misses a note:
-
-- Add a `project` tag, `type: project`, or put the note in a project-like path.
-- Confirm the note is not already inside the KanbanRPM workspace or source project.
-- Click `Rescan` in the import modal.
-
-If `Data warnings` appears:
-
-- Open the affected card from the warning row.
-- Fix frontmatter values such as `status`, `priority`, `next_review`, `due_date`, or broken wikilinks.
-- Click `Refresh` on the board.
-
-If the `Action index` is empty:
-
-- Confirm the card has `source_notes`, `legacy_links`, or `related_notes`.
-- Confirm the linked notes resolve as Obsidian wikilinks.
-- Confirm the source note has unchecked checkbox lines or `#todo`.
-
-If `Send to Daily` does nothing:
-
-- Confirm today's Daily note exists.
-- Confirm the `Daily folder` setting matches your vault.
-- Confirm the exact line is not already present.
-- Confirm the card has `next_action`.
-
-If `Weekly review` creates the note in the wrong place, check `Weekly review folder` in settings.
-
-## 18. Developer Note
-
-Whenever KanbanRPM behavior changes, update this manual and `docs/KanbanRPM Manual ko.md` in the same change.
-
+Update this manual and `docs/KanbanRPM Manual ko.md` together whenever user-facing behavior changes.
