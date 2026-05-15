@@ -1,6 +1,6 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import type KanbanRPMPlugin from './main';
-import type { NewCardValues, ProjectCard, Status } from './types';
+import type { GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, Status } from './types';
 import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
@@ -58,6 +58,65 @@ export class TimelineMemoModal extends Modal {
   }
 }
 
+export class GanttDateModal extends Modal {
+  private values: GanttDateValues;
+  private onSave: (values: GanttDateValues) => Promise<void>;
+
+  constructor(app: App, private card: ProjectCard, onSave: (values: GanttDateValues) => Promise<void>) {
+    super(app);
+    this.values = {
+      startDate: card.startDate,
+      dueDate: card.dueDate,
+      nextReview: card.nextReview,
+    };
+    this.onSave = onSave;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: `Edit Gantt dates` });
+    contentEl.createDiv({ cls: 'kanban-rpm-modal-help', text: this.card.title });
+    const grid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    for (const [key, label] of [
+      ['startDate', 'Start date'],
+      ['dueDate', 'Due date'],
+      ['nextReview', 'Next review'],
+    ] as Array<[keyof GanttDateValues, string]>) {
+      new Setting(grid).setName(label).addText((input) => {
+        input.setPlaceholder('YYYY-MM-DD');
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value.trim();
+        });
+      });
+    }
+
+    new Setting(contentEl)
+      .addButton((button) => {
+        button
+          .setButtonText('Save dates')
+          .setCta()
+          .onClick(() => {
+            void this.save();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText('Cancel').onClick(() => this.close());
+      });
+  }
+
+  private async save(): Promise<void> {
+    const invalid = Object.values(this.values).find((value) => value && !/^\d{4}-\d{2}-\d{2}$/.test(value));
+    if (invalid) {
+      new Notice('Dates must use YYYY-MM-DD.');
+      return;
+    }
+    await this.onSave(this.values);
+    this.close();
+  }
+}
+
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
   private parentOptions: ProjectCard[] = [];
@@ -74,6 +133,7 @@ export class NewProjectCardModal extends Modal {
     nextAction: '',
     waitingFor: '',
     blocker: '',
+    startDate: '',
     nextReview: '',
     dueDate: '',
     dependsOn: '',
@@ -194,6 +254,14 @@ export class NewProjectCardModal extends Modal {
     });
 
     const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    new Setting(dateGrid).setName('Start date').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.startDate);
+      input.onChange((value) => {
+        this.values.startDate = value;
+      });
+    });
+
     new Setting(dateGrid).setName('Next review').addText((input) => {
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.nextReview);
@@ -345,8 +413,8 @@ export class EditProjectCardModal extends Modal {
     this.values = {
       title: card.title,
       type: card.type,
-      project: card.project || (card.type === 'subproject' ? card.parent : ''),
-      subproject: card.subproject || (card.type === 'big_action' ? card.parent : ''),
+      project: card.project,
+      subproject: card.subproject,
       projects: card.projects.filter((link) => link !== card.project).join('\n'),
       subprojects: card.subprojects.filter((link) => link !== card.subproject).join('\n'),
       status: card.status,
@@ -355,6 +423,7 @@ export class EditProjectCardModal extends Modal {
       nextAction: card.nextAction,
       waitingFor: card.waitingFor,
       blocker: card.blocker,
+      startDate: card.startDate,
       nextReview: card.nextReview,
       dueDate: card.dueDate,
       dependsOn: card.dependsOn.join('\n'),
@@ -475,6 +544,14 @@ export class EditProjectCardModal extends Modal {
     });
 
     const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    new Setting(dateGrid).setName('Start date').addText((input) => {
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.startDate);
+      input.onChange((value) => {
+        this.values.startDate = value;
+      });
+    });
+
     new Setting(dateGrid).setName('Next review').addText((input) => {
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.nextReview);
@@ -622,6 +699,62 @@ export interface ConfirmCardActionOptions {
   message: string;
   confirmText: string;
   onConfirm: () => Promise<void>;
+}
+
+export class ResearchLogModal extends Modal {
+  private values: ResearchLogValues;
+  private onSave: (values: ResearchLogValues) => Promise<void>;
+
+  constructor(app: App, kind: ResearchLogKind, initial: Omit<ResearchLogValues, 'kind'>, onSave: (values: ResearchLogValues) => Promise<void>) {
+    super(app);
+    this.values = { kind, ...initial };
+    this.onSave = onSave;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: this.values.kind === 'experiment' ? 'Add Experiment Log' : 'Add Analysis Log' });
+    contentEl.createDiv({
+      cls: 'kanban-rpm-modal-help',
+      text: 'Add a compact log row to this Big Action. You can refine the living document afterwards.',
+    });
+
+    this.addText('Date', 'YYYY-MM-DD', 'date');
+    this.addText('Module heading', this.values.kind === 'experiment' ? 'Stacking' : 'DF analysis', 'module');
+    this.addText(this.values.kind === 'experiment' ? 'Sample' : 'Dataset / Sample', '[[Sample]]', 'subject');
+    this.addText(this.values.kind === 'experiment' ? 'Conditions' : 'Method', '', 'conditionsOrMethod');
+    this.addText('Result', '', 'result');
+    this.addText('Link', '[[Current card]]', 'link');
+
+    new Setting(contentEl)
+      .addButton((button) => {
+        button
+          .setButtonText('Add log row')
+          .setCta()
+          .onClick(() => {
+            void this.save();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText('Skip').onClick(() => this.close());
+      });
+  }
+
+  private addText(label: string, placeholder: string, key: keyof Omit<ResearchLogValues, 'kind'>): void {
+    new Setting(this.contentEl).setName(label).addText((input) => {
+      input.setPlaceholder(placeholder);
+      input.setValue(String(this.values[key] ?? ''));
+      input.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+
+  private async save(): Promise<void> {
+    await this.onSave(this.values);
+    this.close();
+  }
 }
 
 export class ConfirmCardActionModal extends Modal {

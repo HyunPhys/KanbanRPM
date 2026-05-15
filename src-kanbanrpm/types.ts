@@ -2,9 +2,14 @@ import type { TFile } from 'obsidian';
 
 export interface KanbanRPMSettings {
   workspaceFolder: string;
-  weeklyReviewFolder: string;
   statuses: StatusDefinition[];
   categories: string[];
+  experimentLogCategories: string[];
+  analysisLogCategories: string[];
+  promptForLogOnDone: boolean;
+  reviewReminderStatus: string;
+  boardStatusFilter: string[];
+  timelineStatusFilter: string[];
   cardDisplayFields: CardDisplaySettings;
   smallActionDisplay: SmallActionDisplaySettings;
 }
@@ -12,8 +17,9 @@ export interface KanbanRPMSettings {
 export type Status = string;
 
 export type CardType = 'project' | 'subproject' | 'big_action';
+export type ProjectState = 'active' | 'closed';
 
-export type ViewMode = 'board' | 'table' | 'list' | 'timeline';
+export type ViewMode = 'board' | 'table' | 'timeline' | 'gantt' | 'archive';
 
 export interface StatusDefinition {
   id: string;
@@ -32,16 +38,14 @@ export interface ProjectCard {
   title: string;
   type: CardType;
   status: Status;
+  projectState: ProjectState;
   priority: number;
-  parent: string;
   project: string;
   subproject: string;
   projects: string[];
   subprojects: string[];
   primaryProject: string;
   primarySubproject: string;
-  parentPath: string;
-  parentTitle: string;
   projectTitles: string[];
   subprojectTitles: string[];
   projectTitle: string;
@@ -52,6 +56,7 @@ export interface ProjectCard {
   nextAction: string;
   waitingFor: string;
   blocker: string;
+  startDate: string;
   nextReview: string;
   dueDate: string;
   precededBy: string[];
@@ -61,8 +66,13 @@ export interface ProjectCard {
   blockedBy: string[];
   sourceNotes: string[];
   routines: RecurringItem[];
+  researchLogs: ResearchLogEntry[];
   smallActions: SmallAction[];
   actionCount: number;
+  archived: boolean;
+  archivedAt: string;
+  archiveOriginalPath: string;
+  archiveOwnerProject: string;
   order?: number;
 }
 
@@ -79,6 +89,7 @@ export interface NewCardValues {
   nextAction: string;
   waitingFor: string;
   blocker: string;
+  startDate: string;
   nextReview: string;
   dueDate: string;
   dependsOn: string;
@@ -107,6 +118,37 @@ export interface RecurringItem {
   lineNumber: number;
   raw: string;
   completedDates: string[];
+}
+
+export type ResearchLogKind = 'experiment' | 'analysis';
+
+export interface ResearchLogEntry {
+  cardPath: string;
+  cardTitle: string;
+  kind: ResearchLogKind;
+  module: string;
+  date: string;
+  subject: string;
+  conditionsOrMethod: string;
+  result: string;
+  link: string;
+  lineNumber: number;
+}
+
+export interface ResearchLogValues {
+  kind: ResearchLogKind;
+  module: string;
+  date: string;
+  subject: string;
+  conditionsOrMethod: string;
+  result: string;
+  link: string;
+}
+
+export interface GanttDateValues {
+  startDate: string;
+  dueDate: string;
+  nextReview: string;
 }
 
 export type TimelineScope = 'all' | 'review' | 'due' | 'tasks' | 'recurring';
@@ -157,7 +199,7 @@ export interface DependencyEdge {
   fromTitle: string;
   toPath: string;
   toTitle: string;
-  relationship: 'depends_on' | 'blocks';
+  relationship: 'preceded_by' | 'followed_by';
   raw: string;
   broken: boolean;
 }

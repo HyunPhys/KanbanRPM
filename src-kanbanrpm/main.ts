@@ -8,11 +8,10 @@ import {
 import { KanbanRPMView } from './board-view';
 import { CardRepository } from './card-repository';
 import { DEFAULT_SETTINGS, VIEW_TYPE } from './constants';
-import { NewProjectCardModal } from './modals';
+import { NewProjectCardModal, ResearchLogModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
-import type { ActionItem, CardIssue, KanbanRPMSettings, NewCardValues, ProjectCard, SmallAction, Status } from './types';
-import { openWeeklyReview } from './weekly-review';
+import type { ActionItem, CardIssue, GanttDateValues, KanbanRPMSettings, NewCardValues, ProjectCard, ResearchLogEntry, ResearchLogKind, ResearchLogValues, SmallAction, Status } from './types';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
@@ -42,12 +41,6 @@ export default class KanbanRPMPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: 'write-dependency-arrows',
-      name: 'Export dependency arrows',
-      callback: () => void this.writeDependencyArrows(),
-    });
-
-    this.addCommand({
       id: 'normalize-rpm-order',
       name: 'Normalize card order',
       callback: () => void this.normalizeCardOrder(),
@@ -57,12 +50,6 @@ export default class KanbanRPMPlugin extends Plugin {
       id: 'open-schema-reference',
       name: 'Open schema reference',
       callback: () => void this.openSchemaReference(),
-    });
-
-    this.addCommand({
-      id: 'open-weekly-review',
-      name: 'Open weekly review',
-      callback: () => void this.openWeeklyReview(),
     });
 
     this.addCommand({
@@ -80,16 +67,17 @@ export default class KanbanRPMPlugin extends Plugin {
 
   private normalizeSettings(data: Partial<KanbanRPMSettings> | null): KanbanRPMSettings {
     const saved = data ?? {};
-    const weeklyReviewFolder =
-      saved.weeklyReviewFolder === 'KanbanRPM Workspace/perpetual' || saved.weeklyReviewFolder?.match(/[\\/]perpetual$/)
-        ? saved.weeklyReviewFolder.replace(/[\\/]perpetual$/, '/routines')
-        : saved.weeklyReviewFolder;
     return {
       ...DEFAULT_SETTINGS,
       ...saved,
-      weeklyReviewFolder: weeklyReviewFolder || DEFAULT_SETTINGS.weeklyReviewFolder,
       statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
       categories: saved.categories?.length ? saved.categories : DEFAULT_SETTINGS.categories,
+      experimentLogCategories: saved.experimentLogCategories?.length ? saved.experimentLogCategories : DEFAULT_SETTINGS.experimentLogCategories,
+      analysisLogCategories: saved.analysisLogCategories?.length ? saved.analysisLogCategories : DEFAULT_SETTINGS.analysisLogCategories,
+      promptForLogOnDone: saved.promptForLogOnDone ?? DEFAULT_SETTINGS.promptForLogOnDone,
+      reviewReminderStatus: saved.reviewReminderStatus || DEFAULT_SETTINGS.reviewReminderStatus,
+      boardStatusFilter: saved.boardStatusFilter?.length ? saved.boardStatusFilter : DEFAULT_SETTINGS.boardStatusFilter,
+      timelineStatusFilter: saved.timelineStatusFilter?.length ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
       cardDisplayFields: {
         ...DEFAULT_SETTINGS.cardDisplayFields,
         ...(saved.cardDisplayFields ?? {}),
@@ -139,10 +127,6 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/archive`);
   }
 
-  get arrowsFolder(): string {
-    return normalizePath(`${this.workspaceFolder}/arrows`);
-  }
-
   get routinesFolder(): string {
     return normalizePath(`${this.workspaceFolder}/routines`);
   }
@@ -155,6 +139,10 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/KanbanRPM Management Brief.md`);
   }
 
+  get researchLogsPath(): string {
+    return normalizePath(`${this.workspaceFolder}/Research Logs.md`);
+  }
+
   isCardPath(path: string): boolean {
     return normalizePath(path).startsWith(`${this.cardsFolder}/`);
   }
@@ -164,12 +152,9 @@ export default class KanbanRPMPlugin extends Plugin {
   }
 
   async ensureWorkspace(): Promise<void> {
-    await this.migrateLegacyRoutineFolder();
     const folders = [
       this.workspaceFolder,
       this.cardsFolder,
-      this.archiveFolder,
-      this.arrowsFolder,
       this.routinesFolder,
       `${this.workspaceFolder}/timeline`,
       `${this.workspaceFolder}/attachments`,
@@ -182,17 +167,9 @@ export default class KanbanRPMPlugin extends Plugin {
     }
   }
 
-  private async migrateLegacyRoutineFolder(): Promise<void> {
-    const legacy = normalizePath(`${this.workspaceFolder}/perpetual`);
-    const next = this.routinesFolder;
-    const legacyFolder = this.app.vault.getAbstractFileByPath(legacy);
-    const nextFolder = this.app.vault.getAbstractFileByPath(next);
-    if (!legacyFolder || nextFolder) return;
-    await this.app.fileManager.renameFile(legacyFolder, next);
-  }
-
   async openBoard(): Promise<void> {
     await this.ensureWorkspace();
+    await this.repository.applyDueReviews();
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.setViewState({ type: VIEW_TYPE, active: true });
     this.app.workspace.revealLeaf(leaf);
@@ -200,6 +177,14 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async loadCards(): Promise<ProjectCard[]> {
     return this.repository.loadCards();
+  }
+
+  async loadArchivedCards(): Promise<ProjectCard[]> {
+    return this.repository.loadArchivedCards();
+  }
+
+  async loadResearchLogs(): Promise<ResearchLogEntry[]> {
+    return this.repository.loadResearchLogs();
   }
 
   async createCard(values: NewCardValues): Promise<TFile> {
@@ -215,11 +200,22 @@ export default class KanbanRPMPlugin extends Plugin {
   }
 
   async moveCard(cardPath: string, targetStatus: Status, beforePath?: string): Promise<void> {
+    const card = (await this.repository.loadCards()).find((item) => item.path === cardPath);
     await this.repository.moveCard(cardPath, targetStatus, beforePath);
+    if (card) this.maybePromptForResearchLog(card, targetStatus);
   }
 
   async setCardStatus(card: ProjectCard, status: Status): Promise<void> {
     await this.repository.setCardStatus(card, status);
+    this.maybePromptForResearchLog(card, status);
+  }
+
+  async updateProjectState(card: ProjectCard, projectState: 'active' | 'closed'): Promise<void> {
+    await this.repository.updateProjectState(card, projectState);
+  }
+
+  async updateGanttDates(card: ProjectCard, values: GanttDateValues): Promise<void> {
+    await this.repository.updateGanttDates(card, values);
   }
 
   async normalizeCardOrder(): Promise<void> {
@@ -266,6 +262,10 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.archiveCard(card);
   }
 
+  async unarchiveCard(card: ProjectCard): Promise<void> {
+    await this.repository.unarchiveCard(card);
+  }
+
   async deleteCard(card: ProjectCard): Promise<void> {
     await this.repository.deleteCard(card);
   }
@@ -282,12 +282,12 @@ export default class KanbanRPMPlugin extends Plugin {
     return this.repository.validateCards(cards);
   }
 
-  async writeDependencyArrows(cards?: ProjectCard[]): Promise<void> {
-    await this.repository.writeDependencyArrows(cards);
-  }
-
   async writeManagementBrief(cards?: ProjectCard[]): Promise<void> {
     await this.repository.writeManagementBrief(cards);
+  }
+
+  async addResearchLogRow(card: ProjectCard, values: ResearchLogValues): Promise<void> {
+    await this.repository.addResearchLogRow(card, values);
   }
 
   resolveLinkedFile(link: string, sourcePath: string): TFile | null {
@@ -297,10 +297,6 @@ export default class KanbanRPMPlugin extends Plugin {
   computeOrder(laneCards: ProjectCard[], insertIndex: number): number {
     return this.repository.computeOrder(laneCards, insertIndex);
   }
-  async openWeeklyReview(cards?: ProjectCard[]): Promise<void> {
-    await openWeeklyReview(this.app, this.settings, cards ?? (await this.loadCards()));
-  }
-
   async openCard(card: ProjectCard): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(card.path);
     if (file instanceof TFile) {
@@ -329,6 +325,49 @@ export default class KanbanRPMPlugin extends Plugin {
       const view = leaf.view;
       if (view instanceof KanbanRPMView) await view.refresh();
     }
+  }
+
+  async applyDueReviews(): Promise<number> {
+    return this.repository.applyDueReviews();
+  }
+
+  private maybePromptForResearchLog(card: ProjectCard, targetStatus: Status): void {
+    if (!this.settings.promptForLogOnDone) return;
+    if (card.type !== 'big_action') return;
+    if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return;
+    const kind = this.researchLogKindForCategory(card.workstreamType);
+    if (!kind) return;
+    const today = this.todayIso();
+    const initial = {
+      module: '',
+      date: today,
+      subject: '',
+      conditionsOrMethod: '',
+      result: card.nextAction || '',
+      link: `[[${card.file.basename}]]`,
+    };
+    new ResearchLogModal(this.app, kind, initial, async (values) => {
+      await this.addResearchLogRow(card, values);
+    }).open();
+  }
+
+  private researchLogKindForCategory(category: string): ResearchLogKind | null {
+    const normalized = category.trim().toLowerCase();
+    if (!normalized) return null;
+    if (this.settings.experimentLogCategories.includes(normalized)) return 'experiment';
+    if (this.settings.analysisLogCategories.includes(normalized)) return 'analysis';
+    return null;
+  }
+
+  private isCompletionStatus(statusId: string): boolean {
+    const status = this.settings.statuses.find((item) => item.id === statusId);
+    const value = `${status?.id ?? statusId} ${status?.label ?? ''}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value);
+  }
+
+  private todayIso(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
 }
 

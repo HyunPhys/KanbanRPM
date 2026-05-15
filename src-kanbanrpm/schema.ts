@@ -12,6 +12,7 @@ kanban_rpm: true
 type: big_action
 id: example-workstream
 status: active
+project_state: active
 primary_project: "[[TTT]]"
 primary_subproject: "[[TTT Experiment]]"
 projects:
@@ -26,6 +27,7 @@ New living documents keep frontmatter intentionally short. The plugin treats \`T
 
 \`\`\`yaml
 status: inbox
+project_state: active
 primary_project:
 primary_subproject:
 projects: []
@@ -39,7 +41,9 @@ Default \`status\` values:
 ${DEFAULT_STATUSES.map((status) => status.id).join(' | ')}
 \`\`\`
 
-The active status set is global and editable in KanbanRPM settings. Every Board/List/Table/Timeline surface should read the same status set.
+The active status set is global and editable in KanbanRPM settings. Every Board/Table/Timeline/Gantt surface should read the same status set.
+
+\`project_state\` is mainly used on Project documents. \`active\` is the default. \`closed\` hides the Project and cards that only belong to that closed Project from default KanbanRPM views. Use \`Show closed projects\` to inspect or reopen them. Closing a Project does not change child card statuses.
 
 \`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
 

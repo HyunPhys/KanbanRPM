@@ -1,5 +1,36 @@
 # KanbanRPM Release Notes
 
+## v0.3.0
+
+KanbanRPM v0.3 adds operations and long-range planning features on top of the v0.2 living-document model.
+
+### Highlights
+
+- Project-owned archive folders under `cards/<Project>/archive/`.
+- `Archive` view with archived-card listing and `Unarchive`.
+- Redesigned `Gantt` planning surface with `Month+Week` / `Quarter+Month` scale, proportional date bars, Subproject summary rows, collapse controls, and dependency badges.
+- Global `Research Logs.md` document plus `Research index` for Markdown-table `Experiment Log` and `Analysis Log` rows.
+- Category-based Experiment/Analysis Log prompt when matching Big Actions move to a completion status.
+- Settings for Experiment/Analysis log category mapping and log prompt enable/disable.
+- `Next review` reminder support with Open/Refresh status changes and `Timeline Log` entries.
+- Expanded `Management brief` for LLM-assisted planning with Executive Attention, Project Health, Next Actions, dated/high-priority small actions, and Recent Research Logs.
+- Project lifecycle support with `project_state: closed`, `Close project`, `Reopen project`, and `Show closed projects`.
+- Removed the active `List` view switcher entry so the plugin focuses on Board, Table, Timeline, Gantt, and Archive.
+- Removed `Weekly review` and `Export arrows` from the active UI and command set.
+- Standardized colored status badges across Board details, Project notes, Table rows, and Timeline cards.
+- Made Table row actions read as text-style controls while preserving click actions.
+- Removed active parser support for legacy `parent`, legacy `project/subproject`, `Dependencies`, `Depends on/Blocks`, and `Perpetual` aliases.
+
+### Verification
+
+Validated with:
+
+```text
+npm run typecheck
+```
+
+Manual Obsidian QA is still required for Archive, Gantt, Research Log prompts, and Next review reminders.
+
 ## v0.2.0
 
 KanbanRPM v0.2 is the living-document redesign. It turns the plugin from a frontmatter-heavy card board into a research project manager built around `Project -> Subproject -> Big Action -> checkbox task`, with Board/Table/List/Timeline views and Laminar-inspired flow/routine/timeline concepts.

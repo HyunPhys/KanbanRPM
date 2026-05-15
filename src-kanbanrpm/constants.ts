@@ -20,9 +20,14 @@ export const HIERARCHY_LEVELS = [
 
 export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   workspaceFolder: 'KanbanRPM Workspace',
-  weeklyReviewFolder: 'KanbanRPM Workspace/routines',
   statuses: DEFAULT_STATUSES,
   categories: DEFAULT_CATEGORIES,
+  experimentLogCategories: ['experiment'],
+  analysisLogCategories: ['analysis'],
+  promptForLogOnDone: true,
+  reviewReminderStatus: 'active',
+  boardStatusFilter: DEFAULT_STATUSES.map((status) => status.id),
+  timelineStatusFilter: ['active'],
   cardDisplayFields: {
     breadcrumb: true,
     type: true,

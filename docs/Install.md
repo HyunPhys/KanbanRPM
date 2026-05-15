@@ -38,7 +38,7 @@ npm run package
 This creates:
 
 ```text
-KanbanRPM/dist/kanban-rpm-0.2.0/
+KanbanRPM/dist/kanban-rpm-0.3.0/
   main.js
   manifest.json
   styles.css
