@@ -1,107 +1,142 @@
 # KanbanRPM
 
-KanbanRPM is a Kanban-based research project manager for Obsidian. It is designed for research and operations workstreams such as manuscripts, equipment setup, teaching/admin work, and waiting/blocker tracking.
+KanbanRPM is a Kanban-based research project manager for Obsidian. It is built for research and lab-operation workflows where a simple task board is not enough: manuscripts, experiments, analysis pipelines, equipment setup, purchasing, teaching, administration, waiting states, blockers, routines, and long-term planning.
 
-This project was started from the public `obsidian-community/obsidian-kanban` repository so the original Kanban source tree, attribution, and license material are preserved in this folder. The active KanbanRPM implementation lives in `src-kanbanrpm/` and builds directly to the vault plugin folder.
+KanbanRPM treats every managed item as a living Markdown document. The board is a view over your project documents, not a place where disposable cards replace your notes.
 
-## Project Layout
+## Install
 
-KanbanRPM keeps the upstream Kanban source tree for reference and attribution, but the active implementation is separate:
+### Option 1. Manual Install From GitHub Release
 
-```text
-src-kanbanrpm/main.ts             Plugin lifecycle and command orchestration
-src-kanbanrpm/board-view.ts       Board UI, toolbar, lanes, cards, and drag/drop
-src-kanbanrpm/card-repository.ts  Card files, schema validation, ordering, hierarchy, and action indexing
-src-kanbanrpm/types.ts            Shared TypeScript interfaces
-src-kanbanrpm/constants.ts        Shared constants and vocabularies
-src-kanbanrpm/utils.ts            Pure helper functions
-src-kanbanrpm/modals.ts           Document and confirmation modals
-src-kanbanrpm/schema.ts           Schema reference content
-src-kanbanrpm/settings-tab.ts     Settings tab
-src-kanbanrpm/styles.css          Board and modal styles
-scripts/                          KanbanRPM build and typecheck scripts
-docs/KanbanRPM*.md                KanbanRPM user manuals
-src/                              Upstream obsidian-kanban source kept for reference
-LICENSE.md                        Upstream license material
-```
-
-Build output is written outside this source project:
+1. Open the latest GitHub Release for this repository.
+2. Download these three files:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+3. In your Obsidian vault, create this folder:
 
 ```text
-../.obsidian/plugins/kanban-rpm/
+<Your Vault>/.obsidian/plugins/kanban-rpm/
 ```
 
-## Manual
+4. Put the three downloaded files into that folder.
+5. Restart Obsidian, or reload community plugins.
+6. Go to `Settings` -> `Community plugins`.
+7. Enable `KanbanRPM`.
+8. Run `KanbanRPM: Open board` from the command palette.
 
-The roadmap, baseline checklist, and user manuals are maintained at:
+### Option 2. Install From The Repository Root
+
+The repository root contains the release-ready plugin files:
 
 ```text
-docs/Roadmap.md
-docs/Roadmap v0.2.md
-docs/Install.md
-docs/Baseline QA.md
-docs/Release QA.md
-docs/Release Notes.md
-docs/Migration v0.1 to v0.2.md
-docs/Card Schema.md
-docs/Attribution.md
-docs/KanbanRPM Manual.md
-docs/KanbanRPM Manual ko.md
+main.js
+manifest.json
+styles.css
 ```
 
-Update both manuals whenever user-facing KanbanRPM behavior changes. Keep plugin UI terms in English in the Korean manual.
+Copy those three files into:
 
-## Build
+```text
+<Your Vault>/.obsidian/plugins/kanban-rpm/
+```
+
+Then enable `KanbanRPM` in Obsidian.
+
+### Option 3. Build From Source
 
 ```bash
+git clone https://github.com/HyunPhys/KanbanRPM.git
+cd KanbanRPM
 npm install
-npm run typecheck
-npm run build
+npm run check
 npm run package
-npm run smoke
 ```
 
-If PowerShell resolves a blocked or wrong Node executable, prepend the installed Node path for the current session:
-
-```powershell
-$env:Path = 'C:\Program Files\nodejs;' + $env:Path
-```
-
-The build can also be run directly:
-
-```bash
-node scripts/build.mjs
-```
-
-`npm run package` prepares a local release bundle under:
+`npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.2.0/
+dist/kanban-rpm-0.3.0/
+  main.js
+  manifest.json
+  styles.css
 ```
 
-`npm run smoke` checks the live plugin folder, release bundle, manifest/version mapping, and release documentation for consistency.
+## Quick Start
 
-The build bundles/copies:
+1. Enable `KanbanRPM`.
+2. Run `KanbanRPM: Open board`.
+3. Click `New document`.
+4. Create a `Project`.
+5. Create `Subproject` documents under that Project.
+6. Create `Big Action` documents under a Project/Subproject.
+7. Move cards across Board lanes to manage execution status.
+8. Use the Markdown document body for context, notes, decisions, logs, and checkbox tasks.
 
-- `src-kanbanrpm/main.ts` -> `main.js`
-- `src-kanbanrpm/styles.css`
-- `manifest.json`
-
-to:
+Good first structure:
 
 ```text
-../.obsidian/plugins/kanban-rpm/
+Project: TTT Manuscript
+Subprojects:
+- TTT Experiment
+- TTT Data Processing
+- TTT Analysis
+- TTT Writing
+Big Actions:
+- Stack sample 8
+- Process sample 8 Kerr data
+- Draft figure 2 discussion
 ```
 
-## Data Model
+## Core Philosophy
 
-KanbanRPM stores project cards as individual Markdown files under:
+KanbanRPM uses this hierarchy:
 
 ```text
-KanbanRPM Workspace/cards/
+Project -> Subproject -> Big Action -> Checkbox task
 ```
 
-New documents are placed by primary hierarchy:
+- `Project`: long-lived goal or operating area.
+- `Subproject`: parallel workstream inside a Project.
+- `Big Action`: meaningful execution unit worth tracking on a board.
+- `Checkbox task`: small task that stays inside the relevant Markdown note.
+
+The plugin intentionally avoids turning every checkbox into a card. Small actions should remain close to the context where they were created. Only work that needs visible status tracking should become a `Big Action`.
+
+KanbanRPM is inspired by Laminar's file-based card philosophy, flow arrows, recurring routines, and timeline rhythm, while using Markdown documents as the source of truth.
+
+## Main Features
+
+- `Board` view with customizable status lanes.
+- `Table` view with sortable and resizable columns.
+- `Timeline` view with horizontal date columns, `Memo`, and `Routine`.
+- `Gantt` view with Project/Subproject/Big Action hierarchy and date-proportional bars.
+- `Archive` view with per-Project archive folders and `Unarchive`.
+- `Project notes` strip for top-level Project documents.
+- Flow connectors using `Preceded by` / `Followed by`.
+- Board and Gantt flow-dot drag to create dependencies.
+- Small action indexing from checkboxes and `#todo` lines.
+- Routine scheduling with `@daily`, `@weekly`, `@monthly`, and custom `@every` intervals.
+- Assisted Experiment/Analysis Log capture into `Research Logs.md`.
+- `Management brief` generation for LLM-assisted project review.
+- Project close/reopen lifecycle independent of card status.
+- Settings for statuses, categories, visible card fields, small-action display, and log prompts.
+
+## Workspace Structure
+
+KanbanRPM creates this folder in your vault:
+
+```text
+KanbanRPM Workspace/
+  cards/
+  routines/
+  timeline/
+  attachments/
+  Research Logs.md
+  KanbanRPM Management Brief.md
+```
+
+Cards are Markdown files under `cards/`.
 
 ```text
 cards/Project.md
@@ -109,101 +144,111 @@ cards/Project/Subproject.md
 cards/Project/Subproject/Big Action.md
 ```
 
-Cards with additional Project/Subproject links stay in the primary folder chosen at creation time. Existing flat files under `cards/` are still loaded.
-
-Each card is a research workstream, not a task. The board reads card frontmatter and maps `status` to lanes:
+Archived cards are stored under the owning Project:
 
 ```text
-Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
+cards/Project/archive/Archived Big Action.md
 ```
 
-Card files use this frontmatter shape:
+## Documentation
 
-```yaml
-kanban_rpm: true
-type: big_action
-id: example-big-action
-status: inbox
-project_state: active
-primary_project: "[[TTT]]"
-primary_subproject: "[[TTT Experiment]]"
-projects:
-  - "[[TTT]]"
-subprojects:
-  - "[[TTT Experiment]]"
-order:
-```
+User manuals:
 
-Readable planning context lives in Markdown sections such as `Current Focus`, `Waiting`, `Blockers`, `Flow`, `Timeline`, `References`, and `PM Metadata`.
+- [English Manual](docs/KanbanRPM%20Manual.md)
+- [Korean Manual](docs/KanbanRPM%20Manual%20ko.md)
 
-Flexible architecture terms:
+Additional docs:
 
-- `Project`: the top-level living document, such as `TTT` or `Lab Setup`.
-- `project_state`: Project lifecycle, where `closed` hides completed Projects from default views without changing child card statuses.
-- `Subproject`: a workstream under a Project, such as `TTT Analysis` or `Glove Box Setup`.
-- `Big Action`: a trackable chunk of work under a Project/Subproject.
-- `projects` / `subprojects`: multi-link hierarchy arrays stored in frontmatter.
-- `primary_project` / `primary_subproject`: the default breadcrumb and future folder placement anchors.
-- `Checkbox task`: a detailed action that stays inside source notes.
-- `Preceded by` and `Followed by`: lightweight flow sections inspired by Laminar arrows.
-- `References`: notes to scan for unchecked checkbox actions and `#todo` lines.
-- `Category`: one optional classification value stored as `workstream_type`.
+- [Install Guide](docs/Install.md)
+- [Card Schema](docs/Card%20Schema.md)
+- [Release Notes](docs/Release%20Notes.md)
+- [Release QA](docs/Release%20QA.md)
+- [Attribution](docs/Attribution.md)
 
-The workspace also keeps support folders:
+Path reference: `docs/Release Notes.md`
+
+## LLM-Assisted Management
+
+KanbanRPM can generate an LLM-readable project brief:
 
 ```text
-KanbanRPM Workspace/routines/
-KanbanRPM Workspace/timeline/
-KanbanRPM Workspace/attachments/
+More -> Management brief
 ```
 
-## MVP Features
+This writes:
 
-- Open the KanbanRPM board from the command palette or ribbon.
-- Switch between `Board`, `Table`, `Timeline`, `Gantt`, and `Archive` views from the toolbar.
-- Search/filter cards from the board toolbar.
-- Filter cards by `Project`, `Subproject`, and `Category`.
-- Close and reopen Projects from the `Project notes` strip; use `Show closed projects` to inspect closed Project trees.
-- Show optional `Data warnings` for invalid status, invalid priority values, unknown category values, non-numeric order, broken source links, and flow cycles.
-- Open or create a local schema reference note with `KanbanRPM: Open schema reference`.
-- Create living documents from a simplified modal with optional fields folded under `Advanced metadata`.
-- Select primary `Project` and, for Big Actions, primary `Subproject` from existing documents, with optional additional Project/Subproject links.
-- Create cards directly in a lane with the lane `+` quick add button.
-- Edit card metadata from the board.
-- Duplicate existing cards.
-- Archive cards to the owning Project folder, such as `KanbanRPM Workspace/cards/<Project>/archive/`.
-- Delete cards through a confirmation modal.
-- Show visual badges for status, type, category, dependencies, priority, and overdue dates.
-- Show an `Action index` that collects unchecked checkboxes, `#todo` lines from notes linked in `## References`, and recurring `Routine` items without modifying the original notes.
-- Open source notes from the `Action index`.
-- Promote an indexed action into a card's `## Current Focus` with `Set next`.
-- Group `Action index` entries by card.
-- Show a `Command center` panel for review queue, waiting cards, blocked cards, and flow-heavy cards.
-- Toggle `Data warnings`, `Command center`, and `Action index` from the filter row; closed panels are removed from the board area.
-- Keep secondary board actions under `More`, including `Management brief` and `Normalize order`.
-- Use the Laminar-style `Timeline` view and date `Memo` row for lightweight daily notes instead of writing to external Daily notes.
-- Generate an LLM-friendly `KanbanRPM Management Brief.md` with `Management brief`.
-- Show compact card relation rows for `Preceded by`, `Followed by`, and `References`.
-- Configure which board-card fields are visible from plugin settings.
-- Configure Category values from plugin settings.
-- Show Project documents in a collapsible `Project notes` strip above the board instead of inside status lanes.
-- Group lanes by Project when all projects are visible, and by Subproject when one Project is selected.
-- Sort cards in `Table` view with text-style clickable rows.
-- Inspect and edit flow directly on the Board with card connector dots and arrows; unfinished preceding work is shown with warning-colored arrows.
-- Drag a card's right flow dot to another card's left connector area to add a `Preceded by` link.
-- Click an existing board arrow to remove that flow link after confirmation.
-- Inspect a Laminar-style kanban-like `Timeline` view with a grouped/collapsible `Routine` sidebar, start-date and custom-interval recurring routines, next visible routine dates, completion logs, base-date/range controls, persistent status filters, marker-kind display filters, date columns, editable date Memo cards, status dropdowns, and compact small-action controls.
-- Parse Tasks-style small action checkboxes inside living documents and show them in collapsible card rows.
-- Check or uncheck small actions from board cards while updating the original Markdown line.
-- Create Project, Subproject, and Big Action documents with role-specific `PM Control` / `Working Notes` templates.
-- Use compact board cards with title-to-open behavior, icon edit actions, overflow menus, and collapsed details.
-- Drag cards between lanes to update `status`.
-- Drag cards within a lane to set `order`.
-- Normalize lane order values with `Normalize order` or `KanbanRPM: Normalize card order`.
-- Refresh automatically when card files change.
+```text
+KanbanRPM Workspace/KanbanRPM Management Brief.md
+```
 
-## License Note
+Suggested prompt:
 
-The upstream repository metadata currently reports `MIT` in `package.json`, while the included `LICENSE.md` is GPL-3.0 text. KanbanRPM keeps upstream attribution and treats this derivative implementation as GPL-3.0-or-later compatible unless the upstream project clarifies otherwise.
+```text
+Read KanbanRPM Workspace/KanbanRPM Management Brief.md and the linked Project/Subproject/Big Action notes.
+Tell me:
+1. What needs attention this week.
+2. Which Projects are blocked or stale.
+3. Which Big Actions should be split, archived, closed, or promoted.
+4. Which next actions should be pulled into today.
+5. Which metadata or hierarchy links look unclear.
+Do not rewrite my notes unless I explicitly ask.
+```
 
-See `docs/Attribution.md` for the current attribution and non-interference notes.
+KanbanRPM remains the source of truth. The LLM acts as reviewer, summarizer, and planning assistant.
+
+## Build And Release
+
+Development scripts:
+
+```bash
+npm run typecheck
+npm run build
+npm run check
+npm run smoke
+npm run package
+```
+
+Release checklist:
+
+1. Update `manifest.json`, `versions.json`, and `package.json` version if needed.
+2. Run `npm run check`.
+3. Run `npm run package`.
+4. Run `npm run smoke`.
+5. Commit the root release files:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+6. Tag the release, for example `v0.3.0`.
+7. Push the tag to create the GitHub Release.
+
+## Repository Layout
+
+```text
+main.js                         Release build output for Obsidian install
+manifest.json                   Obsidian plugin manifest
+styles.css                      Release stylesheet
+versions.json                   Obsidian version map
+src-kanbanrpm/                  Active KanbanRPM TypeScript source
+scripts/                        Build, package, smoke, and typecheck scripts
+docs/                           User and release documentation
+src/                            Upstream obsidian-kanban source kept for attribution/reference
+LICENSE.md                      GPL-3.0 license text
+```
+
+The active implementation is in `src-kanbanrpm/`. The upstream `src/` tree is preserved for attribution/reference because KanbanRPM started from the public `obsidian-community/obsidian-kanban` project.
+
+## Compatibility
+
+KanbanRPM uses:
+
+- plugin id: `kanban-rpm`
+- view type: `kanban-rpm-board`
+- CSS namespace: `kanban-rpm-*`
+
+It is designed to coexist with the original `Laminar` plugin and the original `Kanban` plugin.
+
+## License
+
+KanbanRPM is distributed under `GPL-3.0-or-later`.
+
+This project was started from the public `obsidian-community/obsidian-kanban` source tree. Upstream attribution and license material are preserved. See [Attribution](docs/Attribution.md).

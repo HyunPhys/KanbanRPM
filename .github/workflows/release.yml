@@ -13,14 +13,16 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Use Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '22.x'
 
-      - name: Build plugin
+      - name: Package plugin
         run: |
-          npm install
-          npm run build
+          npm ci
+          npm run package
+          cd "dist/kanban-rpm-${GITHUB_REF_NAME#v}"
+          zip "../kanban-rpm-${GITHUB_REF_NAME#v}.zip" main.js manifest.json styles.css
 
       - name: Create release
         env:
@@ -31,4 +33,4 @@ jobs:
           gh release create "$tag" \
             --title="$tag" \
             --notes-file="release-notes.md" \
-            main.js manifest.json styles.css
+            main.js manifest.json styles.css "dist/kanban-rpm-${tag#v}.zip"

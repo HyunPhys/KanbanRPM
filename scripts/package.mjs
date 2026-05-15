@@ -19,7 +19,10 @@ fs.rmSync(releaseDir, { recursive: true, force: true });
 fs.mkdirSync(releaseDir, { recursive: true });
 
 for (const file of ['main.js', 'manifest.json', 'styles.css']) {
-  fs.copyFileSync(path.join(vaultPluginDir, file), path.join(releaseDir, file));
+  const builtFile = path.join(vaultPluginDir, file);
+  fs.copyFileSync(builtFile, path.join(releaseDir, file));
+  fs.copyFileSync(builtFile, path.join(root, file));
 }
 
 console.log(`KanbanRPM release bundle prepared at ${releaseDir}`);
+console.log('KanbanRPM root release files updated: main.js, manifest.json, styles.css');

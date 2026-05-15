@@ -1,11 +1,11 @@
-name: Feature Request
-description: Suggest a Feature
+name: KanbanRPM Feature Request
+description: Suggest a KanbanRPM feature
 labels: ['enhancement']
 title: '[Feature]: '
 body:
   - type: markdown
     attributes:
-      value: Before getting started, please check the [GitHub Issues](https://github.com/mgmeyers/obsidian-kanban/issues) (open or closed) for similar issues.
+      value: Before getting started, please check existing KanbanRPM issues for similar requests.
   - type: textarea
     validations:
       required: true

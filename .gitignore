@@ -1,6 +1,7 @@
 # Intellij
 *.iml
 .idea
+.vscode/
 
 # npm
 node_modules
@@ -11,5 +12,3 @@ node_modules
 .env
 dist
 test-vault/
-/main.js
-/styles.css
