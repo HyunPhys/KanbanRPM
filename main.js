@@ -1,0 +1,5643 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src-kanbanrpm/main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => KanbanRPMPlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian7 = require("obsidian");
+
+// src-kanbanrpm/board-view.ts
+var import_obsidian2 = require("obsidian");
+
+// src-kanbanrpm/constants.ts
+var VIEW_TYPE = "kanban-rpm-board";
+var DEFAULT_STATUSES = [
+  { id: "inbox", label: "Inbox" },
+  { id: "active", label: "Active" },
+  { id: "waiting", label: "Waiting" },
+  { id: "blocked", label: "Blocked" },
+  { id: "someday", label: "Someday" },
+  { id: "done", label: "Done" }
+];
+var DEFAULT_CATEGORIES = ["research", "experiment", "analysis", "writing", "setup", "purchase", "admin", "communication"];
+var DEFAULT_SETTINGS = {
+  workspaceFolder: "KanbanRPM Workspace",
+  statuses: DEFAULT_STATUSES,
+  categories: DEFAULT_CATEGORIES,
+  experimentLogCategories: ["experiment"],
+  analysisLogCategories: ["analysis"],
+  promptForLogOnDone: true,
+  reviewReminderStatus: "active",
+  boardStatusFilter: DEFAULT_STATUSES.map((status) => status.id),
+  timelineStatusFilter: ["active"],
+  cardDisplayFields: {
+    breadcrumb: true,
+    type: true,
+    status: true,
+    priority: true,
+    category: true,
+    currentFocus: true,
+    waiting: true,
+    blockers: true,
+    dates: true,
+    dependencies: true,
+    sources: true,
+    smallActionSummary: true
+  },
+  smallActionDisplay: {
+    collapsedByDefault: true,
+    sourceFilter: "dated",
+    dateWindow: "week"
+  }
+};
+var LANES = DEFAULT_STATUSES;
+var WORKSTREAM_TYPES = DEFAULT_CATEGORIES;
+
+// src-kanbanrpm/date-utils.ts
+function todayIso() {
+  return formatDate(/* @__PURE__ */ new Date());
+}
+function formatDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+function addDays(day, days) {
+  const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+function addMonths(day, months) {
+  const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
+  date.setMonth(date.getMonth() + months);
+  return formatDate(date);
+}
+function startOfMonth(day) {
+  return `${day.slice(0, 7)}-01`;
+}
+function endOfMonth(day) {
+  const date = /* @__PURE__ */ new Date(`${day.slice(0, 7)}-01T00:00:00`);
+  date.setMonth(date.getMonth() + 1);
+  date.setDate(0);
+  return formatDate(date);
+}
+function daysBetween(start, end) {
+  const startDate = /* @__PURE__ */ new Date(`${start}T00:00:00`);
+  const endDate = /* @__PURE__ */ new Date(`${end}T00:00:00`);
+  return Math.round((endDate.getTime() - startDate.getTime()) / 864e5);
+}
+function dateRange(start, end, fallback = todayIso()) {
+  const days = [];
+  const startDate = /* @__PURE__ */ new Date(`${start}T00:00:00`);
+  const endDate = /* @__PURE__ */ new Date(`${end}T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) return [fallback];
+  for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    days.push(formatDate(date));
+    if (days.length > 180) break;
+  }
+  return days;
+}
+function monthRange(start, end, fallback = todayIso().slice(0, 7)) {
+  const months = [];
+  const startDate = /* @__PURE__ */ new Date(`${start.slice(0, 7)}-01T00:00:00`);
+  const endDate = /* @__PURE__ */ new Date(`${end.slice(0, 7)}-01T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) return [fallback];
+  for (let date = new Date(startDate); date <= endDate; date.setMonth(date.getMonth() + 1)) {
+    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+    if (months.length > 60) break;
+  }
+  return months;
+}
+function isIsoDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// src-kanbanrpm/board-view.ts
+var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
+
+// src-kanbanrpm/modals.ts
+var import_obsidian = require("obsidian");
+
+// src-kanbanrpm/utils.ts
+function text(value) {
+  if (value === null || value === void 0) return "";
+  if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+  return String(value);
+}
+function yamlScalar(value) {
+  if (value === null || value === void 0 || value === "") return "";
+  const raw = String(value).replace(/\r?\n/g, " ").trim();
+  if (/^[0-9]+$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^(true|false)$/i.test(raw)) return raw.toLowerCase();
+  return JSON.stringify(raw);
+}
+function yamlArray(values) {
+  if (!values.length) return "[]";
+  return values.map((value) => `
+  - ${JSON.stringify(value)}`).join("");
+}
+function toStringList(value) {
+  if (Array.isArray(value)) return value.map(text).map((item) => item.trim()).filter(Boolean);
+  const raw = text(value).trim();
+  if (!raw) return [];
+  return raw.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+}
+function textareaToList(value) {
+  return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+}
+function sanitizeFileName(name) {
+  const sanitized = String(name || "Untitled Project").replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim();
+  return sanitized || "Untitled Project";
+}
+function isStatus(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function normalizeStatus(value, statuses) {
+  var _a, _b;
+  const raw = text(value).trim().toLowerCase().replace(/\s+/g, "-");
+  if (statuses.some((status) => status.id === raw)) return raw;
+  return (_b = (_a = statuses[0]) == null ? void 0 : _a.id) != null ? _b : LANES[0].id;
+}
+function parseStatuses(value) {
+  const statuses = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    const [idPart, labelPart] = line.split("|").map((part) => part.trim());
+    const id = (idPart || labelPart || "status").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+    return {
+      id,
+      label: labelPart || idPart || id
+    };
+  }).filter((status) => status.id);
+  const seen = /* @__PURE__ */ new Set();
+  return statuses.filter((status) => {
+    if (seen.has(status.id)) return false;
+    seen.add(status.id);
+    return true;
+  });
+}
+function serializeStatuses(statuses) {
+  return statuses.map((status) => `${status.id} | ${status.label}`).join("\n");
+}
+function parseCategories(value) {
+  const seen = /* @__PURE__ */ new Set();
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => line.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "")).filter((category) => {
+    if (!category || seen.has(category)) return false;
+    seen.add(category);
+    return true;
+  });
+}
+function serializeCategories(categories) {
+  return categories.join("\n");
+}
+function toDateSortValue(card) {
+  const date = card.dueDate || card.nextReview || "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "9999-99-99";
+}
+function compareCards(a, b) {
+  var _a, _b;
+  const aManual = Number.isFinite(a.order);
+  const bManual = Number.isFinite(b.order);
+  if (aManual && bManual && a.order !== b.order) {
+    return ((_a = a.order) != null ? _a : 0) - ((_b = b.order) != null ? _b : 0);
+  }
+  if (aManual !== bManual) return aManual ? -1 : 1;
+  const priorityDiff = (a.priority || 3) - (b.priority || 3);
+  if (priorityDiff !== 0) return priorityDiff;
+  const dateDiff = toDateSortValue(a).localeCompare(toDateSortValue(b));
+  if (dateDiff !== 0) return dateDiff;
+  return a.title.localeCompare(b.title, void 0, { sensitivity: "base" });
+}
+function parsePriority(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(5, Math.max(1, Math.round(n)));
+}
+function parseOrder(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : void 0;
+}
+function isPastDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const today = /* @__PURE__ */ new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return value < `${yyyy}-${mm}-${dd}`;
+}
+function isDueSoon(value, days = 7) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const today = /* @__PURE__ */ new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = /* @__PURE__ */ new Date(`${value}T00:00:00`);
+  const diffDays = Math.round((target.getTime() - today.getTime()) / 864e5);
+  return diffDays >= 0 && diffDays <= days;
+}
+function splitFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return { body: content };
+  return {
+    body: content.slice(match[0].length)
+  };
+}
+function getWikiLinkTarget(value) {
+  const match = value.match(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/);
+  return (match ? match[1] : value).trim();
+}
+
+// src-kanbanrpm/modals.ts
+var TimelineMemoModal = class extends import_obsidian.Modal {
+  constructor(app, day, initialValue, onSave) {
+    super(app);
+    this.day = day;
+    this.value = initialValue;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kanban-rpm-memo-modal");
+    contentEl.createEl("h2", { text: `${this.day} Memo` });
+    contentEl.createDiv({
+      cls: "kanban-rpm-modal-help",
+      text: "Write Markdown for this Timeline date. Checkbox lines can be toggled from the Timeline preview."
+    });
+    const editor = contentEl.createEl("textarea", {
+      cls: "kanban-rpm-timeline-memo-modal-input",
+      attr: { "aria-label": `${this.day} Timeline memo` }
+    });
+    editor.value = this.value;
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    editor.addEventListener("input", () => {
+      this.value = editor.value;
+    });
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText("Save memo").setCta().onClick(() => {
+        void this.save();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  async save() {
+    await this.onSave(this.value);
+    this.close();
+  }
+};
+var GanttDateModal = class extends import_obsidian.Modal {
+  constructor(app, card, onSave) {
+    super(app);
+    this.card = card;
+    this.values = {
+      startDate: card.startDate,
+      dueDate: card.dueDate,
+      nextReview: card.nextReview
+    };
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: `Edit Gantt dates` });
+    contentEl.createDiv({ cls: "kanban-rpm-modal-help", text: this.card.title });
+    const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
+    for (const [key, label] of [
+      ["startDate", "Start date"],
+      ["dueDate", "Due date"],
+      ["nextReview", "Next review"]
+    ]) {
+      new import_obsidian.Setting(grid).setName(label).addText((input) => {
+        input.setPlaceholder("YYYY-MM-DD");
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value.trim();
+        });
+      });
+    }
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText("Save dates").setCta().onClick(() => {
+        void this.save();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  async save() {
+    const invalid = Object.values(this.values).find((value) => value && !/^\d{4}-\d{2}-\d{2}$/.test(value));
+    if (invalid) {
+      new import_obsidian.Notice("Dates must use YYYY-MM-DD.");
+      return;
+    }
+    await this.onSave(this.values);
+    this.close();
+  }
+};
+var NewProjectCardModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, defaultStatus = "inbox") {
+    super(app);
+    this.parentOptions = [];
+    this.values = {
+      title: "",
+      type: "project",
+      project: "",
+      subproject: "",
+      projects: "",
+      subprojects: "",
+      status: "inbox",
+      priority: "3",
+      workstreamType: "",
+      nextAction: "",
+      waitingFor: "",
+      blocker: "",
+      startDate: "",
+      nextReview: "",
+      dueDate: "",
+      dependsOn: "",
+      blocks: "",
+      sourceNotes: ""
+    };
+    this.plugin = plugin;
+    this.values.status = defaultStatus;
+  }
+  async onOpen() {
+    this.parentOptions = await this.plugin.loadCards();
+    this.renderForm();
+  }
+  renderForm() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "New KanbanRPM living document" });
+    this.markRequired(new import_obsidian.Setting(contentEl).setName("Title")).addText((input) => {
+      input.setPlaceholder("TTT Manuscript");
+      input.setValue(this.values.title);
+      input.onChange((value) => {
+        this.values.title = value;
+      });
+    });
+    const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
+    this.addCoreFields(grid);
+    new import_obsidian.Setting(contentEl).setName("Current focus").addTextArea((input) => {
+      input.setPlaceholder("Write the current focus or first big action");
+      input.setValue(this.values.nextAction);
+      input.onChange((value) => {
+        this.values.nextAction = value;
+      });
+    });
+    this.addAdvancedFields(contentEl);
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText("Create document").setCta().onClick(() => {
+        void this.createCard();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  addCoreFields(grid) {
+    this.markRequired(new import_obsidian.Setting(grid).setName("Status")).addDropdown((dropdown) => {
+      for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
+      dropdown.setValue(this.values.status);
+      dropdown.onChange((value) => {
+        if (isStatus(value)) this.values.status = value;
+      });
+    });
+    this.markRequired(new import_obsidian.Setting(grid).setName("Type")).addDropdown((dropdown) => {
+      dropdown.addOption("project", "Project");
+      dropdown.addOption("subproject", "Subproject");
+      dropdown.addOption("big_action", "Big Action");
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (value === "project" || value === "subproject" || value === "big_action") {
+          this.values.type = value;
+          this.values.project = "";
+          this.values.subproject = "";
+          this.renderForm();
+        }
+      });
+    });
+    this.addHierarchyDropdowns(grid);
+  }
+  addAdvancedFields(container) {
+    const details = container.createEl("details", { cls: "kanban-rpm-modal-advanced" });
+    details.createEl("summary", { text: "Advanced metadata" });
+    details.createDiv({
+      cls: "kanban-rpm-modal-help",
+      text: "Optional structured hints. Prefer writing rich context in the document body."
+    });
+    const grid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
+    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
+      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+    this.addVocabularyDropdown(grid, "Category", "workstreamType", this.plugin.settings.categories);
+    new import_obsidian.Setting(details).setName("Waiting for").addText((input) => {
+      input.setValue(this.values.waitingFor);
+      input.onChange((value) => {
+        this.values.waitingFor = value;
+      });
+    });
+    new import_obsidian.Setting(details).setName("Blocker").addText((input) => {
+      input.setValue(this.values.blocker);
+      input.onChange((value) => {
+        this.values.blocker = value;
+      });
+    });
+    const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
+    new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.startDate);
+      input.onChange((value) => {
+        this.values.startDate = value;
+      });
+    });
+    new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.nextReview);
+      input.onChange((value) => {
+        this.values.nextReview = value;
+      });
+    });
+    new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.dueDate);
+      input.onChange((value) => {
+        this.values.dueDate = value;
+      });
+    });
+    this.addListField(details, "Source notes", "[[250506 Lab setup meeting]]", "sourceNotes");
+    this.addListField(details, "Additional projects", "[[TTT]]\n[[Lab Setup]]", "projects");
+    this.addListField(details, "Additional subprojects", "[[TTT Experiment]]\n[[Furnace Setup]]", "subprojects");
+    this.addListField(details, "Preceded by", "[[Drawing]]\n[[Quotation]]", "dependsOn");
+    this.addListField(details, "Followed by", "[[Purchase review]]", "blocks");
+  }
+  addVocabularyDropdown(grid, name, key, values, fallback = "") {
+    new import_obsidian.Setting(grid).setName(name).addDropdown((dropdown) => {
+      if (!fallback) dropdown.addOption("", "");
+      for (const value of values) dropdown.addOption(value, value);
+      dropdown.setValue(this.values[key] || fallback);
+      dropdown.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+  addHierarchyDropdowns(grid) {
+    if (this.values.type === "project") {
+      new import_obsidian.Setting(grid).setName("Project scope").addDropdown((dropdown) => {
+        dropdown.addOption("", "Top-level Project");
+        dropdown.setDisabled(true);
+      });
+      return;
+    }
+    this.markRequired(new import_obsidian.Setting(grid).setName("Project"), "Required for Subproject and Big Action").addDropdown((dropdown) => {
+      dropdown.addOption("", "Choose project");
+      for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
+      dropdown.setValue(this.values.project);
+      dropdown.onChange((value) => {
+        this.values.project = value;
+        this.values.subproject = "";
+        this.renderForm();
+      });
+    });
+    if (this.values.type === "big_action") {
+      this.markRequired(new import_obsidian.Setting(grid).setName("Subproject"), "Required for Big Action").addDropdown((dropdown) => {
+        dropdown.addOption("", this.values.project ? "Choose subproject" : "Choose project first");
+        for (const subproject of this.getSubprojectOptions()) {
+          dropdown.addOption(this.parentValue(subproject), subproject.title);
+        }
+        dropdown.setValue(this.values.subproject);
+        dropdown.onChange((value) => {
+          this.values.subproject = value;
+        });
+        dropdown.setDisabled(!this.values.project);
+      });
+    }
+  }
+  getProjectOptions() {
+    return this.parentOptions.filter((card) => card.type === "project").sort((a, b) => a.title.localeCompare(b.title));
+  }
+  getSubprojectOptions() {
+    if (!this.values.project) return [];
+    const selectedProject = this.findCardByValue(this.values.project);
+    if (!selectedProject) return [];
+    return this.parentOptions.filter((card) => card.type === "subproject" && card.projectTitles.includes(selectedProject.title)).sort((a, b) => a.title.localeCompare(b.title));
+  }
+  findCardByValue(value) {
+    return this.parentOptions.find((card) => this.parentValue(card) === value);
+  }
+  parentValue(card) {
+    return `[[${card.file.basename}]]`;
+  }
+  async createCard() {
+    var _a;
+    if (!this.values.title.trim()) {
+      new import_obsidian.Notice("KanbanRPM card needs a title.");
+      return;
+    }
+    if (this.values.type !== "project" && !this.values.project.trim()) {
+      new import_obsidian.Notice("Subproject and Big Action documents need a Project.");
+      return;
+    }
+    if (this.values.type === "big_action" && ((_a = this.findCardByValue(this.values.subproject)) == null ? void 0 : _a.type) !== "subproject") {
+      new import_obsidian.Notice("Big Action documents need a Subproject.");
+      return;
+    }
+    await this.plugin.createCard(this.values);
+    this.close();
+  }
+  markRequired(setting, desc) {
+    setting.nameEl.createSpan({ cls: "kanban-rpm-required", text: " *" });
+    if (desc) setting.setDesc(desc);
+    return setting;
+  }
+  addListField(container, name, placeholder, key) {
+    new import_obsidian.Setting(container).setName(name).setDesc("Comma or newline separated values").addTextArea((input) => {
+      input.setPlaceholder(placeholder);
+      input.setValue(this.values[key]);
+      input.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var EditProjectCardModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, card) {
+    super(app);
+    this.parentOptions = [];
+    this.plugin = plugin;
+    this.card = card;
+    this.values = {
+      title: card.title,
+      type: card.type,
+      project: card.project,
+      subproject: card.subproject,
+      projects: card.projects.filter((link) => link !== card.project).join("\n"),
+      subprojects: card.subprojects.filter((link) => link !== card.subproject).join("\n"),
+      status: card.status,
+      priority: String(card.priority),
+      workstreamType: card.workstreamType,
+      nextAction: card.nextAction,
+      waitingFor: card.waitingFor,
+      blocker: card.blocker,
+      startDate: card.startDate,
+      nextReview: card.nextReview,
+      dueDate: card.dueDate,
+      dependsOn: card.dependsOn.join("\n"),
+      blocks: card.blocks.join("\n"),
+      sourceNotes: card.sourceNotes.join("\n")
+    };
+  }
+  async onOpen() {
+    this.parentOptions = (await this.plugin.loadCards()).filter((card) => card.path !== this.card.path);
+    this.inferMissingHierarchy();
+    this.renderForm();
+  }
+  inferMissingHierarchy() {
+    if (this.values.type !== "big_action" || this.values.project || !this.values.subproject) return;
+    const subproject = this.parentOptions.find((card) => this.parentValue(card) === this.values.subproject);
+    if (subproject == null ? void 0 : subproject.project) this.values.project = subproject.project;
+  }
+  renderForm() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Edit KanbanRPM living document" });
+    this.markRequired(new import_obsidian.Setting(contentEl).setName("Title")).addText((input) => {
+      input.setValue(this.values.title);
+      input.onChange((value) => {
+        this.values.title = value;
+      });
+    });
+    const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
+    this.addCoreFields(grid);
+    new import_obsidian.Setting(contentEl).setName("Next action").addTextArea((input) => {
+      input.setValue(this.values.nextAction);
+      input.onChange((value) => {
+        this.values.nextAction = value;
+      });
+    });
+    this.addAdvancedFields(contentEl);
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText("Save changes").setCta().onClick(() => {
+        void this.saveChanges();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  addCoreFields(grid) {
+    this.markRequired(new import_obsidian.Setting(grid).setName("Status")).addDropdown((dropdown) => {
+      for (const lane of this.plugin.settings.statuses) dropdown.addOption(lane.id, lane.label);
+      dropdown.setValue(this.values.status);
+      dropdown.onChange((value) => {
+        if (isStatus(value)) this.values.status = value;
+      });
+    });
+    this.markRequired(new import_obsidian.Setting(grid).setName("Type")).addDropdown((dropdown) => {
+      dropdown.addOption("project", "Project");
+      dropdown.addOption("subproject", "Subproject");
+      dropdown.addOption("big_action", "Big Action");
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (value === "project" || value === "subproject" || value === "big_action") {
+          this.values.type = value;
+          this.values.project = "";
+          this.values.subproject = "";
+          this.renderForm();
+        }
+      });
+    });
+    this.addHierarchyDropdowns(grid);
+  }
+  addAdvancedFields(container) {
+    const details = container.createEl("details", { cls: "kanban-rpm-modal-advanced" });
+    details.createEl("summary", { text: "Advanced metadata" });
+    details.createDiv({
+      cls: "kanban-rpm-modal-help",
+      text: "Optional structured hints. Prefer writing rich context in the document body."
+    });
+    const grid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
+    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
+      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+    this.addVocabularyDropdown(grid, "Category", "workstreamType", this.plugin.settings.categories);
+    new import_obsidian.Setting(details).setName("Waiting for").addText((input) => {
+      input.setValue(this.values.waitingFor);
+      input.onChange((value) => {
+        this.values.waitingFor = value;
+      });
+    });
+    new import_obsidian.Setting(details).setName("Blocker").addText((input) => {
+      input.setValue(this.values.blocker);
+      input.onChange((value) => {
+        this.values.blocker = value;
+      });
+    });
+    const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
+    new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.startDate);
+      input.onChange((value) => {
+        this.values.startDate = value;
+      });
+    });
+    new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.nextReview);
+      input.onChange((value) => {
+        this.values.nextReview = value;
+      });
+    });
+    new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.dueDate);
+      input.onChange((value) => {
+        this.values.dueDate = value;
+      });
+    });
+    this.addListField(details, "Source notes", "[[250506 Lab setup meeting]]", "sourceNotes");
+    this.addListField(details, "Additional projects", "[[TTT]]\n[[Lab Setup]]", "projects");
+    this.addListField(details, "Additional subprojects", "[[TTT Experiment]]\n[[Furnace Setup]]", "subprojects");
+    this.addListField(details, "Preceded by", "[[Drawing]]\n[[Quotation]]", "dependsOn");
+    this.addListField(details, "Followed by", "[[Purchase review]]", "blocks");
+  }
+  addVocabularyDropdown(grid, name, key, values, fallback = "") {
+    new import_obsidian.Setting(grid).setName(name).addDropdown((dropdown) => {
+      if (!fallback) dropdown.addOption("", "");
+      for (const value of values) dropdown.addOption(value, value);
+      dropdown.setValue(this.values[key] || fallback);
+      dropdown.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+  addHierarchyDropdowns(grid) {
+    if (this.values.type === "project") {
+      new import_obsidian.Setting(grid).setName("Project scope").addDropdown((dropdown) => {
+        dropdown.addOption("", "Top-level Project");
+        dropdown.setDisabled(true);
+      });
+      return;
+    }
+    this.markRequired(new import_obsidian.Setting(grid).setName("Project"), "Required for Subproject and Big Action").addDropdown((dropdown) => {
+      dropdown.addOption("", "Choose project");
+      for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
+      if (this.values.project && !this.getProjectOptions().some((card) => this.parentValue(card) === this.values.project)) {
+        dropdown.addOption(this.values.project, this.values.project);
+      }
+      dropdown.setValue(this.values.project);
+      dropdown.onChange((value) => {
+        this.values.project = value;
+        this.values.subproject = "";
+        this.renderForm();
+      });
+    });
+    if (this.values.type === "big_action") {
+      this.markRequired(new import_obsidian.Setting(grid).setName("Subproject"), "Required for Big Action").addDropdown((dropdown) => {
+        dropdown.addOption("", this.values.project ? "Choose subproject" : "Choose project first");
+        for (const subproject of this.getSubprojectOptions()) dropdown.addOption(this.parentValue(subproject), subproject.title);
+        if (this.values.subproject && !this.getSubprojectOptions().some((card) => this.parentValue(card) === this.values.subproject)) {
+          dropdown.addOption(this.values.subproject, this.values.subproject);
+        }
+        dropdown.setValue(this.values.subproject);
+        dropdown.onChange((value) => {
+          this.values.subproject = value;
+        });
+        dropdown.setDisabled(!this.values.project);
+      });
+    }
+  }
+  getProjectOptions() {
+    return this.parentOptions.filter((card) => card.type === "project").sort((a, b) => a.title.localeCompare(b.title));
+  }
+  getSubprojectOptions() {
+    if (!this.values.project) return [];
+    const selectedProject = this.findCardByValue(this.values.project);
+    if (!selectedProject) return [];
+    return this.parentOptions.filter((card) => card.type === "subproject" && card.projectTitles.includes(selectedProject.title)).sort((a, b) => a.title.localeCompare(b.title));
+  }
+  findCardByValue(value) {
+    return this.parentOptions.find((card) => this.parentValue(card) === value);
+  }
+  parentValue(card) {
+    return `[[${card.file.basename}]]`;
+  }
+  async saveChanges() {
+    var _a;
+    if (!this.values.title.trim()) {
+      new import_obsidian.Notice("KanbanRPM card needs a title.");
+      return;
+    }
+    if (this.values.type !== "project" && !this.values.project.trim()) {
+      new import_obsidian.Notice("Subproject and Big Action documents need a Project.");
+      return;
+    }
+    if (this.values.type === "big_action" && ((_a = this.findCardByValue(this.values.subproject)) == null ? void 0 : _a.type) !== "subproject") {
+      new import_obsidian.Notice("Big Action documents need a Subproject.");
+      return;
+    }
+    await this.plugin.updateCard(this.card, this.values);
+    this.close();
+  }
+  markRequired(setting, desc) {
+    setting.nameEl.createSpan({ cls: "kanban-rpm-required", text: " *" });
+    if (desc) setting.setDesc(desc);
+    return setting;
+  }
+  addListField(container, name, placeholder, key) {
+    new import_obsidian.Setting(container).setName(name).setDesc("Comma or newline separated values").addTextArea((input) => {
+      input.setPlaceholder(placeholder);
+      input.setValue(this.values[key]);
+      input.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ResearchLogModal = class extends import_obsidian.Modal {
+  constructor(app, kind, initial, onSave) {
+    super(app);
+    this.values = { kind, ...initial };
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: this.values.kind === "experiment" ? "Add Experiment Log" : "Add Analysis Log" });
+    contentEl.createDiv({
+      cls: "kanban-rpm-modal-help",
+      text: "Add a compact log row to this Big Action. You can refine the living document afterwards."
+    });
+    this.addText("Date", "YYYY-MM-DD", "date");
+    this.addText("Module heading", this.values.kind === "experiment" ? "Stacking" : "DF analysis", "module");
+    this.addText(this.values.kind === "experiment" ? "Sample" : "Dataset / Sample", "[[Sample]]", "subject");
+    this.addText(this.values.kind === "experiment" ? "Conditions" : "Method", "", "conditionsOrMethod");
+    this.addText("Result", "", "result");
+    this.addText("Link", "[[Current card]]", "link");
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText("Add log row").setCta().onClick(() => {
+        void this.save();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Skip").onClick(() => this.close());
+    });
+  }
+  addText(label, placeholder, key) {
+    new import_obsidian.Setting(this.contentEl).setName(label).addText((input) => {
+      var _a;
+      input.setPlaceholder(placeholder);
+      input.setValue(String((_a = this.values[key]) != null ? _a : ""));
+      input.onChange((value) => {
+        this.values[key] = value;
+      });
+    });
+  }
+  async save() {
+    await this.onSave(this.values);
+    this.close();
+  }
+};
+var ConfirmCardActionModal = class extends import_obsidian.Modal {
+  constructor(app, options) {
+    super(app);
+    this.options = options;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: this.options.title });
+    contentEl.createEl("p", { text: this.options.message });
+    new import_obsidian.Setting(contentEl).addButton((button) => {
+      button.setButtonText(this.options.confirmText).setWarning().onClick(async () => {
+        await this.options.onConfirm();
+        this.close();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src-kanbanrpm/view-models.ts
+var TABLE_COLUMNS = [
+  { key: "title", label: "Title", width: 240 },
+  { key: "project", label: "Project", width: 220 },
+  { key: "type", label: "Type", width: 120 },
+  { key: "status", label: "Status", width: 120 },
+  { key: "priority", label: "Priority", width: 90 },
+  { key: "date", label: "Due / Review", width: 150 },
+  { key: "dependencies", label: "Flow", width: 120 },
+  { key: "actions", label: "Actions", width: 130 }
+];
+
+// src-kanbanrpm/board-view.ts
+var KanbanRPMView = class extends import_obsidian2.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.cards = [];
+    this.archivedCards = [];
+    this.researchLogs = [];
+    this.actions = [];
+    this.issues = [];
+    this.searchQuery = "";
+    this.projectFilter = "";
+    this.subprojectFilter = "";
+    this.workstreamTypeFilter = "";
+    this.viewMode = "board";
+    this.tableSortKey = "priority";
+    this.tableSortDirection = "asc";
+    this.tableColumnWidths = /* @__PURE__ */ new Map();
+    this.timelineBaseDate = todayIso();
+    this.timelineRangeStart = "";
+    this.timelineRangeEnd = "";
+    this.timelineSearchQuery = "";
+    this.timelineScope = "all";
+    this.timelineMemoVisible = true;
+    this.timelineSidebarCollapsed = false;
+    this.boardStatusFilter = /* @__PURE__ */ new Set();
+    this.timelineStatusFilter = /* @__PURE__ */ new Set();
+    this.ganttScale = "month-week";
+    this.showGanttConnectors = true;
+    this.collapsedGanttNodes = /* @__PURE__ */ new Set();
+    this.groupByProject = true;
+    this.toolbarExpanded = false;
+    this.showDataWarnings = false;
+    this.showCommandCenter = false;
+    this.showActionIndex = false;
+    this.showResearchIndex = false;
+    this.panelsExpanded = false;
+    this.showClosedProjects = false;
+    this.projectNotesCollapsed = false;
+    this.expandedSmallActions = /* @__PURE__ */ new Set();
+    this.collapsedSmallActions = /* @__PURE__ */ new Set();
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "KanbanRPM";
+  }
+  getIcon() {
+    return "layout-dashboard";
+  }
+  async onOpen() {
+    await this.refresh();
+  }
+  async refresh() {
+    await this.plugin.applyDueReviews();
+    this.cards = await this.plugin.loadCards();
+    this.archivedCards = await this.plugin.loadArchivedCards();
+    this.researchLogs = await this.plugin.loadResearchLogs();
+    this.actions = await this.plugin.collectActionIndex(this.cards);
+    this.issues = this.plugin.validateCards(this.cards);
+    this.render();
+  }
+  render() {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass("kanban-rpm-view");
+    const visibleCards = this.filterCards(this.cards);
+    const visibleArchivedCards = this.filterCards(this.archivedCards, { ignoreHierarchyFilters: true });
+    const visibleBoardCards = visibleCards.filter((card) => card.type !== "project");
+    const toolbar = container.createDiv({ cls: "kanban-rpm-toolbar" });
+    const title = toolbar.createDiv({ cls: "kanban-rpm-title" });
+    title.createEl("h2", { text: "KanbanRPM" });
+    title.createSpan({
+      cls: "kanban-rpm-count",
+      text: this.searchQuery ? `${visibleBoardCards.length} of ${this.cards.length} cards - ${this.viewMode}` : `${this.viewMode === "archive" ? visibleArchivedCards.length : visibleBoardCards.length} cards - ${this.viewMode}`
+    });
+    const actions = toolbar.createDiv({ cls: "kanban-rpm-actions" });
+    const search = actions.createEl("input", {
+      cls: "kanban-rpm-search",
+      attr: {
+        type: "search",
+        placeholder: "Search cards",
+        value: this.searchQuery,
+        "aria-label": "Search KanbanRPM cards"
+      }
+    });
+    search.addEventListener("input", () => {
+      this.searchQuery = search.value;
+      this.render();
+    });
+    if (this.searchQuery) {
+      actions.createEl("button", { text: "Clear" }).addEventListener("click", () => {
+        this.searchQuery = "";
+        this.render();
+      });
+    }
+    this.renderViewSwitcher(actions);
+    actions.createEl("button", { text: "New document" }).addEventListener("click", () => {
+      new NewProjectCardModal(this.app, this.plugin).open();
+    });
+    if (this.viewMode === "board") {
+      actions.createEl("button", { text: this.groupByProject ? "Flat board" : this.getGroupingLabel() }).addEventListener("click", () => {
+        this.groupByProject = !this.groupByProject;
+        this.render();
+      });
+    }
+    actions.createEl("button", { text: "Refresh" }).addEventListener("click", () => {
+      void this.refresh();
+    });
+    actions.createEl("button", { text: this.toolbarExpanded ? "Less" : "More" }).addEventListener("click", () => {
+      this.toolbarExpanded = !this.toolbarExpanded;
+      this.render();
+    });
+    if (this.toolbarExpanded) {
+      const secondary = container.createDiv({ cls: "kanban-rpm-toolbar-secondary" });
+      secondary.createEl("button", { text: "Management brief" }).addEventListener("click", () => {
+        void this.plugin.writeManagementBrief(visibleCards);
+      });
+      secondary.createEl("button", { text: "Normalize order" }).addEventListener("click", () => {
+        void this.plugin.normalizeCardOrder();
+      });
+    }
+    this.renderFilters(container, visibleCards, visibleBoardCards);
+    if (this.showDataWarnings) this.renderDataWarnings(container, visibleCards);
+    if (this.showCommandCenter) this.renderCommandCenter(container, visibleBoardCards);
+    if (this.showActionIndex) this.renderActionIndexGrouped(container, visibleBoardCards);
+    if (this.showResearchIndex) this.renderResearchIndex(container, this.researchLogs);
+    this.renderProjectNotes(container);
+    if (this.viewMode === "archive") {
+      this.renderArchiveView(container, visibleArchivedCards);
+      return;
+    }
+    if (this.viewMode === "gantt") {
+      this.renderGanttView(container, visibleBoardCards);
+      return;
+    }
+    if (this.viewMode === "table") {
+      this.renderTableView(container, visibleBoardCards);
+      return;
+    }
+    if (this.viewMode === "timeline") {
+      this.renderTimelineView(container, visibleBoardCards);
+      return;
+    }
+    this.renderBoardView(container, visibleBoardCards);
+  }
+  renderViewSwitcher(container) {
+    const switcher = container.createDiv({ cls: "kanban-rpm-view-switcher" });
+    for (const mode of ["board", "table", "timeline", "gantt", "archive"]) {
+      const label = mode[0].toUpperCase() + mode.slice(1);
+      const button = switcher.createEl("button", {
+        cls: this.viewMode === mode ? "kanban-rpm-view-button is-active" : "kanban-rpm-view-button",
+        text: label,
+        attr: { "aria-pressed": String(this.viewMode === mode) }
+      });
+      button.addEventListener("click", () => {
+        this.viewMode = mode;
+        this.render();
+      });
+    }
+  }
+  getGroupingLabel() {
+    return this.projectFilter ? "Group by Subproject" : "Group by Project";
+  }
+  filterCards(cards, options = {}) {
+    const query = this.searchQuery.trim().toLowerCase();
+    return cards.filter((card) => {
+      if (!this.showClosedProjects && !options.ignoreHierarchyFilters && this.isHiddenByClosedProject(card)) return false;
+      if (!options.ignoreHierarchyFilters && this.projectFilter && !card.projectTitles.includes(this.projectFilter)) return false;
+      if (!options.ignoreHierarchyFilters && this.subprojectFilter && !card.subprojectTitles.includes(this.subprojectFilter)) return false;
+      if (this.workstreamTypeFilter && card.workstreamType !== this.workstreamTypeFilter) return false;
+      if (!query) return true;
+      return this.getSearchText(card).includes(query);
+    });
+  }
+  getSearchText(card) {
+    return [
+      card.title,
+      card.breadcrumb,
+      card.projectTitle,
+      card.subprojectTitle,
+      ...card.projectTitles,
+      ...card.subprojectTitles,
+      card.projectState,
+      card.status,
+      `p${card.priority}`,
+      String(card.priority),
+      card.workstreamType,
+      card.nextAction,
+      card.waitingFor,
+      card.blocker,
+      card.startDate,
+      card.nextReview,
+      card.dueDate,
+      ...card.precededBy,
+      ...card.followedBy,
+      ...card.sourceNotes
+    ].join(" ").toLowerCase();
+  }
+  renderFilters(container, visibleCards, visibleBoardCards) {
+    const filters = container.createDiv({ cls: "kanban-rpm-filters" });
+    this.renderSelectFilter(filters, "Project", this.projectFilter, this.uniqueValues("projectTitle"), (value) => {
+      this.projectFilter = value;
+      this.subprojectFilter = "";
+      this.render();
+    });
+    this.renderSelectFilter(filters, "Subproject", this.subprojectFilter, this.subprojectFilterValues(), (value) => {
+      this.subprojectFilter = value;
+      this.render();
+    });
+    this.renderSelectFilter(filters, "Category", this.workstreamTypeFilter, this.uniqueValues("workstreamType"), (value) => {
+      this.workstreamTypeFilter = value;
+      this.render();
+    });
+    filters.createEl("button", {
+      cls: this.showClosedProjects ? "kanban-rpm-panel-toggle is-active" : "kanban-rpm-panel-toggle",
+      text: this.showClosedProjects ? "Showing closed" : "Show closed projects",
+      attr: { "aria-pressed": String(this.showClosedProjects) }
+    }).addEventListener("click", () => {
+      this.showClosedProjects = !this.showClosedProjects;
+      if (!this.showClosedProjects && this.projectFilter && this.isProjectTitleClosed(this.projectFilter)) {
+        this.projectFilter = "";
+        this.subprojectFilter = "";
+      }
+      this.render();
+    });
+    if (this.projectFilter || this.subprojectFilter || this.workstreamTypeFilter) {
+      filters.createEl("button", { text: "Clear filters" }).addEventListener("click", () => {
+        this.projectFilter = "";
+        this.subprojectFilter = "";
+        this.workstreamTypeFilter = "";
+        this.render();
+      });
+    }
+    const visiblePaths = new Set(visibleCards.map((card) => card.path));
+    const visibleBoardPaths = new Set(visibleBoardCards.map((card) => card.path));
+    const warningCount = this.issues.filter((issue) => visiblePaths.has(issue.cardPath)).length;
+    const actionCount = this.actions.filter((action) => visibleBoardPaths.has(action.cardPath)).length;
+    const researchCount = this.researchLogs.length;
+    const activePanelCount = [this.showDataWarnings, this.showCommandCenter, this.showActionIndex, this.showResearchIndex].filter(Boolean).length;
+    const panelWrap = filters.createDiv({ cls: "kanban-rpm-panel-menu" });
+    panelWrap.createEl("button", {
+      cls: this.panelsExpanded || activePanelCount ? "kanban-rpm-panel-toggle is-active" : "kanban-rpm-panel-toggle",
+      text: activePanelCount ? `Panels (${activePanelCount})` : "Panels",
+      attr: { "aria-expanded": String(this.panelsExpanded) }
+    }).addEventListener("click", () => {
+      this.panelsExpanded = !this.panelsExpanded;
+      this.render();
+    });
+    if (this.panelsExpanded) {
+      const toggles = panelWrap.createDiv({ cls: "kanban-rpm-panel-toggles" });
+      this.renderPanelToggle(toggles, "Data warnings", this.showDataWarnings, warningCount, () => {
+        this.showDataWarnings = !this.showDataWarnings;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, "Command center", this.showCommandCenter, void 0, () => {
+        this.showCommandCenter = !this.showCommandCenter;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, "Action index", this.showActionIndex, actionCount, () => {
+        this.showActionIndex = !this.showActionIndex;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, "Research index", this.showResearchIndex, researchCount, () => {
+        this.showResearchIndex = !this.showResearchIndex;
+        this.render();
+      });
+    }
+  }
+  renderPanelToggle(container, label, active, count, onClick) {
+    const text2 = count === void 0 ? label : `${label} (${count})`;
+    const button = container.createEl("button", {
+      cls: active ? "kanban-rpm-panel-toggle is-active" : "kanban-rpm-panel-toggle",
+      text: text2,
+      attr: { "aria-pressed": String(active) }
+    });
+    button.addEventListener("click", onClick);
+  }
+  renderSelectFilter(container, label, currentValue, values, onChange) {
+    const wrap = container.createDiv({ cls: "kanban-rpm-filter" });
+    wrap.createSpan({ text: label });
+    const select = wrap.createEl("select");
+    select.createEl("option", { text: "All", attr: { value: "" } });
+    for (const value of values) select.createEl("option", { text: value, attr: { value } });
+    select.value = currentValue;
+    select.addEventListener("change", () => onChange(select.value));
+  }
+  uniqueValues(field) {
+    if (field === "projectTitle") {
+      const cards2 = this.showClosedProjects ? this.cards : this.cards.filter((card) => !this.isHiddenByClosedProject(card));
+      return Array.from(new Set(cards2.flatMap((card) => card.projectTitles).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }
+    const cards = this.showClosedProjects ? this.cards : this.cards.filter((card) => !this.isHiddenByClosedProject(card));
+    return Array.from(new Set(cards.map((card) => card[field]).filter(Boolean))).sort(
+      (a, b) => a.localeCompare(b)
+    );
+  }
+  subprojectFilterValues() {
+    const baseCards = this.showClosedProjects ? this.cards : this.cards.filter((card) => !this.isHiddenByClosedProject(card));
+    const cards = this.projectFilter ? baseCards.filter((card) => card.projectTitles.includes(this.projectFilter)) : baseCards;
+    return Array.from(new Set(cards.flatMap((card) => card.subprojectTitles).filter(Boolean))).sort(
+      (a, b) => a.localeCompare(b)
+    );
+  }
+  isProjectTitleClosed(title) {
+    return this.cards.some((card) => card.type === "project" && card.title === title && card.projectState === "closed");
+  }
+  closedProjectTitles() {
+    return new Set(this.cards.filter((card) => card.type === "project" && card.projectState === "closed").map((card) => card.title));
+  }
+  isHiddenByClosedProject(card) {
+    const closedProjects = this.closedProjectTitles();
+    if (card.type === "project") return card.projectState === "closed";
+    if (!card.projectTitles.length) return false;
+    return card.projectTitles.some((title) => closedProjects.has(title)) && card.projectTitles.every((title) => closedProjects.has(title));
+  }
+  renderProjectNotes(container) {
+    const projects = this.cards.filter((card) => card.type === "project").filter((card) => this.showClosedProjects || card.projectState !== "closed").filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitles.includes(this.projectFilter)).sort((a, b) => a.title.localeCompare(b.title));
+    const panel = container.createDiv({ cls: "kanban-rpm-project-strip" });
+    const header = panel.createDiv({ cls: "kanban-rpm-project-strip-header" });
+    header.createEl("h3", { text: this.projectFilter ? "Project note" : "Project notes" });
+    const actions = header.createDiv({ cls: "kanban-rpm-project-strip-actions" });
+    actions.createSpan({ text: `${projects.length} project${projects.length === 1 ? "" : "s"}` });
+    actions.createEl("button", { text: this.projectNotesCollapsed ? "Expand" : "Collapse" }).addEventListener("click", () => {
+      this.projectNotesCollapsed = !this.projectNotesCollapsed;
+      this.render();
+    });
+    if (this.projectNotesCollapsed) return;
+    if (!projects.length) {
+      panel.createDiv({ cls: "kanban-rpm-empty", text: "No project notes match the current Project filter." });
+      return;
+    }
+    const list = panel.createDiv({ cls: "kanban-rpm-project-note-list" });
+    for (const project of projects) {
+      const note = list.createDiv({ cls: project.projectState === "closed" ? "kanban-rpm-project-note kanban-rpm-type-project is-closed" : "kanban-rpm-project-note kanban-rpm-type-project" });
+      note.style.setProperty("--rpm-project-color", this.projectColor(project.colorKey));
+      const title = note.createEl("button", { cls: "kanban-rpm-project-note-title", text: project.title });
+      title.addEventListener("click", () => {
+        void this.plugin.openCard(project);
+      });
+      const meta = note.createDiv({ cls: "kanban-rpm-project-note-meta" });
+      if (project.projectState === "closed") this.renderStatusBadge(meta, "closed", "closed");
+      if (project.status) this.renderStatusBadge(meta, project.status);
+      if (project.workstreamType) meta.createSpan({ text: project.workstreamType });
+      meta.createEl("button", { text: project.projectState === "closed" ? "Reopen project" : "Close project" }).addEventListener("click", () => {
+        if (project.projectState === "closed") {
+          void this.plugin.updateProjectState(project, "active");
+          return;
+        }
+        new ConfirmCardActionModal(this.app, {
+          title: "Close project",
+          message: `Hide "${project.title}" and cards that only belong to this Project from default KanbanRPM views? Child card statuses will not be changed.`,
+          confirmText: "Close project",
+          onConfirm: async () => {
+            if (this.projectFilter === project.title) {
+              this.projectFilter = "";
+              this.subprojectFilter = "";
+            }
+            await this.plugin.updateProjectState(project, "closed");
+          }
+        }).open();
+      });
+      if (project.nextAction) note.createDiv({ cls: "kanban-rpm-project-note-focus", text: project.nextAction });
+    }
+  }
+  renderDataWarnings(container, visibleCards) {
+    const visiblePaths = new Set(visibleCards.map((card) => card.path));
+    const issues = this.issues.filter((issue) => visiblePaths.has(issue.cardPath));
+    const errors = issues.filter((issue) => issue.level === "error").length;
+    const warnings = issues.length - errors;
+    const panel = container.createDiv({ cls: "kanban-rpm-data-warnings" });
+    const header = panel.createDiv({ cls: "kanban-rpm-data-warnings-header" });
+    header.createEl("h3", { text: "Data warnings" });
+    const headerActions = header.createDiv({ cls: "kanban-rpm-panel-actions" });
+    headerActions.createSpan({ text: `${errors} errors - ${warnings} warnings` });
+    if (!issues.length) {
+      panel.createDiv({ cls: "kanban-rpm-empty", text: "No data warnings in the current view." });
+      return;
+    }
+    for (const issue of issues.slice(0, 8)) {
+      const row = panel.createDiv({ cls: `kanban-rpm-issue kanban-rpm-issue-${issue.level}` });
+      row.createSpan({ cls: "kanban-rpm-issue-card", text: issue.cardTitle });
+      row.createSpan({ cls: "kanban-rpm-issue-field", text: issue.field });
+      row.createSpan({ cls: "kanban-rpm-issue-message", text: issue.message });
+      row.addEventListener("click", () => {
+        const card = this.cards.find((item) => item.path === issue.cardPath);
+        if (card) void this.plugin.openCard(card);
+      });
+    }
+    if (issues.length > 8) {
+      panel.createDiv({ cls: "kanban-rpm-issue-more", text: `+${issues.length - 8} more warnings` });
+    }
+  }
+  renderCommandCenter(container, visibleCards) {
+    const panel = container.createDiv({ cls: "kanban-rpm-command-center" });
+    const header = panel.createDiv({ cls: "kanban-rpm-command-center-header" });
+    header.createEl("h3", { text: "Command center" });
+    const headerActions = header.createDiv({ cls: "kanban-rpm-panel-actions" });
+    const reviewCards = visibleCards.filter((card) => isPastDate(card.nextReview) || isDueSoon(card.nextReview) || isPastDate(card.dueDate) || isDueSoon(card.dueDate)).sort((a, b) => toDateSortValue(a).localeCompare(toDateSortValue(b))).slice(0, 6);
+    headerActions.createSpan({ text: "review, waiting, blockers, flow" });
+    headerActions.createEl("button", { text: "Timeline review" }).addEventListener("click", () => {
+      this.viewMode = "timeline";
+      this.timelineScope = "review";
+      this.showCommandCenter = false;
+      this.render();
+    });
+    const grid = panel.createDiv({ cls: "kanban-rpm-command-grid" });
+    const waitingStatus = this.getConfiguredStatusId("waiting");
+    const blockedStatus = this.getConfiguredStatusId("blocked");
+    const waitingCards = visibleCards.filter((card) => card.status === waitingStatus || Boolean(card.waitingFor)).sort(compareCards).slice(0, 6);
+    const blockedCards = visibleCards.filter((card) => card.status === blockedStatus || Boolean(card.blocker) || card.blockedBy.length).sort(compareCards).slice(0, 6);
+    const dependencyCards = visibleCards.filter((card) => card.precededBy.length || card.followedBy.length).sort((a, b) => b.precededBy.length + b.followedBy.length - (a.precededBy.length + a.followedBy.length)).slice(0, 6);
+    this.renderCommandSection(grid, "Review queue", reviewCards, (card) => {
+      const date = card.dueDate || card.nextReview || "no date";
+      return `${date} - ${card.nextAction || card.workstreamType || card.status}`;
+    });
+    this.renderCommandSection(grid, "Waiting", waitingCards, (card) => card.waitingFor || card.nextAction || card.status);
+    this.renderCommandSection(grid, "Blocked", blockedCards, (card) => card.blocker || card.nextAction || card.status);
+    this.renderCommandSection(grid, "Flow", dependencyCards, (card) => {
+      const counts = [];
+      if (card.precededBy.length) counts.push(`${card.precededBy.length} preceded`);
+      if (card.followedBy.length) counts.push(`${card.followedBy.length} followed`);
+      return counts.join(" - ") || card.workstreamType || card.status;
+    });
+  }
+  renderCommandSection(container, title, cards, subtitle) {
+    const section = container.createDiv({ cls: "kanban-rpm-command-section" });
+    const header = section.createDiv({ cls: "kanban-rpm-command-section-header" });
+    header.createSpan({ text: title });
+    header.createSpan({ text: String(cards.length) });
+    if (!cards.length) {
+      section.createDiv({ cls: "kanban-rpm-command-empty", text: "Clear" });
+      return;
+    }
+    for (const card of cards) {
+      const row = section.createDiv({ cls: "kanban-rpm-command-card" });
+      row.createDiv({ cls: "kanban-rpm-command-card-title", text: card.title });
+      row.createDiv({ cls: "kanban-rpm-command-card-subtitle", text: subtitle(card) });
+      row.addEventListener("click", () => {
+        void this.plugin.openCard(card);
+      });
+    }
+  }
+  resolveDependencyTarget(sourceCard, link) {
+    const file = this.plugin.resolveLinkedFile(link, sourceCard.path);
+    if (!file) return {};
+    return { file, card: this.cards.find((card) => card.path === file.path) };
+  }
+  cleanWikiLabel(link) {
+    return link.replace(/^\[\[/, "").replace(/\]\]$/, "").split("|")[0];
+  }
+  svgEl(tag) {
+    return document.createElementNS("http://www.w3.org/2000/svg", tag);
+  }
+  renderActionIndexGrouped(container, visibleCards) {
+    const visiblePaths = new Set(visibleCards.map((card) => card.path));
+    const actions = this.actions.filter((action) => visiblePaths.has(action.cardPath));
+    const grouped = this.groupActionsByCard(actions);
+    const visibleGroups = grouped.slice(0, 12);
+    const panel = container.createDiv({ cls: "kanban-rpm-action-index" });
+    const header = panel.createDiv({ cls: "kanban-rpm-action-index-header" });
+    header.createEl("h3", { text: "Action index" });
+    const headerActions = header.createDiv({ cls: "kanban-rpm-panel-actions" });
+    headerActions.createSpan({ text: `${actions.length} actions - ${grouped.length} cards` });
+    if (!actions.length) {
+      panel.createDiv({ cls: "kanban-rpm-empty", text: "No linked unchecked actions found." });
+      return;
+    }
+    for (const group of visibleGroups) {
+      const groupEl = panel.createDiv({ cls: "kanban-rpm-action-group" });
+      const groupHeader = groupEl.createDiv({ cls: "kanban-rpm-action-group-header" });
+      groupHeader.createSpan({ text: group.cardTitle });
+      groupHeader.createSpan({ text: `${group.actions.length} actions` });
+      for (const action of group.actions.slice(0, 6)) {
+        this.renderActionRow(groupEl, action);
+      }
+      if (group.actions.length > 6) {
+        groupEl.createDiv({ cls: "kanban-rpm-action-more", text: `+${group.actions.length - 6} more actions` });
+      }
+    }
+    if (grouped.length > visibleGroups.length) {
+      panel.createDiv({ cls: "kanban-rpm-action-more", text: `+${grouped.length - visibleGroups.length} more cards` });
+    }
+  }
+  groupActionsByCard(actions) {
+    var _a;
+    const map = /* @__PURE__ */ new Map();
+    for (const action of actions) {
+      const existing = (_a = map.get(action.cardPath)) != null ? _a : {
+        cardPath: action.cardPath,
+        cardTitle: action.cardTitle,
+        actions: []
+      };
+      existing.actions.push(action);
+      map.set(action.cardPath, existing);
+    }
+    return Array.from(map.values()).sort((a, b) => b.actions.length - a.actions.length || a.cardTitle.localeCompare(b.cardTitle));
+  }
+  renderActionRow(container, action) {
+    const row = container.createDiv({ cls: "kanban-rpm-action-row is-clickable" });
+    row.createDiv({ cls: "kanban-rpm-action-text", text: action.text });
+    row.createDiv({
+      cls: "kanban-rpm-action-source",
+      text: action.recurring ? `${action.sourceLabel} - recurring` : `${action.sourceLabel}:${action.lineNumber}`
+    });
+    const rowActions = row.createDiv({ cls: "kanban-rpm-action-buttons" });
+    rowActions.createEl("button", { text: action.recurring ? "Open card" : "Open source" }).addEventListener("click", (event) => {
+      event.stopPropagation();
+      void this.plugin.openFilePath(action.sourcePath);
+    });
+    rowActions.createEl("button", { text: "Set next" }).addEventListener("click", (event) => {
+      event.stopPropagation();
+      void this.plugin.setNextAction(action.cardPath, action.text);
+    });
+    if (!action.recurring) {
+      rowActions.createEl("button", { text: "Promote" }).addEventListener("click", (event) => {
+        event.stopPropagation();
+        void this.plugin.promoteActionToBigAction(action);
+      });
+    }
+    row.addEventListener("click", () => {
+      void this.plugin.openFilePath(action.sourcePath);
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") void this.plugin.openFilePath(action.sourcePath);
+    });
+    row.setAttr("role", "button");
+    row.setAttr("tabindex", "0");
+  }
+  renderBoardView(container, visibleBoardCards) {
+    this.ensureBoardStatusFilter();
+    const boardCards = visibleBoardCards.filter((card) => this.boardStatusFilter.has(card.status));
+    this.renderBoardStatusFilter(container);
+    const wrap = container.createDiv({ cls: "kanban-rpm-board-wrap" });
+    const overlay = this.svgEl("svg");
+    overlay.addClass("kanban-rpm-board-flow-overlay");
+    wrap.appendChild(overlay);
+    const board = wrap.createDiv({ cls: "kanban-rpm-board" });
+    for (const lane of this.plugin.settings.statuses.filter((status) => this.boardStatusFilter.has(status.id))) {
+      this.renderLane(board, lane, boardCards.filter((card) => card.status === lane.id).sort(compareCards));
+    }
+    if (!this.boardStatusFilter.size) board.createDiv({ cls: "kanban-rpm-empty", text: "No Board statuses selected." });
+    this.queueBoardFlowOverlay(wrap, overlay, boardCards);
+  }
+  renderBoardStatusFilter(container) {
+    const controls = container.createDiv({ cls: "kanban-rpm-board-status-row" });
+    const statusWrap = controls.createEl("details", { cls: "kanban-rpm-board-status-filter" });
+    statusWrap.createEl("summary", { text: `Statuses: ${this.boardStatusFilter.size}` });
+    const statusList = statusWrap.createDiv({ cls: "kanban-rpm-board-status-list" });
+    for (const status of this.plugin.settings.statuses) {
+      const label = statusList.createEl("label");
+      const checkbox = label.createEl("input", { attr: { type: "checkbox" } });
+      checkbox.checked = this.boardStatusFilter.has(status.id);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) this.boardStatusFilter.add(status.id);
+        else this.boardStatusFilter.delete(status.id);
+        this.plugin.settings.boardStatusFilter = Array.from(this.boardStatusFilter);
+        void this.plugin.saveSettings();
+        this.render();
+      });
+      label.createSpan({ text: status.label });
+    }
+  }
+  queueBoardFlowOverlay(wrap, overlay, visibleBoardCards) {
+    window.setTimeout(() => this.renderBoardFlowOverlay(wrap, overlay, visibleBoardCards), 0);
+  }
+  renderBoardFlowOverlay(wrap, overlay, visibleBoardCards) {
+    overlay.empty();
+    const wrapRect = wrap.getBoundingClientRect();
+    const width = Math.max(1, wrap.scrollWidth);
+    const height = Math.max(1, wrap.scrollHeight);
+    overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    overlay.setAttribute("width", String(width));
+    overlay.setAttribute("height", String(height));
+    const defs = this.svgEl("defs");
+    for (const [id, color] of [
+      ["ready", "var(--text-muted)"],
+      ["waiting", "var(--text-warning)"]
+    ]) {
+      const marker = this.svgEl("marker");
+      marker.setAttribute("id", `kanban-rpm-board-flow-arrow-${id}`);
+      marker.setAttribute("viewBox", "0 0 10 10");
+      marker.setAttribute("refX", "9");
+      marker.setAttribute("refY", "5");
+      marker.setAttribute("markerWidth", "6");
+      marker.setAttribute("markerHeight", "6");
+      marker.setAttribute("orient", "auto-start-reverse");
+      const arrow = this.svgEl("path");
+      arrow.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+      arrow.setAttribute("fill", color);
+      marker.appendChild(arrow);
+      defs.appendChild(marker);
+    }
+    overlay.appendChild(defs);
+    const visiblePaths = new Set(visibleBoardCards.map((card) => card.path));
+    const seen = /* @__PURE__ */ new Set();
+    for (const card of visibleBoardCards) {
+      for (const predecessor of card.precededBy) {
+        const resolved = this.resolveDependencyTarget(card, predecessor);
+        const source = resolved.card;
+        if (!source || !visiblePaths.has(source.path)) continue;
+        const key = `${source.path}->${card.path}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        this.renderBoardFlowArrow(wrapRect, overlay, source, card, this.isCompletionStatus(source.status) ? "ready" : "waiting");
+      }
+    }
+  }
+  renderBoardFlowArrow(wrapRect, overlay, source, target, state) {
+    var _a, _b;
+    const sourceDot = this.containerEl.querySelector(`.kanban-rpm-flow-dot-out[data-path="${CSS.escape(source.path)}"]`);
+    const targetDot = this.containerEl.querySelector(`.kanban-rpm-flow-dot-in[data-path="${CSS.escape(target.path)}"]`);
+    if (!sourceDot || !targetDot) return;
+    const from = sourceDot.getBoundingClientRect();
+    const to = targetDot.getBoundingClientRect();
+    const wrap = overlay.parentElement;
+    const scrollLeft = (_a = wrap == null ? void 0 : wrap.scrollLeft) != null ? _a : 0;
+    const scrollTop = (_b = wrap == null ? void 0 : wrap.scrollTop) != null ? _b : 0;
+    const fromX = from.left + from.width / 2 - wrapRect.left + scrollLeft;
+    const fromY = from.top + from.height / 2 - wrapRect.top + scrollTop;
+    const toX = to.left + to.width / 2 - wrapRect.left + scrollLeft;
+    const toY = to.top + to.height / 2 - wrapRect.top + scrollTop;
+    const control = Math.max(60, Math.abs(toX - fromX) * 0.45);
+    const path = this.svgEl("path");
+    path.setAttribute("class", `kanban-rpm-board-flow-arrow is-${state}`);
+    path.setAttribute("d", `M ${fromX} ${fromY} C ${fromX + control} ${fromY}, ${toX - control} ${toY}, ${toX} ${toY}`);
+    path.setAttribute("marker-end", `url(#kanban-rpm-board-flow-arrow-${state})`);
+    path.dataset.sourcePath = source.path;
+    path.dataset.targetPath = target.path;
+    path.addEventListener("click", (event) => {
+      event.stopPropagation();
+      new ConfirmCardActionModal(this.app, {
+        title: "Remove flow arrow",
+        message: `Remove "${source.title} -> ${target.title}" from ${target.title}'s Preceded by list?`,
+        confirmText: "Remove",
+        onConfirm: () => this.plugin.removePrecededBy(target.path, source)
+      }).open();
+    });
+    overlay.appendChild(path);
+  }
+  renderTableView(container, visibleBoardCards) {
+    var _a;
+    const sortedCards = this.sortTableCards(visibleBoardCards);
+    const wrap = container.createDiv({ cls: "kanban-rpm-table-wrap" });
+    const table = wrap.createEl("table", { cls: "kanban-rpm-table" });
+    const colgroup = table.createEl("colgroup");
+    for (const column of TABLE_COLUMNS) {
+      const col = colgroup.createEl("col");
+      col.style.width = `${(_a = this.tableColumnWidths.get(column.key)) != null ? _a : column.width}px`;
+    }
+    const thead = table.createEl("thead");
+    const header = thead.createEl("tr");
+    TABLE_COLUMNS.forEach((column, index) => this.renderTableHeader(header, column, index, table));
+    const tbody = table.createEl("tbody");
+    if (!sortedCards.length) {
+      const row = tbody.createEl("tr");
+      const cell = row.createEl("td", { cls: "kanban-rpm-table-empty", text: "No cards match the current filters." });
+      cell.colSpan = 8;
+      return;
+    }
+    for (const card of sortedCards) this.renderTableRow(tbody, card);
+  }
+  renderArchiveView(container, cards) {
+    const wrap = container.createDiv({ cls: "kanban-rpm-table-wrap kanban-rpm-archive-wrap" });
+    wrap.createEl("h3", { text: "Archive" });
+    const table = wrap.createEl("table", { cls: "kanban-rpm-table" });
+    const thead = table.createEl("thead");
+    const header = thead.createEl("tr");
+    for (const label of ["Title", "Project", "Archived", "Original path", "Actions"]) header.createEl("th", { text: label });
+    const tbody = table.createEl("tbody");
+    if (!cards.length) {
+      const row = tbody.createEl("tr");
+      const cell = row.createEl("td", { cls: "kanban-rpm-table-empty", text: "No archived cards match the current filters." });
+      cell.colSpan = 5;
+      return;
+    }
+    for (const card of cards.sort((a, b) => (b.archivedAt || "").localeCompare(a.archivedAt || "") || a.title.localeCompare(b.title))) {
+      const row = tbody.createEl("tr");
+      const title = row.createEl("td");
+      title.createEl("button", { cls: "kanban-rpm-table-title", text: card.title }).addEventListener("click", () => {
+        void this.plugin.openCard(card);
+      });
+      row.createEl("td", { text: card.projectTitle || card.archiveOwnerProject || "Unassigned" });
+      row.createEl("td", { text: card.archivedAt ? card.archivedAt.slice(0, 10) : "" });
+      row.createEl("td", { text: card.archiveOriginalPath });
+      const actions = row.createEl("td", { cls: "kanban-rpm-table-actions" });
+      actions.createEl("button", { text: "Unarchive" }).addEventListener("click", () => {
+        void this.plugin.unarchiveCard(card);
+      });
+      actions.createEl("button", { text: "Delete" }).addEventListener("click", () => {
+        new ConfirmCardActionModal(this.app, {
+          title: "Delete archived card",
+          message: `Delete archived card "${card.title}"?`,
+          confirmText: "Delete",
+          onConfirm: () => this.plugin.deleteCard(card)
+        }).open();
+      });
+    }
+  }
+  renderGanttView(container, visibleBoardCards) {
+    const ganttCards = visibleBoardCards.filter((card) => card.type === "subproject" || card.type === "big_action");
+    const rows = this.buildGanttRows(ganttCards);
+    const range = this.ganttRange(rows, ganttCards);
+    const dayWidth = this.ganttScale === "month-week" ? 6 : 2.8;
+    const totalDays = Math.max(1, daysBetween(range.start, range.end) + 1);
+    const timelineWidth = Math.max(totalDays * dayWidth, 520);
+    const connectorCount = this.countVisibleGanttConnectors(rows);
+    const topSegments = this.ganttScale === "month-week" ? this.ganttMonthSegments(range.start, range.end) : this.ganttQuarterSegments(range.start, range.end);
+    const bottomSegments = this.ganttScale === "month-week" ? this.ganttWeekSegments(range.start, range.end) : this.ganttMonthSegments(range.start, range.end);
+    const wrap = container.createDiv({ cls: "kanban-rpm-gantt-wrap" });
+    const controls = wrap.createDiv({ cls: "kanban-rpm-gantt-controls" });
+    controls.createEl("span", { cls: "kanban-rpm-gantt-range", text: `${this.toDisplayDate(range.start)} - ${this.toDisplayDate(range.end)}` });
+    for (const [scale, label] of [
+      ["month-week", "Month+Week"],
+      ["quarter-month", "Quarter+Month"]
+    ]) {
+      controls.createEl("button", {
+        cls: this.ganttScale === scale ? "kanban-rpm-view-button is-active" : "kanban-rpm-view-button",
+        text: label,
+        attr: { "aria-pressed": String(this.ganttScale === scale) }
+      }).addEventListener("click", () => {
+        this.ganttScale = scale;
+        this.render();
+      });
+    }
+    controls.createEl("button", {
+      cls: this.showGanttConnectors ? "kanban-rpm-view-button is-active" : "kanban-rpm-view-button",
+      text: `Connectors: ${this.showGanttConnectors ? "On" : "Off"} (${connectorCount})`,
+      attr: { "aria-pressed": String(this.showGanttConnectors) }
+    }).addEventListener("click", () => {
+      this.showGanttConnectors = !this.showGanttConnectors;
+      this.render();
+    });
+    const surface = wrap.createDiv({ cls: "kanban-rpm-gantt-surface" });
+    const header = surface.createDiv({ cls: "kanban-rpm-gantt-header" });
+    header.createDiv({ cls: "kanban-rpm-gantt-label-header", text: "PROJECT / WORKSTREAM" });
+    const headerGrid = header.createDiv({ cls: "kanban-rpm-gantt-time-header" });
+    headerGrid.style.width = `${timelineWidth}px`;
+    this.renderGanttSegments(headerGrid, topSegments, range.start, dayWidth, "top");
+    this.renderGanttSegments(headerGrid, bottomSegments, range.start, dayWidth, "bottom");
+    const body = surface.createDiv({ cls: "kanban-rpm-gantt-body" });
+    if (!rows.length) {
+      body.createDiv({ cls: "kanban-rpm-empty", text: "No Subproject or Big Action dates match the current filters." });
+      return;
+    }
+    for (const row of rows) this.renderGanttSurfaceRow(body, row, range, dayWidth, timelineWidth);
+    if (this.showGanttConnectors) this.renderGanttConnectors(body, rows, range, dayWidth, timelineWidth);
+  }
+  buildGanttRows(cards) {
+    const rows = [];
+    const projectTitles = Array.from(new Set(cards.map((card) => card.projectTitle || card.projectTitles[0] || "No project"))).sort((a, b) => this.compareGanttProjectTitles(a, b, cards));
+    for (const projectTitle of projectTitles) {
+      const projectCards = cards.filter((card) => (card.projectTitle || card.projectTitles[0] || "No project") === projectTitle);
+      const projectCard = this.cards.find((card) => card.type === "project" && card.title === projectTitle);
+      const projectKey = `gantt:project:${projectTitle}`;
+      const projectCollapsed = !this.projectFilter && this.collapsedGanttNodes.has(projectKey);
+      if (!this.projectFilter) {
+        rows.push({
+          key: projectKey,
+          kind: "project",
+          title: projectTitle,
+          projectTitle,
+          subprojectTitle: "",
+          card: projectCard,
+          period: this.ganttProjectPeriod(projectCard, projectCards),
+          childCount: projectCards.length
+        });
+      }
+      if (projectCollapsed) continue;
+      const subprojectTitles = /* @__PURE__ */ new Set();
+      for (const card of projectCards) {
+        if (card.type === "subproject") subprojectTitles.add(card.title);
+        for (const title of card.subprojectTitles) subprojectTitles.add(title);
+      }
+      if (!subprojectTitles.size) subprojectTitles.add("No subproject");
+      for (const subprojectTitle of Array.from(subprojectTitles).sort((a, b) => this.compareGanttSubprojectTitles(a, b, projectCards))) {
+        const subprojectCard = projectCards.find((card) => card.type === "subproject" && card.title === subprojectTitle);
+        const bigActions = projectCards.filter((card) => card.type === "big_action").filter((card) => subprojectTitle === "No subproject" ? !card.subprojectTitles.length : card.subprojectTitles.includes(subprojectTitle)).sort((a, b) => this.compareGanttCards(a, b));
+        if (!subprojectCard && !bigActions.length) continue;
+        const subprojectKey = `gantt:subproject:${projectTitle}:${subprojectTitle}`;
+        rows.push({
+          key: subprojectKey,
+          kind: "subproject",
+          title: subprojectTitle,
+          projectTitle,
+          subprojectTitle,
+          card: subprojectCard,
+          period: this.ganttSubprojectPeriod(subprojectCard, bigActions),
+          childCount: bigActions.length
+        });
+        if (this.collapsedGanttNodes.has(subprojectKey)) continue;
+        for (const card of bigActions) {
+          rows.push({
+            key: `gantt:action:${card.path}`,
+            kind: "big_action",
+            title: card.title,
+            projectTitle,
+            subprojectTitle,
+            card,
+            period: this.ganttCardPeriod(card),
+            childCount: 0
+          });
+        }
+      }
+    }
+    return rows;
+  }
+  renderGanttSurfaceRow(container, row, range, dayWidth, timelineWidth) {
+    var _a;
+    const rowEl = container.createDiv({ cls: `kanban-rpm-gantt-row is-${row.kind}` });
+    rowEl.style.setProperty("--rpm-project-color", this.projectColor(row.projectTitle || row.title));
+    rowEl.style.setProperty("--rpm-gantt-bar-color", this.ganttBarColor(row.card));
+    const label = rowEl.createDiv({ cls: "kanban-rpm-gantt-row-label" });
+    if (row.kind !== "big_action") this.renderGanttToggle(label, row.key, this.collapsedGanttNodes.has(row.key), row.kind === "project" && !!this.projectFilter);
+    else label.createSpan({ cls: "kanban-rpm-gantt-indent" });
+    const titleWrap = label.createDiv({ cls: "kanban-rpm-gantt-title-wrap" });
+    if (row.kind !== "big_action") titleWrap.createSpan({ cls: "kanban-rpm-gantt-type-mark", text: row.kind === "project" ? "P" : "S" });
+    const titleButton = titleWrap.createEl("button", { cls: "kanban-rpm-gantt-title", text: row.title });
+    titleButton.addEventListener("click", () => {
+      if (row.card) void this.plugin.openCard(row.card);
+      else {
+        const project = this.cards.find((card) => card.type === "project" && card.title === row.projectTitle);
+        if (project) void this.plugin.openCard(project);
+      }
+    });
+    const meta = label.createDiv({ cls: "kanban-rpm-gantt-row-meta" });
+    if (row.card) {
+      meta.createSpan({ cls: `kanban-rpm-status-badge kanban-rpm-status-${row.card.status}`, text: this.statusLabel(row.card.status) });
+      if (row.card.precededBy.length) meta.createSpan({ cls: "kanban-rpm-gantt-badge", text: `Preceded ${row.card.precededBy.length}` });
+      if (row.card.followedBy.length) meta.createSpan({ cls: "kanban-rpm-gantt-badge", text: `Followed ${row.card.followedBy.length}` });
+      if (row.card.blockedBy.length) meta.createSpan({ cls: "kanban-rpm-gantt-badge is-blocked", text: `Blocked ${row.card.blockedBy.length}` });
+    }
+    if (row.kind === "project") meta.createSpan({ cls: "kanban-rpm-gantt-count", text: `${row.childCount} items` });
+    if (row.kind === "subproject") meta.createSpan({ cls: "kanban-rpm-gantt-count", text: `${row.childCount} actions` });
+    const track = rowEl.createDiv({ cls: "kanban-rpm-gantt-track" });
+    track.style.width = `${timelineWidth}px`;
+    if (row.card) track.dataset.path = row.card.path;
+    this.renderGanttTrackGrid(track, range, dayWidth);
+    if (row.period) this.renderGanttBar(track, row, row.period, range, dayWidth);
+    if ((_a = row.card) == null ? void 0 : _a.nextReview) this.renderGanttMarker(track, row.card.nextReview, range, dayWidth, "review", "review");
+  }
+  renderGanttToggle(container, key, collapsed, disabled) {
+    const toggle = container.createEl("button", {
+      cls: disabled ? "kanban-rpm-gantt-toggle is-disabled" : "kanban-rpm-gantt-toggle",
+      text: disabled ? "" : collapsed ? "?" : "?",
+      attr: { "aria-label": collapsed ? "Expand Gantt row" : "Collapse Gantt row" }
+    });
+    if (disabled) return;
+    toggle.addEventListener("click", () => {
+      if (this.collapsedGanttNodes.has(key)) this.collapsedGanttNodes.delete(key);
+      else this.collapsedGanttNodes.add(key);
+      this.render();
+    });
+  }
+  renderGanttSegments(container, segments, rangeStart, dayWidth, level) {
+    for (const segment of segments) {
+      const el = container.createDiv({ cls: `kanban-rpm-gantt-segment is-${level}` });
+      const left = daysBetween(rangeStart, segment.start) * dayWidth;
+      const width = (daysBetween(segment.start, segment.end) + 1) * dayWidth;
+      el.style.left = `${left}px`;
+      el.style.width = `${Math.max(width, 1)}px`;
+      el.createSpan({ text: segment.label });
+    }
+  }
+  renderGanttTrackGrid(track, range, dayWidth) {
+    const segments = this.ganttScale === "month-week" ? this.ganttMonthSegments(range.start, range.end) : this.ganttQuarterSegments(range.start, range.end);
+    for (const segment of segments) {
+      const line = track.createDiv({ cls: "kanban-rpm-gantt-grid-line" });
+      line.style.left = `${daysBetween(range.start, segment.start) * dayWidth}px`;
+    }
+    const today = todayIso();
+    if (today >= range.start && today <= range.end) {
+      const line = track.createDiv({ cls: "kanban-rpm-gantt-today-line" });
+      line.style.left = `${daysBetween(range.start, today) * dayWidth}px`;
+    }
+  }
+  renderGanttBar(track, row, period, range, dayWidth) {
+    var _a;
+    const start = period.start < range.start ? range.start : period.start;
+    const end = period.end > range.end ? range.end : period.end;
+    if (start > end) return;
+    const left = daysBetween(range.start, start) * dayWidth;
+    const width = Math.max((daysBetween(start, end) + 1) * dayWidth, 14);
+    const bar = track.createEl("button", {
+      cls: [
+        "kanban-rpm-gantt-bar",
+        `is-${row.kind}`,
+        row.card ? `is-status-${row.card.status}` : "",
+        ((_a = row.card) == null ? void 0 : _a.blockedBy.length) ? "is-blocked" : ""
+      ].filter(Boolean).join(" "),
+      text: row.title,
+      attr: { title: row.card ? `Edit Gantt dates: ${row.title}` : row.title }
+    });
+    bar.style.left = `${left}px`;
+    bar.style.width = `${width}px`;
+    if (row.card) bar.dataset.path = row.card.path;
+    bar.addEventListener("click", () => {
+      if (row.card) new GanttDateModal(this.app, row.card, (values) => this.plugin.updateGanttDates(row.card, values)).open();
+    });
+    if (!row.card) return;
+    const incoming = track.createSpan({
+      cls: "kanban-rpm-gantt-flow-dot kanban-rpm-gantt-flow-dot-in",
+      attr: { title: "Preceded by connector target", "aria-label": "Preceded by connector target" }
+    });
+    incoming.dataset.path = row.card.path;
+    incoming.style.left = `${this.ganttIncomingDotX(left, width)}px`;
+    incoming.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    const outgoing = track.createSpan({
+      cls: "kanban-rpm-gantt-flow-dot kanban-rpm-gantt-flow-dot-out",
+      attr: { title: "Followed by connector source", "aria-label": "Followed by connector source" }
+    });
+    outgoing.dataset.path = row.card.path;
+    outgoing.style.left = `${this.ganttOutgoingDotX(left, width)}px`;
+    outgoing.addEventListener("pointerdown", (event) => this.startGanttFlowConnect(event, row.card));
+  }
+  renderGanttConnectors(body, rows, range, dayWidth, timelineWidth) {
+    var _a, _b, _c, _d, _e;
+    const rowByPath = this.ganttVisibleRowMap(rows);
+    const yByPath = this.ganttTrackCenterYMap(body);
+    const totalHeight = Math.max(body.scrollHeight, body.getBoundingClientRect().height);
+    const layer = body.createDiv({ cls: "kanban-rpm-gantt-connectors" });
+    layer.style.width = `${timelineWidth}px`;
+    layer.style.height = `${totalHeight}px`;
+    let edgeCount = 0;
+    for (const target of rows) {
+      if (!target.card || !target.period) continue;
+      const targetInfo = rowByPath.get(target.card.path);
+      if (!targetInfo) continue;
+      for (const link of target.card.precededBy) {
+        const sourceFile = this.plugin.resolveLinkedFile(link, target.card.path);
+        if (!sourceFile) continue;
+        const sourceInfo = rowByPath.get(sourceFile.path);
+        if (!sourceInfo) continue;
+        const sourceLeft = this.ganttPeriodStartX(sourceInfo.period, range, dayWidth);
+        const sourceWidth = this.ganttPeriodWidth(sourceInfo.period, range, dayWidth);
+        const targetLeft = this.ganttPeriodStartX(targetInfo.period, range, dayWidth);
+        const targetWidth = this.ganttPeriodWidth(targetInfo.period, range, dayWidth);
+        const targetX = this.ganttIncomingDotX(targetLeft, targetWidth);
+        const sourceX = this.ganttConnectorSourceX(sourceLeft, sourceWidth, targetX);
+        const sourceY = (_c = yByPath.get((_b = (_a = sourceInfo.row.card) == null ? void 0 : _a.path) != null ? _b : "")) != null ? _c : 0;
+        const targetY = (_d = yByPath.get(target.card.path)) != null ? _d : 0;
+        const state = this.isCompletionStatus(((_e = sourceInfo.row.card) == null ? void 0 : _e.status) || "") ? "ready" : "blocking";
+        const midX = sourceX + (targetX - sourceX) / 2;
+        if (Math.abs(sourceY - targetY) < 1) {
+          this.renderGanttConnectorSegment(layer, sourceX, sourceY, targetX, targetY, state, sourceInfo.row.card, target.card);
+        } else {
+          this.renderGanttConnectorSegment(layer, sourceX, sourceY, midX, sourceY, state, sourceInfo.row.card, target.card);
+          this.renderGanttConnectorSegment(layer, midX, sourceY, midX, targetY, state, sourceInfo.row.card, target.card);
+          this.renderGanttConnectorSegment(layer, midX, targetY, targetX, targetY, state, sourceInfo.row.card, target.card);
+        }
+        const arrowDirection = targetX >= midX ? "right" : "left";
+        const arrowX = this.ganttArrowheadX(targetX, arrowDirection);
+        this.renderGanttConnectorEndpoint(layer, sourceX, sourceY, state, "source", sourceInfo.row.card, target.card);
+        this.renderGanttConnectorEndpoint(layer, targetX, targetY, state, "target", sourceInfo.row.card, target.card);
+        this.renderGanttConnectorArrowhead(layer, arrowX, targetY, arrowDirection, state, sourceInfo.row.card, target.card);
+        edgeCount += 1;
+      }
+    }
+    if (!edgeCount) layer.remove();
+  }
+  renderGanttConnectorSegment(container, x1, y1, x2, y2, state, source, target) {
+    const horizontal = Math.abs(y1 - y2) < 1;
+    const segment = container.createDiv({
+      cls: state === "ready" ? "kanban-rpm-gantt-connector-segment" : "kanban-rpm-gantt-connector-segment is-blocking",
+      attr: { title: `Remove flow: ${source.title} -> ${target.title}` }
+    });
+    if (horizontal) {
+      segment.addClass("is-horizontal");
+      segment.style.left = `${Math.min(x1, x2)}px`;
+      segment.style.top = `${y1}px`;
+      segment.style.width = `${Math.max(Math.abs(x2 - x1), 2)}px`;
+    } else {
+      segment.addClass("is-vertical");
+      segment.style.left = `${x1}px`;
+      segment.style.top = `${Math.min(y1, y2)}px`;
+      segment.style.height = `${Math.max(Math.abs(y2 - y1), 2)}px`;
+    }
+    this.bindGanttConnectorRemove(segment, source, target);
+  }
+  renderGanttConnectorEndpoint(container, x, y, state, kind, source, target) {
+    const endpoint = container.createDiv({
+      cls: [
+        "kanban-rpm-gantt-connector-endpoint",
+        kind === "target" ? "is-target" : "",
+        state === "blocking" ? "is-blocking" : ""
+      ].filter(Boolean).join(" "),
+      attr: { title: `Remove flow: ${source.title} -> ${target.title}` }
+    });
+    endpoint.style.left = `${x}px`;
+    endpoint.style.top = `${y}px`;
+    this.bindGanttConnectorRemove(endpoint, source, target);
+  }
+  renderGanttConnectorArrowhead(container, x, y, direction, state, source, target) {
+    const arrow = container.createDiv({
+      cls: [
+        "kanban-rpm-gantt-connector-arrowhead",
+        direction === "left" ? "is-left" : "is-right",
+        state === "blocking" ? "is-blocking" : ""
+      ].filter(Boolean).join(" "),
+      attr: { title: `Remove flow: ${source.title} -> ${target.title}` }
+    });
+    arrow.style.left = `${x}px`;
+    arrow.style.top = `${y}px`;
+    this.bindGanttConnectorRemove(arrow, source, target);
+  }
+  bindGanttConnectorRemove(element, source, target) {
+    element.dataset.sourcePath = source.path;
+    element.dataset.targetPath = target.path;
+    element.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      new ConfirmCardActionModal(this.app, {
+        title: "Remove Gantt flow",
+        message: `Remove "${source.title} -> ${target.title}" from ${target.title}'s Preceded by list?`,
+        confirmText: "Remove",
+        onConfirm: () => this.plugin.removePrecededBy(target.path, source)
+      }).open();
+    });
+  }
+  countVisibleGanttConnectors(rows) {
+    const rowByPath = this.ganttVisibleRowMap(rows);
+    let count = 0;
+    for (const target of rows) {
+      if (!target.card || !target.period || !rowByPath.has(target.card.path)) continue;
+      for (const link of target.card.precededBy) {
+        const sourceFile = this.plugin.resolveLinkedFile(link, target.card.path);
+        if (sourceFile && rowByPath.has(sourceFile.path)) count += 1;
+      }
+    }
+    return count;
+  }
+  ganttVisibleRowMap(rows) {
+    const rowByPath = /* @__PURE__ */ new Map();
+    rows.forEach((row, index) => {
+      if (row.card && row.period) rowByPath.set(row.card.path, { row, index, period: row.period });
+    });
+    return rowByPath;
+  }
+  ganttTrackCenterYMap(body) {
+    const bodyRect = body.getBoundingClientRect();
+    const centers = /* @__PURE__ */ new Map();
+    body.querySelectorAll(".kanban-rpm-gantt-track[data-path]").forEach((track) => {
+      const path = track.dataset.path;
+      if (!path) return;
+      const rect = track.getBoundingClientRect();
+      centers.set(path, rect.top - bodyRect.top + body.scrollTop + rect.height / 2);
+    });
+    return centers;
+  }
+  ganttRowHeight() {
+    return 42;
+  }
+  ganttRowMetrics(rows) {
+    let top = 0;
+    return rows.map((row) => {
+      const height = this.ganttRowHeight();
+      const metric = { top, height };
+      top += height;
+      return metric;
+    });
+  }
+  ganttDateX(date, range, dayWidth) {
+    const clamped = date < range.start ? range.start : date > range.end ? range.end : date;
+    return daysBetween(range.start, clamped) * dayWidth + dayWidth / 2;
+  }
+  ganttPeriodStartX(period, range, dayWidth) {
+    const start = period.start < range.start ? range.start : period.start > range.end ? range.end : period.start;
+    return daysBetween(range.start, start) * dayWidth;
+  }
+  ganttPeriodEndX(period, range, dayWidth) {
+    const end = period.end > range.end ? range.end : period.end < range.start ? range.start : period.end;
+    return (daysBetween(range.start, end) + 1) * dayWidth;
+  }
+  ganttPeriodWidth(period, range, dayWidth) {
+    const start = period.start < range.start ? range.start : period.start > range.end ? range.end : period.start;
+    const end = period.end > range.end ? range.end : period.end < range.start ? range.start : period.end;
+    return Math.max((daysBetween(start, end) + 1) * dayWidth, 14);
+  }
+  ganttIncomingDotX(left, width) {
+    return left + Math.min(8, Math.max(5, width * 0.35));
+  }
+  ganttOutgoingDotX(left, width) {
+    return left + width - Math.min(8, Math.max(5, width * 0.35));
+  }
+  ganttConnectorSourceX(left, width, targetX) {
+    const incoming = this.ganttIncomingDotX(left, width);
+    const outgoing = this.ganttOutgoingDotX(left, width);
+    return Math.abs(outgoing - targetX) <= Math.abs(incoming - targetX) ? outgoing : incoming;
+  }
+  ganttArrowheadX(targetX, direction) {
+    return direction === "right" ? targetX - 9 : targetX + 9;
+  }
+  renderGanttMarker(track, date, range, dayWidth, kind, label) {
+    if (!isIsoDate(date) || date < range.start || date > range.end) return;
+    const marker = track.createDiv({ cls: `kanban-rpm-gantt-marker is-${kind}`, attr: { title: `${label} ${date}` } });
+    marker.style.left = `${daysBetween(range.start, date) * dayWidth}px`;
+    marker.createSpan({ text: label });
+  }
+  ganttCardPeriod(card) {
+    const start = isIsoDate(card.startDate) ? card.startDate : isIsoDate(card.dueDate) ? card.dueDate : "";
+    const end = isIsoDate(card.dueDate) ? card.dueDate : start;
+    return start && end ? { start, end } : void 0;
+  }
+  ganttSubprojectPeriod(card, children) {
+    const direct = card ? this.ganttCardPeriod(card) : void 0;
+    if (direct && (card == null ? void 0 : card.startDate) && (card == null ? void 0 : card.dueDate)) return direct;
+    const childPeriods = children.map((child) => this.ganttCardPeriod(child)).filter((period) => !!period);
+    if (!childPeriods.length) return direct;
+    const starts = childPeriods.map((period) => period.start).sort();
+    const ends = childPeriods.map((period) => period.end).sort();
+    return { start: starts[0], end: ends[ends.length - 1] };
+  }
+  ganttProjectPeriod(card, children) {
+    const direct = card ? this.ganttCardPeriod(card) : void 0;
+    if (direct && (card == null ? void 0 : card.startDate) && (card == null ? void 0 : card.dueDate)) return direct;
+    const childPeriods = children.map((child) => {
+      if (child.type === "subproject") {
+        const childActions = children.filter((item) => item.type === "big_action" && item.subprojectTitles.includes(child.title));
+        return this.ganttSubprojectPeriod(child, childActions);
+      }
+      return this.ganttCardPeriod(child);
+    }).filter((period) => !!period);
+    if (!childPeriods.length) return direct;
+    const starts = childPeriods.map((period) => period.start).sort();
+    const ends = childPeriods.map((period) => period.end).sort();
+    return { start: starts[0], end: ends[ends.length - 1] };
+  }
+  ganttRange(rows, cards) {
+    var _a, _b;
+    const dates = [
+      ...rows.flatMap((row) => {
+        var _a2, _b2;
+        return [(_a2 = row.period) == null ? void 0 : _a2.start, (_b2 = row.period) == null ? void 0 : _b2.end];
+      }),
+      ...cards.map((card) => card.nextReview)
+    ].filter((date) => !!date && isIsoDate(date)).sort();
+    const first = (_a = dates[0]) != null ? _a : todayIso();
+    const last = (_b = dates[dates.length - 1]) != null ? _b : addDays(todayIso(), 180);
+    return {
+      start: startOfMonth(addMonths(first, -1)),
+      end: endOfMonth(addMonths(last, 1))
+    };
+  }
+  compareGanttProjectTitles(a, b, cards) {
+    return this.compareGanttDates(this.ganttProjectSortDate(a, cards), this.ganttProjectSortDate(b, cards)) || a.localeCompare(b);
+  }
+  compareGanttSubprojectTitles(a, b, cards) {
+    return this.compareGanttDates(this.ganttSubprojectSortDate(a, cards), this.ganttSubprojectSortDate(b, cards)) || a.localeCompare(b);
+  }
+  compareGanttCards(a, b) {
+    return this.compareGanttDates(this.ganttSortDate(a), this.ganttSortDate(b)) || compareCards(a, b);
+  }
+  compareGanttDates(a, b) {
+    return a.localeCompare(b);
+  }
+  ganttProjectSortDate(projectTitle, cards) {
+    var _a;
+    const dates = cards.filter((card) => (card.projectTitle || card.projectTitles[0] || "No project") === projectTitle).map((card) => this.ganttSortDate(card)).filter((date) => date !== "9999-99-99").sort();
+    return (_a = dates[0]) != null ? _a : "9999-99-99";
+  }
+  ganttSubprojectSortDate(subprojectTitle, cards) {
+    var _a;
+    const subprojectCard = cards.find((card) => card.type === "subproject" && card.title === subprojectTitle);
+    if (subprojectCard) return this.ganttSortDate(subprojectCard);
+    const dates = cards.filter((card) => card.type === "big_action").filter((card) => subprojectTitle === "No subproject" ? !card.subprojectTitles.length : card.subprojectTitles.includes(subprojectTitle)).map((card) => this.ganttSortDate(card)).filter((date) => date !== "9999-99-99").sort();
+    return (_a = dates[0]) != null ? _a : "9999-99-99";
+  }
+  ganttSortDate(card) {
+    return isIsoDate(card.startDate) ? card.startDate : isIsoDate(card.dueDate) ? card.dueDate : isIsoDate(card.nextReview) ? card.nextReview : "9999-99-99";
+  }
+  ganttBarColor(card) {
+    if (!card) return "var(--rpm-project-color, var(--interactive-accent))";
+    const status = `${card.status} ${this.statusLabel(card.status)}`.toLowerCase();
+    if (/\b(blocked|block)\b/.test(status)) return "#e05252";
+    if (/\b(waiting|wait)\b/.test(status)) return "#d9941f";
+    if (/\b(done|complete|completed)\b/.test(status)) return "#3cb371";
+    if (/\b(active|doing|progress)\b/.test(status)) return "#6278f0";
+    if (/\b(inbox|someday)\b/.test(status)) return "#8a8f98";
+    return "var(--rpm-project-color, var(--interactive-accent))";
+  }
+  renderResearchIndex(container, logs) {
+    const panel = container.createDiv({ cls: "kanban-rpm-panel kanban-rpm-research-index" });
+    panel.createEl("h3", { text: `Research index (${logs.length})` });
+    if (!logs.length) {
+      panel.createDiv({ cls: "kanban-rpm-empty", text: "No Experiment/Analysis Log rows found." });
+      return;
+    }
+    const table = panel.createEl("table", { cls: "kanban-rpm-table" });
+    const thead = table.createEl("thead");
+    const header = thead.createEl("tr");
+    for (const label of ["Date", "Kind", "Module", "Subject", "Result", "Source"]) header.createEl("th", { text: label });
+    const tbody = table.createEl("tbody");
+    for (const log of logs.sort((a, b) => b.date.localeCompare(a.date) || a.module.localeCompare(b.module))) {
+      const row = tbody.createEl("tr");
+      row.createEl("td", { text: log.date });
+      row.createEl("td", { text: log.kind });
+      row.createEl("td", { text: log.module });
+      row.createEl("td", { text: log.subject });
+      row.createEl("td", { text: log.result });
+      const source = row.createEl("td");
+      source.createEl("button", { cls: "kanban-rpm-table-title", text: log.link || log.cardTitle }).addEventListener("click", () => {
+        var _a;
+        const target = this.resolveLogLink(log);
+        void this.plugin.openFilePath((_a = target == null ? void 0 : target.path) != null ? _a : log.cardPath);
+      });
+    }
+  }
+  resolveLogLink(log) {
+    const match = log.link.match(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/);
+    if (!(match == null ? void 0 : match[1])) return null;
+    return this.app.metadataCache.getFirstLinkpathDest(match[1], log.cardPath);
+  }
+  renderTableHeader(row, column, index, table) {
+    var _a;
+    const { key, label } = column;
+    const th = row.createEl("th", { cls: this.tableColumnClass(key) });
+    th.style.width = `${(_a = this.tableColumnWidths.get(key)) != null ? _a : column.width}px`;
+    const active = this.tableSortKey === key;
+    const button = th.createEl("button", {
+      cls: active ? "kanban-rpm-table-sort is-active" : "kanban-rpm-table-sort"
+    });
+    button.createSpan({ cls: active ? "kanban-rpm-table-sort-indicator is-active" : "kanban-rpm-table-sort-indicator", text: active ? this.tableSortDirection === "asc" ? "\u25B2" : "\u25BC" : "" });
+    button.createSpan({ text: label });
+    button.addEventListener("click", () => {
+      if (this.tableSortKey === key) {
+        this.tableSortDirection = this.tableSortDirection === "asc" ? "desc" : "asc";
+      } else {
+        this.tableSortKey = key;
+        this.tableSortDirection = "asc";
+      }
+      this.render();
+    });
+    this.renderColumnResizer(th, key, index, table);
+  }
+  renderColumnResizer(th, key, index, table) {
+    const handle = th.createDiv({ cls: "kanban-rpm-table-resizer", attr: { role: "separator", "aria-label": `Resize ${key} column` } });
+    handle.addEventListener("pointerdown", (event) => {
+      var _a;
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = event.clientX;
+      const startWidth = (_a = this.tableColumnWidths.get(key)) != null ? _a : TABLE_COLUMNS[index].width;
+      handle.setPointerCapture(event.pointerId);
+      const move = (moveEvent) => {
+        const width = Math.max(72, startWidth + moveEvent.clientX - startX);
+        this.tableColumnWidths.set(key, width);
+        th.style.width = `${width}px`;
+        const col = table.querySelectorAll("col").item(index);
+        if (col) col.style.width = `${width}px`;
+      };
+      const end = (endEvent) => {
+        handle.releasePointerCapture(endEvent.pointerId);
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", end);
+        handle.removeEventListener("pointercancel", end);
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", end);
+      handle.addEventListener("pointercancel", end);
+    });
+  }
+  renderTableRow(tbody, card) {
+    const row = tbody.createEl("tr", { cls: card.blockedBy.length ? "is-blocked" : "" });
+    row.style.setProperty("--rpm-project-color", this.projectColor(card.colorKey));
+    const titleCell = row.createEl("td", { cls: "kanban-rpm-table-title-cell" });
+    const titleButton = titleCell.createEl("button", { cls: "kanban-rpm-table-title", text: card.title });
+    titleButton.addEventListener("click", () => {
+      void this.plugin.openCard(card);
+    });
+    if (card.nextAction) titleCell.createDiv({ cls: "kanban-rpm-table-subtext", text: card.nextAction });
+    const projectCell = row.createEl("td", { cls: "kanban-rpm-table-project-cell" });
+    const projectLine = projectCell.createDiv({ cls: "kanban-rpm-table-context" });
+    this.addProjectToken(projectLine, card.colorKey);
+    projectLine.createSpan({ text: card.breadcrumb || card.projectTitle || "No project" });
+    row.createEl("td", { cls: "kanban-rpm-table-type-cell", text: this.cardTypeLabel(card.type) });
+    const statusCell = row.createEl("td", { cls: "kanban-rpm-table-status-cell" });
+    this.renderStatusBadge(statusCell, card.status, void 0, "button").addEventListener("click", (event) => {
+      this.openStatusMenu(event, card);
+    });
+    const priorityCell = row.createEl("td", { cls: "kanban-rpm-table-priority-cell" });
+    this.renderPriorityBadge(priorityCell, card);
+    row.createEl("td", { cls: "kanban-rpm-table-date-cell", text: this.cardDateLabel(card) });
+    row.createEl("td", { cls: "kanban-rpm-table-flow-cell", text: this.cardDependencyLabel(card) });
+    const actionCell = row.createEl("td", { cls: "kanban-rpm-table-actions" });
+    const actionRow = actionCell.createDiv({ cls: "kanban-rpm-table-action-row" });
+    actionRow.createSpan({ text: `${card.actionCount} tasks` });
+    actionRow.createSpan({ text: " - " });
+    const edit = actionRow.createSpan({ cls: "kanban-rpm-table-action-link", text: "Edit", attr: { role: "button", tabindex: "0" } });
+    edit.addEventListener("click", () => {
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+    edit.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+  }
+  tableColumnClass(key) {
+    return `kanban-rpm-table-column-${key}`;
+  }
+  renderStatusSelect(container, card) {
+    const select = container.createEl("select", { cls: "kanban-rpm-status-select" });
+    for (const status of this.plugin.settings.statuses) {
+      select.createEl("option", { text: status.label, attr: { value: status.id } });
+    }
+    select.value = card.status;
+    select.addEventListener("change", () => {
+      void this.plugin.setCardStatus(card, select.value);
+    });
+  }
+  openStatusMenu(event, card) {
+    const menu = new import_obsidian3.Menu();
+    for (const status of this.plugin.settings.statuses) {
+      menu.addItem((item) => {
+        item.setTitle(status.label).setChecked(status.id === card.status).onClick(() => {
+          void this.plugin.setCardStatus(card, status.id);
+        });
+      });
+    }
+    menu.showAtMouseEvent(event);
+  }
+  renderTimelineView(container, visibleBoardCards) {
+    this.ensureTimelineStatusFilter();
+    const days = this.timelineDays();
+    const timelineCards = visibleBoardCards.filter((card) => this.timelineStatusFilter.has(card.status));
+    const markers = this.filterTimelineMarkers(this.collectTimelineMarkers(timelineCards, new Set(days)));
+    const grouped = this.groupTimelineMarkers(markers);
+    const timeline = container.createDiv({ cls: this.timelineSidebarCollapsed ? "kanban-rpm-timeline is-sidebar-collapsed" : "kanban-rpm-timeline" });
+    this.renderTimelineSidebar(timeline, visibleBoardCards);
+    const main = timeline.createDiv({ cls: "kanban-rpm-timeline-main" });
+    this.renderTimelineControls(main);
+    const viewport = main.createDiv({ cls: "kanban-rpm-timeline-viewport" });
+    const board = viewport.createDiv({ cls: "kanban-rpm-timeline-board" });
+    for (const day of days) {
+      const column = board.createDiv({
+        cls: day === todayIso() ? "kanban-rpm-timeline-day-column is-today" : "kanban-rpm-timeline-day-column"
+      });
+      column.dataset.day = day;
+      const header = column.createDiv({ cls: "kanban-rpm-timeline-day-header" });
+      header.createDiv({ cls: "kanban-rpm-timeline-day-name", text: this.timelineDayLabel(day) });
+      header.createDiv({ cls: "kanban-rpm-timeline-day-date", text: day.slice(5) });
+      if (this.timelineMemoVisible) this.renderTimelineMemoSection(column, day);
+      const dayGroups = grouped.map((group) => ({ ...group, markers: group.markers.filter((marker) => marker.date === day) })).filter((group) => group.markers.length);
+      if (!dayGroups.length && !this.timelineMemoVisible) {
+        column.createDiv({ cls: "kanban-rpm-timeline-empty-day", text: "No items" });
+      } else {
+        for (const group of dayGroups) {
+          const section = column.createDiv({ cls: "kanban-rpm-timeline-section" });
+          const label = section.createDiv({ cls: "kanban-rpm-timeline-section-label" });
+          label.style.setProperty("--rpm-project-color", this.projectColor(group.colorKey));
+          this.addProjectToken(label, group.colorKey);
+          label.createSpan({ text: group.label });
+          for (const marker of group.markers) this.renderTimelineMarker(section, marker);
+        }
+      }
+    }
+    if (days.includes(this.timelineBaseDate)) {
+      setTimeout(() => {
+        const todayColumn = board.querySelector(`[data-day="${this.timelineBaseDate}"]`);
+        todayColumn == null ? void 0 : todayColumn.scrollIntoView({ block: "nearest", inline: "start" });
+      }, 0);
+    }
+  }
+  renderTimelineSidebar(container, cards) {
+    const sidebar = container.createDiv({ cls: "kanban-rpm-timeline-sidebar" });
+    const header = sidebar.createDiv({ cls: "kanban-rpm-timeline-sidebar-header" });
+    header.createEl("h3", { text: "Routine" });
+    header.createEl("button", { text: this.timelineSidebarCollapsed ? ">" : "<" }).addEventListener("click", () => {
+      this.timelineSidebarCollapsed = !this.timelineSidebarCollapsed;
+      this.render();
+    });
+    if (this.timelineSidebarCollapsed) {
+      sidebar.addClass("is-collapsed");
+      return;
+    }
+    const days = this.timelineDays();
+    const routines = cards.flatMap(
+      (card) => card.routines.map((item) => ({
+        item,
+        card,
+        nextDate: this.nextRecurringDateInRange(item, days)
+      }))
+    ).filter((routine) => routine.nextDate);
+    const list = sidebar.createDiv({ cls: "kanban-rpm-timeline-routines" });
+    if (!routines.length) {
+      list.createDiv({ cls: "kanban-rpm-empty", text: "No routines yet" });
+    }
+    const groups = this.groupTimelineRoutines(routines);
+    for (const group of groups) {
+      const groupEl = list.createEl("details", { cls: "kanban-rpm-timeline-routine-group" });
+      groupEl.open = true;
+      groupEl.createEl("summary", { cls: "kanban-rpm-timeline-routine-group-title", text: `${group.label} (${group.routines.length})` });
+      for (const { item, card, nextDate } of group.routines.slice(0, 8)) {
+        const row = groupEl.createDiv({ cls: "kanban-rpm-timeline-routine" });
+        const open = row.createEl("button", { cls: "kanban-rpm-timeline-routine-open" });
+        open.createSpan({ cls: "kanban-rpm-timeline-routine-text", text: item.text });
+        open.createSpan({ cls: "kanban-rpm-timeline-routine-meta", text: `${card.title} - next ${nextDate.slice(5)}` });
+        open.addEventListener("click", () => {
+          void this.plugin.openCard(card);
+        });
+        row.createEl("button", { cls: "kanban-rpm-timeline-routine-done", text: "Done" }).addEventListener("click", () => {
+          void this.plugin.completeRoutine(card.path, item.text, nextDate);
+        });
+      }
+      if (group.routines.length > 8) groupEl.createDiv({ cls: "kanban-rpm-timeline-routine-more", text: `+${group.routines.length - 8} more` });
+    }
+  }
+  groupTimelineRoutines(routines) {
+    var _a;
+    const map = /* @__PURE__ */ new Map();
+    for (const routine of routines) {
+      const key = this.recurringGroupKey(routine.item);
+      const existing = (_a = map.get(key)) != null ? _a : {
+        key,
+        label: this.recurringGroupLabel(routine.item),
+        frequency: this.recurringFrequencyDays(routine.item),
+        routines: []
+      };
+      existing.routines.push(routine);
+      map.set(key, existing);
+    }
+    return Array.from(map.values()).map((group) => ({
+      ...group,
+      routines: group.routines.sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.card.title.localeCompare(b.card.title) || a.item.text.localeCompare(b.item.text))
+    })).sort((a, b) => a.frequency - b.frequency || a.label.localeCompare(b.label));
+  }
+  nextRecurringDateInRange(item, days) {
+    var _a;
+    if (typeof item !== "string" && item.cadence === "daily") {
+      const today = todayIso();
+      return days.includes(today) && this.isRecurringItemVisibleOnDay(today, item) && !this.isRecurringItemCompletedForOccurrence(today, item) ? today : "";
+    }
+    return (_a = days.find((day) => typeof item === "string" ? this.isRecurringVisibleOnDay(day, item) : this.isRecurringItemVisibleOnDay(day, item) && !this.isRecurringItemCompletedForOccurrence(day, item))) != null ? _a : "";
+  }
+  renderTimelineControls(container) {
+    const controls = container.createDiv({ cls: "kanban-rpm-timeline-controls" });
+    controls.createEl("button", { text: "Today" }).addEventListener("click", () => {
+      this.timelineBaseDate = todayIso();
+      this.timelineRangeStart = "";
+      this.timelineRangeEnd = "";
+      this.render();
+    });
+    controls.createEl("button", { text: "-7" }).addEventListener("click", () => {
+      this.shiftTimelineBase(-7);
+      this.render();
+    });
+    controls.createEl("button", { text: "+7" }).addEventListener("click", () => {
+      this.shiftTimelineBase(7);
+      this.render();
+    });
+    const baseDate = controls.createEl("input", {
+      cls: "kanban-rpm-timeline-date-input",
+      attr: {
+        type: "text",
+        placeholder: "YYYY.MM.DD",
+        value: this.toDisplayDate(this.timelineBaseDate),
+        "aria-label": "Timeline base date"
+      }
+    });
+    baseDate.addEventListener("change", () => {
+      const normalized = this.normalizeTimelineDate(baseDate.value);
+      if (normalized) {
+        this.timelineBaseDate = normalized;
+        this.timelineRangeStart = "";
+        this.timelineRangeEnd = "";
+        this.render();
+      }
+    });
+    const rangeStart = controls.createEl("input", {
+      cls: "kanban-rpm-timeline-date-input",
+      attr: {
+        type: "text",
+        placeholder: "YYYY.MM.DD",
+        value: this.toDisplayDate(this.timelineRangeStart),
+        "aria-label": "Timeline range start"
+      }
+    });
+    const rangeEnd = controls.createEl("input", {
+      cls: "kanban-rpm-timeline-date-input",
+      attr: {
+        type: "text",
+        placeholder: "YYYY.MM.DD",
+        value: this.toDisplayDate(this.timelineRangeEnd),
+        "aria-label": "Timeline range end"
+      }
+    });
+    const applyRange = controls.createEl("button", { text: "Apply range" });
+    applyRange.addEventListener("click", () => {
+      const start = this.normalizeTimelineDate(rangeStart.value);
+      const end = this.normalizeTimelineDate(rangeEnd.value);
+      if (start && end && start <= end) {
+        this.timelineRangeStart = start;
+        this.timelineRangeEnd = end;
+        this.timelineBaseDate = start;
+        this.render();
+      }
+    });
+    controls.createEl("button", { text: this.timelineMemoVisible ? "Hide Memo" : "Show Memo" }).addEventListener("click", () => {
+      this.timelineMemoVisible = !this.timelineMemoVisible;
+      this.render();
+    });
+    const search = controls.createEl("input", {
+      cls: "kanban-rpm-timeline-search",
+      attr: {
+        type: "search",
+        placeholder: "Timeline search",
+        value: this.timelineSearchQuery
+      }
+    });
+    search.addEventListener("input", () => {
+      this.timelineSearchQuery = search.value;
+      this.render();
+    });
+    const scope = controls.createEl("select", { cls: "kanban-rpm-timeline-scope" });
+    for (const [value, label] of [
+      ["all", "Show: All markers"],
+      ["review", "Show: Review"],
+      ["due", "Show: Due"],
+      ["tasks", "Show: Tasks"],
+      ["recurring", "Show: Recurring"]
+    ]) {
+      scope.createEl("option", { text: label, attr: { value } });
+    }
+    scope.value = this.timelineScope;
+    scope.addEventListener("change", () => {
+      this.timelineScope = scope.value;
+      this.render();
+    });
+    const statusWrap = controls.createEl("details", { cls: "kanban-rpm-timeline-status-filter" });
+    statusWrap.createEl("summary", { text: `Statuses: ${this.timelineStatusFilter.size}` });
+    const statusList = statusWrap.createDiv({ cls: "kanban-rpm-timeline-status-list" });
+    for (const status of this.plugin.settings.statuses) {
+      const label = statusList.createEl("label");
+      const checkbox = label.createEl("input", { attr: { type: "checkbox" } });
+      checkbox.checked = this.timelineStatusFilter.has(status.id);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) this.timelineStatusFilter.add(status.id);
+        else this.timelineStatusFilter.delete(status.id);
+        this.plugin.settings.timelineStatusFilter = Array.from(this.timelineStatusFilter);
+        void this.plugin.saveSettings();
+        this.render();
+      });
+      label.createSpan({ text: status.label });
+    }
+  }
+  renderTimelineMemoSection(container, day) {
+    const section = container.createDiv({ cls: "kanban-rpm-timeline-section kanban-rpm-timeline-memo-section" });
+    const header = section.createDiv({ cls: "kanban-rpm-timeline-section-label" });
+    header.createSpan({ text: "Memo" });
+    const controls = header.createDiv({ cls: "kanban-rpm-timeline-memo-controls" });
+    const list = section.createDiv({ cls: "kanban-rpm-timeline-memo-list" });
+    controls.createEl("button", { text: "+ todo" }).addEventListener("click", () => {
+      void this.openTimelineMemoModal(day, "todo");
+    });
+    controls.createEl("button", { text: "+ text" }).addEventListener("click", () => {
+      void this.openTimelineMemoModal(day, "text");
+    });
+    void this.readTimelineMemo(day).then((memo) => {
+      list.empty();
+      const items = this.parseTimelineMemoItems(memo);
+      if (!items.length) {
+        list.createDiv({ cls: "kanban-rpm-timeline-memo-empty", text: "No memo yet" });
+        return;
+      }
+      this.renderTimelineMemoItem(list, day, memo, items[0]);
+    });
+  }
+  renderTimelineMemoItem(container, day, memo, item) {
+    const row = container.createDiv({ cls: "kanban-rpm-timeline-memo-card" });
+    const body = row.createDiv({ cls: "kanban-rpm-timeline-memo-preview" });
+    this.renderMiniMarkdown(body, item.content, (lineIndex, done) => {
+      void this.toggleTimelineMemoCheckbox(day, item.content, lineIndex, done);
+    });
+    const edit = this.createIconButton(row, "pencil", "Edit memo");
+    edit.addEventListener("click", () => {
+      void this.openTimelineMemoModal(day);
+    });
+  }
+  parseTimelineMemoItems(memo) {
+    const content = memo.trimEnd();
+    return content ? [{ content }] : [];
+  }
+  async toggleTimelineMemoCheckbox(day, memo, lineIndex, done) {
+    var _a;
+    const lines = memo.split(/\r?\n/);
+    const match = (_a = lines[lineIndex]) == null ? void 0 : _a.match(/^(\s*[-*]\s+\[)[ xX](\]\s+.*)$/);
+    if (!match) return;
+    lines[lineIndex] = `${match[1]}${done ? "x" : " "}${match[2]}`;
+    await this.saveTimelineMemo(day, lines.join("\n"));
+    this.render();
+  }
+  async openTimelineMemoModal(day, seed) {
+    const memo = await this.readTimelineMemo(day);
+    const initial = this.seedTimelineMemo(memo, seed);
+    new TimelineMemoModal(this.app, day, initial, async (value) => {
+      await this.saveTimelineMemo(day, value);
+      this.render();
+    }).open();
+  }
+  seedTimelineMemo(memo, seed) {
+    if (!seed) return memo;
+    const trimmed = memo.trimEnd();
+    const addition = seed === "todo" ? "- [ ] " : "";
+    if (!trimmed) return addition;
+    return `${trimmed}
+${addition}`;
+  }
+  renderMiniMarkdown(container, markdown, onCheckbox) {
+    const lines = markdown.split(/\r?\n/);
+    let list = null;
+    for (const [lineIndex, line] of lines.entries()) {
+      if (!line.trim()) {
+        list = null;
+        continue;
+      }
+      const heading = line.match(/^(#{1,6})\s+(.+)$/);
+      if (heading) {
+        list = null;
+        const level = Math.min(6, heading[1].length + 3);
+        container.createEl(`h${level}`, { text: heading[2] });
+        continue;
+      }
+      const checkbox = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
+      if (checkbox) {
+        list = null;
+        const done = checkbox[1].toLowerCase() === "x";
+        const row = container.createEl("label", { cls: done ? "kanban-rpm-timeline-memo-checkbox is-done" : "kanban-rpm-timeline-memo-checkbox" });
+        const input = row.createEl("input", { attr: { type: "checkbox" } });
+        input.checked = done;
+        input.addEventListener("change", () => onCheckbox(lineIndex, input.checked));
+        row.createSpan({ text: checkbox[2] });
+        continue;
+      }
+      const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+      if (bullet) {
+        if (!list) list = container.createEl("ul");
+        list.createEl("li", { text: bullet[1] });
+        continue;
+      }
+      list = null;
+      container.createEl("p", { text: line });
+    }
+  }
+  renderTimelineMarker(container, marker) {
+    if (marker.kind === "recurring") {
+      this.renderRecurringTimelineChip(container, marker);
+      return;
+    }
+    const item = container.createDiv({
+      cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind} kanban-rpm-type-${marker.card.type.replace("_", "-")}`,
+      attr: { title: `${marker.card.title} - ${marker.label}` }
+    });
+    item.style.setProperty("--rpm-project-color", this.projectColor(marker.card.colorKey));
+    const label = item.createEl("button", { cls: "kanban-rpm-timeline-marker-title", text: marker.label });
+    label.addEventListener("click", () => {
+      void this.plugin.openCard(marker.card);
+    });
+    const meta = item.createDiv({ cls: "kanban-rpm-timeline-marker-meta" });
+    meta.createSpan({ text: this.cardDisplayBreadcrumb(marker.card) });
+    this.renderStatusBadge(meta, marker.card.status);
+    this.renderPriorityBadge(meta, marker.card);
+    this.renderStatusSelect(item, marker.card);
+    const actions = this.getVisibleSmallActions(marker.card).slice(0, 3);
+    if (actions.length) {
+      const list = item.createDiv({ cls: "kanban-rpm-timeline-marker-actions" });
+      for (const action of actions) this.renderSmallActionRow(list, action);
+    }
+  }
+  renderRecurringTimelineChip(container, marker) {
+    const chip = container.createEl("button", {
+      cls: `kanban-rpm-timeline-recurring-chip kanban-rpm-type-${marker.card.type.replace("_", "-")}`,
+      attr: { title: `${marker.card.title} - ${marker.label}` }
+    });
+    chip.style.setProperty("--rpm-project-color", this.projectColor(marker.card.colorKey));
+    chip.createSpan({ cls: "kanban-rpm-timeline-recurring-icon", text: "R" });
+    chip.createSpan({ cls: "kanban-rpm-timeline-recurring-text", text: marker.label.replace(/^(daily|weekly|monthly|custom):\s*/, "") });
+    chip.addEventListener("click", () => {
+      void this.plugin.openCard(marker.card);
+    });
+  }
+  collectTimelineMarkers(cards, daySet) {
+    const markers = [];
+    for (const card of cards) {
+      if (card.dueDate && daySet.has(card.dueDate)) {
+        markers.push({ date: card.dueDate, label: `due: ${card.title}`, kind: "due", card });
+      }
+      if (card.nextReview && daySet.has(card.nextReview)) {
+        markers.push({ date: card.nextReview, label: `review: ${card.title}`, kind: "review", card });
+      }
+      for (const action of card.smallActions) {
+        if (action.done) continue;
+        const date = action.scheduledDate || action.dueDate;
+        if (date && daySet.has(date)) {
+          markers.push({ date, label: `task: ${action.text}`, kind: "task", card });
+        }
+      }
+      if (card.routines.length) {
+        for (const day of daySet) {
+          for (const item of card.routines) {
+            if (item.cadence === "daily" && day !== todayIso()) continue;
+            if (this.isRecurringItemVisibleOnDay(day, item)) {
+              if (this.isRecurringItemCompletedForOccurrence(day, item)) continue;
+              markers.push({ date: day, label: `${item.cadence}: ${item.text}`, kind: "recurring", card });
+            }
+          }
+        }
+      }
+    }
+    return markers.sort((a, b) => a.date.localeCompare(b.date) || a.card.title.localeCompare(b.card.title));
+  }
+  filterTimelineMarkers(markers) {
+    const query = this.timelineSearchQuery.trim().toLowerCase();
+    return markers.filter((marker) => {
+      if (this.timelineScope !== "all" && marker.kind !== this.timelineScope && !(this.timelineScope === "tasks" && marker.kind === "task")) {
+        return false;
+      }
+      if (!query) return true;
+      return [marker.label, marker.card.title, marker.card.breadcrumb, marker.card.workstreamType].join(" ").toLowerCase().includes(query);
+    });
+  }
+  groupTimelineMarkers(markers) {
+    var _a;
+    const map = /* @__PURE__ */ new Map();
+    for (const marker of markers) {
+      const project = this.projectFilter || marker.card.projectTitle || marker.card.projectTitles[0] || "No project";
+      const subproject = this.subprojectFilter || marker.card.subprojectTitle || marker.card.subprojectTitles[0] || "";
+      const label = [project, subproject].filter(Boolean).join(" > ");
+      const key = `${project}>${subproject}`;
+      const existing = (_a = map.get(key)) != null ? _a : {
+        label,
+        colorKey: marker.card.colorKey || marker.card.projectTitle || label,
+        markers: []
+      };
+      existing.markers.push(marker);
+      map.set(key, existing);
+    }
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }
+  ensureTimelineStatusFilter() {
+    var _a, _b, _c;
+    const valid = new Set(this.plugin.settings.statuses.map((status) => status.id));
+    this.timelineStatusFilter = new Set(Array.from(this.timelineStatusFilter).filter((status) => valid.has(status)));
+    if (!this.timelineStatusFilter.size) {
+      this.timelineStatusFilter = new Set(this.plugin.settings.timelineStatusFilter.filter((status) => valid.has(status)));
+    }
+    if (this.timelineStatusFilter.size) return;
+    const activeStatus = (_c = (_a = this.plugin.settings.statuses.find((status) => status.id === "active")) == null ? void 0 : _a.id) != null ? _c : (_b = this.plugin.settings.statuses[0]) == null ? void 0 : _b.id;
+    if (activeStatus) this.timelineStatusFilter.add(activeStatus);
+  }
+  ensureBoardStatusFilter() {
+    const valid = new Set(this.plugin.settings.statuses.map((status) => status.id));
+    this.boardStatusFilter = new Set(Array.from(this.boardStatusFilter).filter((status) => valid.has(status)));
+    if (!this.boardStatusFilter.size) {
+      this.boardStatusFilter = new Set(this.plugin.settings.boardStatusFilter.filter((status) => valid.has(status)));
+    }
+    if (this.boardStatusFilter.size) return;
+    this.boardStatusFilter = new Set(this.plugin.settings.statuses.map((status) => status.id));
+  }
+  timelineDays() {
+    const start = this.timelineRangeStart || addDays(this.timelineBaseDate, -7);
+    const end = this.timelineRangeEnd || addDays(this.timelineBaseDate, 7);
+    return dateRange(start, end);
+  }
+  shiftTimelineBase(days) {
+    this.timelineBaseDate = addDays(this.timelineBaseDate, days);
+    this.timelineRangeStart = "";
+    this.timelineRangeEnd = "";
+  }
+  ganttMonthSegments(start, end) {
+    return monthRange(start, end).map((month) => ({
+      key: month,
+      label: this.ganttMonthLabel(month),
+      start: `${month}-01`,
+      end: endOfMonth(`${month}-01`)
+    })).map((segment) => ({
+      ...segment,
+      start: segment.start < start ? start : segment.start,
+      end: segment.end > end ? end : segment.end
+    }));
+  }
+  ganttWeekSegments(start, end) {
+    const segments = [];
+    for (const month of monthRange(start, end)) {
+      const monthStart = `${month}-01`;
+      const monthEnd = endOfMonth(monthStart);
+      let cursor = monthStart;
+      let index = 1;
+      while (cursor <= monthEnd) {
+        const segmentStart = cursor;
+        const segmentEnd = addDays(segmentStart, 6) > monthEnd ? monthEnd : addDays(segmentStart, 6);
+        if (segmentEnd >= start && segmentStart <= end) {
+          segments.push({
+            key: `${month}-W${index}`,
+            label: `W${index}`,
+            start: segmentStart < start ? start : segmentStart,
+            end: segmentEnd > end ? end : segmentEnd
+          });
+        }
+        cursor = addDays(segmentEnd, 1);
+        index += 1;
+      }
+    }
+    return segments;
+  }
+  ganttQuarterSegments(start, end) {
+    const segments = [];
+    const first = /* @__PURE__ */ new Date(`${start.slice(0, 7)}-01T00:00:00`);
+    first.setMonth(Math.floor(first.getMonth() / 3) * 3);
+    const last = /* @__PURE__ */ new Date(`${end.slice(0, 7)}-01T00:00:00`);
+    for (const date = new Date(first); date <= last; date.setMonth(date.getMonth() + 3)) {
+      const quarterStart = formatDate(date);
+      const quarterEndDate = new Date(date);
+      quarterEndDate.setMonth(quarterEndDate.getMonth() + 3);
+      quarterEndDate.setDate(0);
+      const quarterEnd = formatDate(quarterEndDate);
+      const quarter = Math.floor(date.getMonth() / 3) + 1;
+      segments.push({
+        key: `${date.getFullYear()}-Q${quarter}`,
+        label: `${date.getFullYear()} Q${quarter}`,
+        start: quarterStart < start ? start : quarterStart,
+        end: quarterEnd > end ? end : quarterEnd
+      });
+      if (segments.length > 24) break;
+    }
+    return segments;
+  }
+  ganttMonthLabel(month) {
+    const date = /* @__PURE__ */ new Date(`${month}-01T00:00:00`);
+    return date.toLocaleString("en-US", { month: "short", year: "numeric" });
+  }
+  normalizeTimelineDate(value) {
+    const normalized = value.trim().replace(/[./]/g, "-");
+    return isIsoDate(normalized) ? normalized : "";
+  }
+  toDisplayDate(value) {
+    return value ? value.replace(/-/g, ".") : "";
+  }
+  timelineDayLabel(day) {
+    const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
+  }
+  formatDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  isRecurringVisibleOnDay(day, cadence) {
+    if (cadence === "daily") return true;
+    const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
+    const base = /* @__PURE__ */ new Date(`${this.timelineBaseDate}T00:00:00`);
+    if (cadence === "weekly") return date.getDay() === base.getDay();
+    if (cadence === "custom") return false;
+    return date.getDate() === base.getDate();
+  }
+  isRecurringItemVisibleOnDay(day, item) {
+    const start = item.startDate;
+    if (!start) return false;
+    if (day < start) return false;
+    if (item.cadence === "daily") return true;
+    const startDate = /* @__PURE__ */ new Date(`${start}T00:00:00`);
+    const current = /* @__PURE__ */ new Date(`${day}T00:00:00`);
+    if (item.cadence === "weekly") return current.getDay() === startDate.getDay();
+    if (item.cadence === "monthly") return current.getDate() === startDate.getDate();
+    if (item.unit === "day") {
+      const diff = Math.floor((current.getTime() - startDate.getTime()) / 864e5);
+      return diff >= 0 && diff % Math.max(1, item.interval) === 0;
+    }
+    if (item.unit === "week") {
+      const diff = Math.floor((current.getTime() - startDate.getTime()) / 864e5);
+      return diff >= 0 && diff % (Math.max(1, item.interval) * 7) === 0;
+    }
+    if (current.getDate() !== startDate.getDate()) return false;
+    const monthDiff = (current.getFullYear() - startDate.getFullYear()) * 12 + current.getMonth() - startDate.getMonth();
+    return monthDiff >= 0 && monthDiff % Math.max(1, item.interval) === 0;
+  }
+  isRecurringItemCompletedForOccurrence(day, item) {
+    const next = this.nextOccurrenceAfter(day, item);
+    return item.completedDates.some((completed) => completed >= day && (!next || completed < next));
+  }
+  nextOccurrenceAfter(day, item) {
+    for (let offset = 1; offset <= 370; offset += 1) {
+      const candidate = addDays(day, offset);
+      if (this.isRecurringItemVisibleOnDay(candidate, item)) return candidate;
+    }
+    return "";
+  }
+  recurringGroupKey(item) {
+    if (item.cadence !== "custom") return item.cadence;
+    return `${item.interval}${item.unit}`;
+  }
+  recurringGroupLabel(item) {
+    if (item.cadence === "daily") return "Daily";
+    if (item.cadence === "weekly") return "Weekly";
+    if (item.cadence === "monthly") return "Monthly";
+    const unit = item.unit === "day" ? "D" : item.unit === "week" ? "W" : "M";
+    return `Every ${item.interval}${unit}`;
+  }
+  recurringFrequencyDays(item) {
+    if (item.cadence === "daily") return 1;
+    if (item.cadence === "weekly") return 7;
+    if (item.cadence === "monthly") return 30;
+    if (item.unit === "day") return item.interval;
+    if (item.unit === "week") return item.interval * 7;
+    return item.interval * 30;
+  }
+  async readTimelineMemo(day) {
+    const file = await this.ensureTimelineMemoFile(day);
+    if (!file) return "";
+    const content = await this.app.vault.read(file);
+    return this.extractMemoBody(content);
+  }
+  async saveTimelineMemo(day, memo) {
+    const file = await this.ensureTimelineMemoFile(day, true);
+    if (!file) return;
+    const content = await this.app.vault.read(file);
+    const next = this.replaceMemoBody(content, memo);
+    if (next !== content) await this.app.vault.modify(file, next);
+  }
+  async ensureTimelineMemoFile(day, create = false) {
+    await this.plugin.ensureWorkspace();
+    const folder = (0, import_obsidian2.normalizePath)(`${this.plugin.workspaceFolder}/timeline`);
+    if (create && !this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+    const path = (0, import_obsidian2.normalizePath)(`${folder}/${day}.md`);
+    let file = null;
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof import_obsidian2.TFile) file = existing;
+    if (!(file instanceof import_obsidian2.TFile) && create) {
+      file = await this.app.vault.create(path, `# ${day} Timeline Memo
+
+## Memo
+
+## Notes
+`);
+    }
+    return file;
+  }
+  extractMemoBody(content) {
+    const section = this.findMarkdownSection(content, "Memo", 2);
+    if (!section) return "";
+    return section.bodyLines.join("\n").trimEnd();
+  }
+  replaceMemoBody(content, memo) {
+    const normalized = memo.trimEnd();
+    const lines = content.split(/\r?\n/);
+    const section = this.findMarkdownSection(content, "Memo", 2);
+    const replacement = ["## Memo", "", ...normalized.split("\n").filter((_, index, array) => normalized || index < array.length - 1)];
+    if (normalized) replacement.push("");
+    if (!section) {
+      const prefix = content.trimEnd();
+      return `${prefix}${prefix ? "\n\n" : ""}${replacement.join("\n")}`;
+    }
+    const next = [...lines.slice(0, section.headingLine), ...replacement, ...lines.slice(section.endLine)];
+    return next.join("\n").replace(/\n{4,}/g, "\n\n\n");
+  }
+  findMarkdownSection(content, title, level) {
+    const lines = content.split(/\r?\n/);
+    const headingPattern = new RegExp(`^#{${level}}\\s+${this.escapeRegex(title)}\\s*$`, "i");
+    const anyHeadingPattern = /^(#{1,6})\s+\S/;
+    const headingLine = lines.findIndex((line) => headingPattern.test(line.trimEnd()));
+    if (headingLine < 0) return null;
+    let bodyStart = headingLine + 1;
+    if (lines[bodyStart] === "") bodyStart += 1;
+    let endLine = lines.length;
+    for (let index = bodyStart; index < lines.length; index += 1) {
+      const match = lines[index].match(anyHeadingPattern);
+      if (match && match[1].length <= level) {
+        endLine = index;
+        break;
+      }
+    }
+    return {
+      headingLine,
+      endLine,
+      bodyLines: lines.slice(bodyStart, endLine)
+    };
+  }
+  escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  sortTableCards(cards) {
+    const sorted = [...cards].sort((a, b) => {
+      const aValue = this.tableSortValue(a, this.tableSortKey);
+      const bValue = this.tableSortValue(b, this.tableSortKey);
+      const result = aValue.localeCompare(bValue, void 0, { numeric: true, sensitivity: "base" });
+      return result || compareCards(a, b);
+    });
+    if (this.tableSortDirection === "desc") sorted.reverse();
+    return sorted;
+  }
+  tableSortValue(card, key) {
+    if (key === "title") return card.title;
+    if (key === "project") return card.breadcrumb || card.projectTitle || "";
+    if (key === "type") return card.type;
+    if (key === "status") return card.status;
+    if (key === "priority") return String(card.priority).padStart(2, "0");
+    if (key === "date") return toDateSortValue(card);
+    if (key === "dependencies") return String(card.blockedBy.length + card.precededBy.length + card.followedBy.length).padStart(3, "0");
+    return String(card.actionCount).padStart(4, "0");
+  }
+  cardTypeLabel(type) {
+    if (type === "big_action") return "Big Action";
+    if (type === "subproject") return "Subproject";
+    return "Project";
+  }
+  cardDateLabel(card) {
+    const parts = [];
+    if (card.dueDate) parts.push(`due ${card.dueDate}`);
+    if (card.nextReview) parts.push(`review ${card.nextReview}`);
+    return parts.join(" - ") || "No date";
+  }
+  cardDependencyLabel(card) {
+    const parts = [];
+    if (card.blockedBy.length) parts.push(`waiting on ${card.blockedBy.length}`);
+    if (card.precededBy.length) parts.push(`preceded ${card.precededBy.length}`);
+    if (card.followedBy.length) parts.push(`followed ${card.followedBy.length}`);
+    return parts.join(" - ") || "None";
+  }
+  renderLane(board, lane, cards) {
+    const laneEl = board.createDiv({ cls: "kanban-rpm-lane" });
+    laneEl.dataset.status = lane.id;
+    const header = laneEl.createDiv({ cls: "kanban-rpm-lane-header" });
+    header.createSpan({ cls: "kanban-rpm-lane-title", text: lane.label });
+    const laneActions = header.createDiv({ cls: "kanban-rpm-lane-actions" });
+    laneActions.createSpan({ cls: "kanban-rpm-lane-count", text: String(cards.length) });
+    laneActions.createEl("button", {
+      cls: "kanban-rpm-lane-add",
+      text: "+",
+      attr: { "aria-label": `Add card to ${lane.label}` }
+    }).addEventListener("click", () => {
+      new NewProjectCardModal(this.app, this.plugin, lane.id).open();
+    });
+    const list = laneEl.createDiv({ cls: "kanban-rpm-card-list" });
+    if (!cards.length) {
+      list.createDiv({ cls: "kanban-rpm-empty", text: "No cards" });
+      return;
+    }
+    if (!this.groupByProject) {
+      for (const card of cards) this.renderCard(list, card);
+      return;
+    }
+    for (const group of this.groupCardsForCurrentFilter(cards)) {
+      const groupEl = list.createDiv({ cls: "kanban-rpm-project-group" });
+      const header2 = groupEl.createDiv({ cls: "kanban-rpm-project-group-header" });
+      this.addProjectToken(header2, group.project);
+      header2.createSpan({ text: group.project });
+      header2.createSpan({ cls: "kanban-rpm-project-group-count", text: String(group.cards.length) });
+      for (const card of group.cards) this.renderCard(groupEl, card);
+    }
+  }
+  renderCard(list, card) {
+    const cardClasses = [
+      "kanban-rpm-card",
+      `kanban-rpm-type-${card.type.replace("_", "-")}`,
+      `kanban-rpm-card-status-${card.status}`,
+      isPastDate(card.dueDate) || isPastDate(card.nextReview) ? "kanban-rpm-card-overdue" : ""
+    ].filter(Boolean).join(" ");
+    const cardEl = list.createDiv({ cls: cardClasses });
+    cardEl.dataset.path = card.path;
+    cardEl.style.setProperty("--rpm-project-color", this.projectColor(card.colorKey));
+    this.attachPointerDrag(cardEl, card);
+    this.renderFlowDots(cardEl, card);
+    const toolbar = cardEl.createDiv({ cls: "kanban-rpm-card-toolbar" });
+    if (this.plugin.settings.cardDisplayFields.breadcrumb) {
+      const context = toolbar.createDiv({ cls: "kanban-rpm-card-context" });
+      this.addProjectToken(context, card.colorKey);
+      this.renderCardBreadcrumb(context, card);
+    }
+    const titleActions = toolbar.createDiv({ cls: "kanban-rpm-card-title-actions" });
+    if (this.plugin.settings.cardDisplayFields.priority) {
+      this.renderPriorityBadge(titleActions, card);
+    }
+    this.createIconButton(titleActions, "pencil", `Edit ${card.title}`).addEventListener("click", () => {
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+    this.renderCardMoreMenu(titleActions, card);
+    cardEl.createEl("button", { cls: "kanban-rpm-card-title", text: card.title }).addEventListener("click", (event) => {
+      event.stopPropagation();
+      void this.plugin.openCard(card);
+    });
+    const fields = this.plugin.settings.cardDisplayFields;
+    const primaryMeta = cardEl.createDiv({ cls: "kanban-rpm-meta kanban-rpm-card-primary-meta" });
+    if (card.blockedBy.length) this.addMeta(primaryMeta, String(card.blockedBy.length), "waiting on", "kanban-rpm-meta-dependency");
+    if (fields.category) this.addMeta(primaryMeta, card.workstreamType, "category", "kanban-rpm-meta-kind");
+    if (!primaryMeta.childElementCount) primaryMeta.remove();
+    if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: "kanban-rpm-next", text: card.nextAction });
+    if (fields.waiting && card.status === this.getConfiguredStatusId("waiting") && card.waitingFor) {
+      cardEl.createDiv({ cls: "kanban-rpm-next kanban-rpm-waiting", text: `Waiting: ${card.waitingFor}` });
+    }
+    if (fields.blockers && card.status === this.getConfiguredStatusId("blocked") && card.blocker) {
+      cardEl.createDiv({ cls: "kanban-rpm-next kanban-rpm-blocker", text: `Blocked: ${card.blocker}` });
+    }
+    const dateMeta = cardEl.createDiv({ cls: "kanban-rpm-meta kanban-rpm-card-date-meta" });
+    if (fields.dates) {
+      this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), "due", isPastDate(card.dueDate) ? "kanban-rpm-overdue" : "kanban-rpm-meta-date");
+      this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), "review", isPastDate(card.nextReview) ? "kanban-rpm-overdue" : "kanban-rpm-meta-date");
+    }
+    if (!dateMeta.childElementCount) dateMeta.remove();
+    if (fields.smallActionSummary) this.renderSmallActions(cardEl, card);
+    if (fields.dependencies || fields.sources || fields.status || fields.type) this.renderCardDetails(cardEl, card);
+  }
+  renderCardMoreMenu(container, card) {
+    const menu = container.createEl("details", { cls: "kanban-rpm-card-more" });
+    menu.addEventListener("toggle", () => {
+      var _a;
+      (_a = menu.closest(".kanban-rpm-card")) == null ? void 0 : _a.toggleClass("is-menu-open", menu.open);
+    });
+    const summary = menu.createEl("summary", { attr: { "aria-label": `More actions for ${card.title}` } });
+    (0, import_obsidian2.setIcon)(summary, "ellipsis-vertical");
+    const actions = menu.createDiv({ cls: "kanban-rpm-card-more-menu" });
+    actions.createEl("button", { text: "Duplicate" }).addEventListener("click", () => {
+      void this.plugin.duplicateCard(card);
+      menu.removeAttribute("open");
+    });
+    actions.createEl("button", { text: "Archive" }).addEventListener("click", () => {
+      new ConfirmCardActionModal(this.app, {
+        title: "Archive card",
+        message: `Move "${card.title}" to KanbanRPM archive?`,
+        confirmText: "Archive",
+        onConfirm: () => this.plugin.archiveCard(card)
+      }).open();
+      menu.removeAttribute("open");
+    });
+    actions.createEl("button", { cls: "mod-warning", text: "Delete" }).addEventListener("click", () => {
+      new ConfirmCardActionModal(this.app, {
+        title: "Delete card",
+        message: `Move "${card.title}" to the system trash?`,
+        confirmText: "Delete",
+        onConfirm: () => this.plugin.deleteCard(card)
+      }).open();
+      menu.removeAttribute("open");
+    });
+  }
+  renderFlowDots(cardEl, card) {
+    const incoming = cardEl.createSpan({
+      cls: "kanban-rpm-flow-dot kanban-rpm-flow-dot-in",
+      attr: { title: "Preceded by connector", "aria-label": "Preceded by connector" }
+    });
+    incoming.dataset.path = card.path;
+    incoming.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    const outgoing = cardEl.createSpan({
+      cls: "kanban-rpm-flow-dot kanban-rpm-flow-dot-out",
+      attr: { title: "Followed by connector", "aria-label": "Followed by connector" }
+    });
+    outgoing.dataset.path = card.path;
+    outgoing.addEventListener("pointerdown", (event) => this.startFlowConnect(event, card));
+  }
+  startFlowConnect(event, source) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const wrap = event.currentTarget.closest(".kanban-rpm-board-wrap");
+    const overlay = wrap == null ? void 0 : wrap.querySelector(".kanban-rpm-board-flow-overlay");
+    if (!wrap || !overlay) return;
+    const rect = wrap.getBoundingClientRect();
+    const startX = event.clientX - rect.left + wrap.scrollLeft;
+    const startY = event.clientY - rect.top + wrap.scrollTop;
+    const preview = this.svgEl("path");
+    preview.setAttribute("class", "kanban-rpm-board-flow-arrow is-preview");
+    preview.setAttribute("d", `M ${startX} ${startY} C ${startX + 80} ${startY}, ${startX + 80} ${startY}, ${startX} ${startY}`);
+    overlay.appendChild(preview);
+    this.flowConnect = { pointerId: event.pointerId, sourcePath: source.path, preview, startX, startY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (moveEvent) => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== moveEvent.pointerId) return;
+      const endX = moveEvent.clientX - rect.left + wrap.scrollLeft;
+      const endY = moveEvent.clientY - rect.top + wrap.scrollTop;
+      const control = Math.max(60, Math.abs(endX - this.flowConnect.startX) * 0.45);
+      this.flowConnect.preview.setAttribute(
+        "d",
+        `M ${this.flowConnect.startX} ${this.flowConnect.startY} C ${this.flowConnect.startX + control} ${this.flowConnect.startY}, ${endX - control} ${endY}, ${endX} ${endY}`
+      );
+      this.setFlowDropHighlight(this.findFlowDropTarget(moveEvent.clientX, moveEvent.clientY, this.flowConnect.sourcePath));
+    };
+    const end = (endEvent) => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== endEvent.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      const state = this.flowConnect;
+      state.preview.remove();
+      this.flowConnect = void 0;
+      this.setFlowDropHighlight("");
+      const targetPath = this.findFlowDropTarget(endEvent.clientX, endEvent.clientY, state.sourcePath);
+      const sourceCard = this.cards.find((card) => card.path === state.sourcePath);
+      if (sourceCard && targetPath && targetPath !== sourceCard.path) void this.plugin.addPrecededBy(targetPath, sourceCard);
+    };
+    const cancel = (cancelEvent) => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== cancelEvent.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      this.flowConnect.preview.remove();
+      this.flowConnect = void 0;
+      this.setFlowDropHighlight("");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", cancel);
+  }
+  findFlowDropTarget(clientX, clientY, sourcePath) {
+    var _a, _b, _c;
+    const targets = Array.from(this.containerEl.querySelectorAll(".kanban-rpm-flow-dot-in"));
+    let best;
+    for (const target of targets) {
+      const path = (_a = target.dataset.path) != null ? _a : "";
+      if (!path || path === sourcePath) continue;
+      const rect = target.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const cardRect = (_b = target.closest(".kanban-rpm-card")) == null ? void 0 : _b.getBoundingClientRect();
+      const isInCardConnectorZone = cardRect ? clientX >= cardRect.left - 20 && clientX <= cardRect.left + 58 && clientY >= cardRect.top - 10 && clientY <= cardRect.bottom + 10 : false;
+      if (distance > 38 && !isInCardConnectorZone) continue;
+      if (!best || distance < best.distance) best = { path, distance };
+    }
+    return (_c = best == null ? void 0 : best.path) != null ? _c : "";
+  }
+  setFlowDropHighlight(targetPath) {
+    var _a;
+    this.containerEl.querySelectorAll(".kanban-rpm-flow-dot-in.is-flow-target, .kanban-rpm-card.is-flow-target").forEach((element) => element.removeClass("is-flow-target"));
+    if (!targetPath) return;
+    const target = this.containerEl.querySelector(`.kanban-rpm-flow-dot-in[data-path="${CSS.escape(targetPath)}"]`);
+    target == null ? void 0 : target.addClass("is-flow-target");
+    (_a = target == null ? void 0 : target.closest(".kanban-rpm-card")) == null ? void 0 : _a.addClass("is-flow-target");
+  }
+  startGanttFlowConnect(event, source) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const overlay = this.svgEl("svg");
+    overlay.addClass("kanban-rpm-gantt-flow-preview-overlay");
+    overlay.setAttribute("width", String(window.innerWidth));
+    overlay.setAttribute("height", String(window.innerHeight));
+    overlay.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+    const preview = this.svgEl("path");
+    preview.setAttribute("class", "kanban-rpm-gantt-flow-preview");
+    preview.setAttribute("d", `M ${event.clientX} ${event.clientY} C ${event.clientX + 80} ${event.clientY}, ${event.clientX + 80} ${event.clientY}, ${event.clientX} ${event.clientY}`);
+    overlay.appendChild(preview);
+    document.body.appendChild(overlay);
+    this.flowConnect = { pointerId: event.pointerId, sourcePath: source.path, preview, previewOverlay: overlay, startX: event.clientX, startY: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (moveEvent) => {
+      if (!this.flowConnect || this.flowConnect.pointerId !== moveEvent.pointerId) return;
+      const control = Math.max(60, Math.abs(moveEvent.clientX - this.flowConnect.startX) * 0.45);
+      this.flowConnect.preview.setAttribute(
+        "d",
+        `M ${this.flowConnect.startX} ${this.flowConnect.startY} C ${this.flowConnect.startX + control} ${this.flowConnect.startY}, ${moveEvent.clientX - control} ${moveEvent.clientY}, ${moveEvent.clientX} ${moveEvent.clientY}`
+      );
+      this.setGanttFlowDropHighlight(this.findGanttFlowDropTarget(moveEvent.clientX, moveEvent.clientY, this.flowConnect.sourcePath));
+    };
+    const end = (endEvent) => {
+      var _a;
+      if (!this.flowConnect || this.flowConnect.pointerId !== endEvent.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      const state = this.flowConnect;
+      (_a = state.previewOverlay) == null ? void 0 : _a.remove();
+      state.preview.remove();
+      this.flowConnect = void 0;
+      this.setGanttFlowDropHighlight("");
+      const targetPath = this.findGanttFlowDropTarget(endEvent.clientX, endEvent.clientY, state.sourcePath);
+      const sourceCard = this.cards.find((card) => card.path === state.sourcePath);
+      if (!sourceCard || !targetPath) return;
+      if (targetPath === sourceCard.path) {
+        new import_obsidian4.Notice("KanbanRPM cannot create a flow arrow to the same card.");
+        return;
+      }
+      void this.plugin.addPrecededBy(targetPath, sourceCard);
+    };
+    const cancel = (cancelEvent) => {
+      var _a;
+      if (!this.flowConnect || this.flowConnect.pointerId !== cancelEvent.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      (_a = this.flowConnect.previewOverlay) == null ? void 0 : _a.remove();
+      this.flowConnect.preview.remove();
+      this.flowConnect = void 0;
+      this.setGanttFlowDropHighlight("");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", cancel);
+  }
+  findGanttFlowDropTarget(clientX, clientY, sourcePath) {
+    var _a, _b, _c, _d;
+    const targets = Array.from(this.containerEl.querySelectorAll(".kanban-rpm-gantt-flow-dot-in"));
+    let best;
+    for (const target of targets) {
+      const path = (_a = target.dataset.path) != null ? _a : "";
+      if (!path || path === sourcePath) continue;
+      const rect = target.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const barRect = (_b = this.containerEl.querySelector(`.kanban-rpm-gantt-bar[data-path="${CSS.escape(path)}"]`)) == null ? void 0 : _b.getBoundingClientRect();
+      const trackRect = (_c = target.closest(".kanban-rpm-gantt-track")) == null ? void 0 : _c.getBoundingClientRect();
+      const isInBarConnectorZone = barRect ? clientX >= barRect.left - 36 && clientX <= barRect.right + 36 && clientY >= barRect.top - 18 && clientY <= barRect.bottom + 18 : false;
+      const isInTrackConnectorZone = trackRect ? Math.abs(clientX - centerX) <= 72 && clientY >= trackRect.top - 8 && clientY <= trackRect.bottom + 8 : false;
+      if (distance > 56 && !isInBarConnectorZone && !isInTrackConnectorZone) continue;
+      if (!best || distance < best.distance) best = { path, distance };
+    }
+    return (_d = best == null ? void 0 : best.path) != null ? _d : "";
+  }
+  setGanttFlowDropHighlight(targetPath) {
+    var _a, _b;
+    this.containerEl.querySelectorAll(".kanban-rpm-gantt-flow-dot-in.is-flow-target, .kanban-rpm-gantt-bar.is-flow-target, .kanban-rpm-gantt-row.is-flow-target").forEach((element) => element.removeClass("is-flow-target"));
+    if (!targetPath) return;
+    const target = this.containerEl.querySelector(`.kanban-rpm-gantt-flow-dot-in[data-path="${CSS.escape(targetPath)}"]`);
+    target == null ? void 0 : target.addClass("is-flow-target");
+    (_a = this.containerEl.querySelector(`.kanban-rpm-gantt-bar[data-path="${CSS.escape(targetPath)}"]`)) == null ? void 0 : _a.addClass("is-flow-target");
+    (_b = target == null ? void 0 : target.closest(".kanban-rpm-gantt-row")) == null ? void 0 : _b.addClass("is-flow-target");
+  }
+  renderCardBreadcrumb(container, card) {
+    const project = card.projectTitle || card.projectTitles[0] || "No project";
+    const subproject = card.subprojectTitle || card.subprojectTitles[0] || "";
+    const text2 = container.createSpan({ cls: "kanban-rpm-card-breadcrumb-text" });
+    text2.createSpan({ text: project });
+    if (card.type === "big_action" && subproject) text2.createSpan({ text: `> ${subproject}` });
+  }
+  cardDisplayBreadcrumb(card) {
+    const project = card.projectTitle || card.projectTitles[0] || "No project";
+    const subproject = card.subprojectTitle || card.subprojectTitles[0] || "";
+    if (card.type === "big_action" && subproject) return `${project} > ${subproject}`;
+    return project;
+  }
+  createIconButton(container, icon, label, cls = "") {
+    const button = container.createEl("button", {
+      cls: ["kanban-rpm-icon-button", cls].filter(Boolean).join(" "),
+      attr: { "aria-label": label, title: label }
+    });
+    (0, import_obsidian2.setIcon)(button, icon);
+    return button;
+  }
+  renderCardDetails(container, card) {
+    const details = container.createEl("details", { cls: "kanban-rpm-card-details" });
+    details.createEl("summary", { text: "Details" });
+    const body = details.createDiv({ cls: "kanban-rpm-card-details-body" });
+    const fields = this.plugin.settings.cardDisplayFields;
+    if (fields.status) {
+      const line = body.createDiv({ cls: "kanban-rpm-card-detail-line" });
+      line.createSpan({ cls: "kanban-rpm-card-detail-label", text: "status: " });
+      this.renderStatusBadge(line, card.status);
+    }
+    if (fields.type) this.addMeta(body, this.cardTypeLabel(card.type), "type", "kanban-rpm-meta-kind");
+    if (fields.waiting && card.status !== this.getConfiguredStatusId("waiting")) this.addMeta(body, card.waitingFor, "waiting", "kanban-rpm-meta-kind");
+    if (fields.blockers && card.status !== this.getConfiguredStatusId("blocked")) this.addMeta(body, card.blocker, "blocker", "kanban-rpm-meta-dependency");
+    if (fields.dependencies || fields.sources) this.renderCardRelations(body, card);
+  }
+  shortDateLabel(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const date = /* @__PURE__ */ new Date(`${value}T00:00:00`);
+    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
+    return `${value.slice(5)} ${day}`;
+  }
+  addMeta(container, value, label, cls) {
+    if (value) container.createSpan({ cls, text: `${label}: ${value}` });
+  }
+  renderStatusBadge(container, statusId, label = this.statusLabel(statusId), tag = "span") {
+    const cls = `kanban-rpm-status-badge kanban-rpm-status-${statusId}`;
+    return tag === "button" ? container.createEl("button", { cls, text: label, attr: { title: `Edit status: ${label}` } }) : container.createSpan({ cls, text: label });
+  }
+  renderPriorityBadge(container, card) {
+    return container.createSpan({
+      cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
+      text: `P${card.priority}`
+    });
+  }
+  addCountMeta(container, count, label, cls) {
+    if (count > 0) container.createSpan({ cls, text: `${label}: ${count}` });
+  }
+  renderSmallActions(cardEl, card) {
+    const visibleActions = this.getVisibleSmallActions(card);
+    if (!card.smallActions.length && !visibleActions.length) return;
+    const open = card.smallActions.filter((action) => !action.done).length;
+    const expanded = this.isSmallActionsExpanded(card);
+    const panel = cardEl.createDiv({ cls: "kanban-rpm-small-actions" });
+    const header = panel.createEl("button", {
+      cls: "kanban-rpm-small-actions-toggle",
+      text: `${expanded ? "v" : ">"} Small actions: ${open} remaining`
+    });
+    header.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.toggleSmallActions(card);
+      this.render();
+    });
+    if (!expanded) return;
+    if (!visibleActions.length) {
+      panel.createDiv({ cls: "kanban-rpm-small-action-empty", text: "No small actions match the display rule." });
+      return;
+    }
+    const list = panel.createDiv({ cls: "kanban-rpm-small-action-list" });
+    const shown = visibleActions.slice(0, 8);
+    for (const group of this.groupSmallActionsByHeading(shown)) {
+      const groupEl = list.createDiv({ cls: "kanban-rpm-small-action-group" });
+      groupEl.createDiv({ cls: "kanban-rpm-small-action-heading", text: group.heading });
+      for (const action of group.actions) this.renderSmallActionRow(groupEl, action);
+    }
+    if (visibleActions.length > shown.length) {
+      panel.createDiv({ cls: "kanban-rpm-small-action-more", text: `+${visibleActions.length - shown.length} more` });
+    }
+  }
+  renderSmallActionRow(container, action) {
+    const row = container.createDiv({ cls: `kanban-rpm-small-action${action.done ? " is-done" : ""}` });
+    const checkbox = row.createEl("input", {
+      attr: {
+        type: "checkbox",
+        "aria-label": `Toggle ${action.text}`
+      }
+    });
+    checkbox.checked = action.done;
+    checkbox.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    checkbox.addEventListener("change", () => {
+      void this.plugin.toggleSmallAction(action);
+    });
+    const body = row.createDiv({ cls: "kanban-rpm-small-action-body" });
+    body.createDiv({ cls: "kanban-rpm-small-action-text", text: action.text });
+    const meta = body.createDiv({ cls: "kanban-rpm-small-action-meta" });
+    if (action.scheduledDate) meta.createSpan({ text: `scheduled ${action.scheduledDate}` });
+    if (action.dueDate) meta.createSpan({ text: `due ${action.dueDate}` });
+    if (action.doneDate) meta.createSpan({ text: `done ${action.doneDate}` });
+    if (action.priority !== "normal") meta.createSpan({ text: action.priority });
+  }
+  groupSmallActionsByHeading(actions) {
+    var _a;
+    const map = /* @__PURE__ */ new Map();
+    for (const action of actions) {
+      const heading = action.heading || "Small Actions";
+      const existing = (_a = map.get(heading)) != null ? _a : [];
+      existing.push(action);
+      map.set(heading, existing);
+    }
+    return Array.from(map.entries()).map(([heading, groupActions]) => ({ heading, actions: groupActions }));
+  }
+  isSmallActionsExpanded(card) {
+    if (this.plugin.settings.smallActionDisplay.collapsedByDefault) return this.expandedSmallActions.has(card.path);
+    return !this.collapsedSmallActions.has(card.path);
+  }
+  toggleSmallActions(card) {
+    if (this.plugin.settings.smallActionDisplay.collapsedByDefault) {
+      if (this.expandedSmallActions.has(card.path)) this.expandedSmallActions.delete(card.path);
+      else this.expandedSmallActions.add(card.path);
+      return;
+    }
+    if (this.collapsedSmallActions.has(card.path)) this.collapsedSmallActions.delete(card.path);
+    else this.collapsedSmallActions.add(card.path);
+  }
+  getVisibleSmallActions(card) {
+    const { sourceFilter, dateWindow } = this.plugin.settings.smallActionDisplay;
+    return card.smallActions.filter((action) => {
+      if (sourceFilter === "dated" && !action.dueDate && !action.scheduledDate) return false;
+      if (sourceFilter === "done" && !action.done) return false;
+      return this.isSmallActionInWindow(action, dateWindow);
+    }).sort((a, b) => this.smallActionSortValue(a).localeCompare(this.smallActionSortValue(b)) || a.lineNumber - b.lineNumber);
+  }
+  smallActionSortValue(action) {
+    return action.scheduledDate || action.dueDate || action.doneDate || "9999-99-99";
+  }
+  isSmallActionOverdue(action) {
+    const date = action.scheduledDate || action.dueDate;
+    return Boolean(date && isPastDate(date));
+  }
+  isSmallActionInWindow(action, window2) {
+    if (window2 === "all") return true;
+    const date = action.scheduledDate || action.dueDate || action.doneDate;
+    if (!date) return false;
+    if (window2 === "overdue") return isPastDate(date);
+    if (window2 === "today") return date === todayIso();
+    if (isPastDate(date) || date === todayIso()) return true;
+    if (window2 === "tomorrow") return isDueSoon(date, 1);
+    if (window2 === "week") return isDueSoon(date, 7);
+    if (window2 === "month") return isDueSoon(date, 31);
+    return true;
+  }
+  todayIso() {
+    const today = /* @__PURE__ */ new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  }
+  attachPointerDrag(cardEl, card) {
+    cardEl.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || this.isInteractiveTarget(event.target)) return;
+      this.pointerDrag = {
+        cardPath: card.path,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dragging: false,
+        cardEl
+      };
+      cardEl.setPointerCapture(event.pointerId);
+    });
+    cardEl.addEventListener("pointermove", (event) => {
+      if (!this.pointerDrag || this.pointerDrag.pointerId !== event.pointerId) return;
+      const distance = Math.hypot(event.clientX - this.pointerDrag.startX, event.clientY - this.pointerDrag.startY);
+      if (!this.pointerDrag.dragging && distance < 6) return;
+      this.pointerDrag.dragging = true;
+      this.pointerDrag.cardEl.addClass("is-dragging");
+      this.setActiveDragLane(this.findLaneAtPoint(event.clientX, event.clientY));
+    });
+    cardEl.addEventListener("pointerup", (event) => {
+      var _a;
+      if (!this.pointerDrag || this.pointerDrag.pointerId !== event.pointerId) return;
+      const drag = this.pointerDrag;
+      const laneEl = (_a = this.findLaneAtPoint(event.clientX, event.clientY)) != null ? _a : drag.activeLaneEl;
+      this.clearPointerDrag();
+      if (!drag.dragging || !laneEl) return;
+      const status = laneEl.dataset.status;
+      if (!status) return;
+      const beforePath = this.findDropBeforePath(laneEl, event.clientY, drag.cardPath);
+      void this.plugin.moveCard(drag.cardPath, status, beforePath);
+    });
+    cardEl.addEventListener("pointercancel", () => this.clearPointerDrag());
+    cardEl.addEventListener("lostpointercapture", () => {
+      var _a;
+      if (((_a = this.pointerDrag) == null ? void 0 : _a.cardEl) === cardEl) this.clearPointerDrag();
+    });
+  }
+  isInteractiveTarget(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest("button, input, textarea, select, a, summary, details, .is-link"));
+  }
+  findLaneAtPoint(clientX, clientY) {
+    for (const element of document.elementsFromPoint(clientX, clientY)) {
+      if (!(element instanceof HTMLElement)) continue;
+      const laneEl = element.closest(".kanban-rpm-lane");
+      if (laneEl) return laneEl;
+    }
+    return void 0;
+  }
+  setActiveDragLane(laneEl) {
+    var _a, _b, _c;
+    if (((_a = this.pointerDrag) == null ? void 0 : _a.activeLaneEl) === laneEl) return;
+    (_c = (_b = this.pointerDrag) == null ? void 0 : _b.activeLaneEl) == null ? void 0 : _c.removeClass("is-drag-over");
+    if (this.pointerDrag) this.pointerDrag.activeLaneEl = laneEl;
+    laneEl == null ? void 0 : laneEl.addClass("is-drag-over");
+  }
+  clearPointerDrag() {
+    var _a;
+    if (!this.pointerDrag) return;
+    this.pointerDrag.cardEl.removeClass("is-dragging");
+    (_a = this.pointerDrag.activeLaneEl) == null ? void 0 : _a.removeClass("is-drag-over");
+    this.pointerDrag = void 0;
+  }
+  renderCardRelations(cardEl, card) {
+    const fields = this.plugin.settings.cardDisplayFields;
+    const rows = [];
+    if (fields.dependencies) {
+      rows.push(["Waiting on", card.blockedBy, "kanban-rpm-relation-blocks"]);
+      rows.push(["Preceded by", card.precededBy, "kanban-rpm-relation-depends"]);
+      rows.push(["Followed by", card.followedBy, "kanban-rpm-relation-blocks"]);
+    }
+    if (fields.sources) rows.push(["Sources", card.sourceNotes.slice(0, 3), "kanban-rpm-relation-sources"]);
+    const visibleRows = rows.filter(([, values]) => values.length > 0);
+    if (!visibleRows.length) return;
+    const relations = cardEl.createDiv({ cls: "kanban-rpm-card-relations" });
+    for (const [label, values, cls] of visibleRows) {
+      const row = relations.createDiv({ cls: `kanban-rpm-relation-row ${cls}` });
+      row.createSpan({ cls: "kanban-rpm-relation-label", text: `${label}:` });
+      const list = row.createSpan({ cls: "kanban-rpm-relation-values" });
+      for (const value of values.slice(0, 4)) {
+        const item = list.createSpan({ text: value });
+        if (value.includes("[[")) {
+          item.addClass("is-link");
+          item.setAttr("role", "button");
+          item.setAttr("tabindex", "0");
+          item.addEventListener("click", (event) => {
+            event.stopPropagation();
+            void this.plugin.openLinkedReference(value, card.path);
+          });
+          item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") void this.plugin.openLinkedReference(value, card.path);
+          });
+        }
+      }
+      if (values.length > 4) list.createSpan({ text: `+${values.length - 4}` });
+    }
+  }
+  findDropBeforePath(laneEl, clientY, draggingPath) {
+    const cards = Array.from(laneEl.querySelectorAll(".kanban-rpm-card")).filter(
+      (el) => el.dataset.path !== draggingPath
+    );
+    for (const cardEl of cards) {
+      const rect = cardEl.getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return cardEl.dataset.path;
+    }
+    return void 0;
+  }
+  groupCardsForCurrentFilter(cards) {
+    var _a;
+    const map = /* @__PURE__ */ new Map();
+    for (const card of cards) {
+      const project = this.projectFilter ? card.subprojectTitle || card.subprojectTitles[0] || "No subproject" : card.projectTitle || card.projectTitles[0] || "No project";
+      const existing = (_a = map.get(project)) != null ? _a : [];
+      existing.push(card);
+      map.set(project, existing);
+    }
+    return Array.from(map.entries()).map(([project, groupCards]) => ({ project, cards: groupCards.sort(compareCards) })).sort((a, b) => a.project.localeCompare(b.project));
+  }
+  addProjectToken(container, key) {
+    const token = container.createSpan({ cls: "kanban-rpm-project-token" });
+    token.style.setProperty("--rpm-project-color", this.projectColor(key));
+  }
+  getConfiguredStatusId(preferredId) {
+    var _a, _b;
+    return (_b = (_a = this.plugin.settings.statuses.find((status) => status.id === preferredId)) == null ? void 0 : _a.id) != null ? _b : preferredId;
+  }
+  isCompletionStatus(statusId) {
+    var _a, _b;
+    const status = this.plugin.settings.statuses.find((item) => item.id === statusId);
+    const value = `${(_a = status == null ? void 0 : status.id) != null ? _a : statusId} ${(_b = status == null ? void 0 : status.label) != null ? _b : ""}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value) || value.includes("?\u8881\u2465\u2537");
+  }
+  statusLabel(statusId) {
+    var _a, _b;
+    return (_b = (_a = this.plugin.settings.statuses.find((status) => status.id === statusId)) == null ? void 0 : _a.label) != null ? _b : statusId;
+  }
+  projectColor(key) {
+    let hash = 0;
+    for (const char of key || "project") hash = (hash * 31 + char.charCodeAt(0)) % 360;
+    return `hsl(${hash} 62% 48%)`;
+  }
+};
+
+// src-kanbanrpm/card-repository.ts
+var import_obsidian5 = require("obsidian");
+
+// src-kanbanrpm/markdown-utils.ts
+function getSection(content, title) {
+  const section = findHeadingSection(content, title);
+  return section ? content.slice(section.bodyStart, section.end) : "";
+}
+function findHeadingSection(content, title) {
+  const escaped = escapeRegex(title);
+  const pattern = new RegExp(`^(#{2,6})\\s+${escaped}\\s*$`, "gim");
+  const match = pattern.exec(content);
+  if (!match || match.index === void 0) return null;
+  const level = match[1].length;
+  const bodyStart = match.index + match[0].length;
+  const rest = content.slice(bodyStart);
+  const nextPattern = new RegExp(`^#{1,${level}}\\s+`, "m");
+  const next = rest.match(nextPattern);
+  return {
+    start: match.index,
+    bodyStart,
+    end: (next == null ? void 0 : next.index) === void 0 ? content.length : bodyStart + next.index,
+    level
+  };
+}
+function findNestedHeadingSection(content, parentTitle, childTitle) {
+  const parent = findHeadingSection(content, parentTitle);
+  if (!parent) return null;
+  const parentBody = content.slice(parent.bodyStart, parent.end);
+  const child = findHeadingSection(parentBody, childTitle);
+  if (!child) return null;
+  return {
+    start: parent.bodyStart + child.start,
+    bodyStart: parent.bodyStart + child.bodyStart,
+    end: parent.bodyStart + child.end,
+    level: child.level
+  };
+}
+function replaceSection(content, title, body) {
+  var _a;
+  const normalizedBody = body.trimEnd();
+  const existing = findHeadingSection(content, title);
+  const level = (_a = existing == null ? void 0 : existing.level) != null ? _a : 3;
+  const replacement = `${"#".repeat(level)} ${title}
+
+${normalizedBody}${normalizedBody ? "\n" : ""}`;
+  if (existing) return `${content.slice(0, existing.start)}${replacement}${content.slice(existing.end)}`;
+  return `${content.trimEnd()}
+
+${replacement}`;
+}
+function parseDependencyList(section, label) {
+  const lines = section.split(/\r?\n/);
+  const values = [];
+  let active = false;
+  for (const line of lines) {
+    if (new RegExp(`^\\s*${escapeRegex(label)}:\\s*$`, "i").test(line)) {
+      active = true;
+      continue;
+    }
+    if (/^\s*[A-Za-z].*:\s*$/.test(line)) active = false;
+    if (!active) continue;
+    const item = line.match(/^\s*[-*]\s+(.+)/);
+    if (item == null ? void 0 : item[1]) values.push(item[1].trim());
+  }
+  return values;
+}
+function parsePlainList(section) {
+  return section.split(/\r?\n/).map((line) => {
+    var _a, _b, _c;
+    return (_c = (_b = (_a = line.match(/^\s*[-*]\s+(.+)/)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+  }).filter(Boolean);
+}
+function parseMarkdownTableRow(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return null;
+  return trimmed.slice(1, -1).split("|").map((cell) => cell.trim());
+}
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// src-kanbanrpm/task-parser.ts
+function parseSmallActions(content) {
+  const actions = [];
+  let heading = "";
+  content.split(/\r?\n/).forEach((line, index) => {
+    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch == null ? void 0 : headingMatch[1]) heading = headingMatch[1].trim();
+    const task = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/);
+    if (!(task == null ? void 0 : task[2])) return;
+    const rawText = task[2].trim();
+    actions.push({
+      cardPath: "",
+      cardTitle: "",
+      text: stripTaskMetadata(rawText),
+      done: task[1].toLowerCase() === "x",
+      dueDate: extractTaskDate(rawText, "\\u{1F4C5}"),
+      scheduledDate: extractTaskDate(rawText, "\\u{23F3}"),
+      doneDate: extractTaskDate(rawText, "\\u{2705}"),
+      priority: extractTaskPriority(rawText),
+      heading,
+      lineNumber: index + 1,
+      lineText: line,
+      raw: line
+    });
+  });
+  return actions;
+}
+function extractTaskDate(textValue, marker) {
+  var _a;
+  const match = textValue.match(new RegExp(`${marker}\\s*(\\d{4}-\\d{2}-\\d{2})`, "u"));
+  return (_a = match == null ? void 0 : match[1]) != null ? _a : "";
+}
+function extractTaskPriority(textValue) {
+  if (/\u{23EB}/u.test(textValue)) return "highest";
+  if (/\u{1F53C}/u.test(textValue)) return "high";
+  if (/\u{1F53D}/u.test(textValue)) return "low";
+  if (/\u{23EC}/u.test(textValue)) return "lowest";
+  return "normal";
+}
+function stripTaskMetadata(textValue) {
+  return textValue.replace(/[\u{1F4C5}\u{23F3}\u{2705}]\s*\d{4}-\d{2}-\d{2}/gu, "").replace(/[\u{23EB}\u{1F53C}\u{1F53D}\u{23EC}]/gu, "").replace(/\s+/g, " ").trim();
+}
+
+// src-kanbanrpm/routine-utils.ts
+function parseRoutineLine(line, lineNumber) {
+  var _a, _b, _c, _d, _e;
+  const match = line.match(/^\s*[-*]\s+\[[ xX-]\]\s+(.+)$/);
+  if (!match) return null;
+  const raw = match[1].trim();
+  const cadence = (_b = (_a = raw.match(/@(daily|weekly|monthly)\b/i)) == null ? void 0 : _a[1]) == null ? void 0 : _b.toLowerCase();
+  const every = raw.match(/@every\s+(\d+)\s*([dDwWmM])\b/);
+  if (!cadence && !every) return null;
+  const startDate = (_d = (_c = raw.match(/@start\s+(\d{4}-\d{2}-\d{2})\b/i)) == null ? void 0 : _c[1]) != null ? _d : "";
+  const text2 = raw.replace(/@(daily|weekly|monthly)\b/gi, "").replace(/@every\s+\d+\s*[dDwWmM]\b/gi, "").replace(/@start\s+\d{4}-\d{2}-\d{2}\b/gi, "").trim();
+  const unitChar = (_e = every == null ? void 0 : every[2]) == null ? void 0 : _e.toLowerCase();
+  return {
+    cardPath: "",
+    cardTitle: "",
+    text: text2,
+    cadence: every ? "custom" : cadence,
+    startDate,
+    interval: every ? Number(every[1]) : 1,
+    unit: every ? unitChar === "w" ? "week" : unitChar === "m" ? "month" : "day" : cadence === "weekly" ? "week" : cadence === "monthly" ? "month" : "day",
+    lineNumber,
+    raw,
+    completedDates: []
+  };
+}
+function parseRoutineCompletedDates(section, routineText) {
+  const dates = [];
+  for (const line of section.split(/\r?\n/)) {
+    const row = line.match(/^\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+?)\s*\|?$/);
+    if (row && row[2].trim() === routineText) dates.push(row[1]);
+    const legacy = line.match(/^-\s+(\d{4}-\d{2}-\d{2})\s+completed:\s+(.+)$/);
+    if (legacy && legacy[2].trim() === routineText) dates.push(legacy[1]);
+  }
+  return Array.from(new Set(dates)).sort();
+}
+function routineScheduleLabel(item) {
+  const interval = item.cadence === "custom" ? `@every ${item.interval}${item.unit[0]}` : `@${item.cadence}`;
+  return item.startDate ? `${interval} @start ${item.startDate}` : interval;
+}
+
+// src-kanbanrpm/card-repository.ts
+var CardRepository = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+  }
+  async loadCards() {
+    return this.loadCardsInternal(false);
+  }
+  async loadArchivedCards() {
+    return this.loadCardsInternal(true);
+  }
+  async loadResearchLogs() {
+    await this.plugin.ensureWorkspace();
+    const file = await this.getResearchLogFile();
+    const content = await this.plugin.app.vault.read(file);
+    return [
+      ...this.parseResearchLog(content, "experiment"),
+      ...this.parseResearchLog(content, "analysis")
+    ].map((entry) => ({
+      ...entry,
+      cardPath: file.path,
+      cardTitle: file.basename
+    }));
+  }
+  async loadCardsInternal(archived) {
+    await this.plugin.ensureWorkspace();
+    const cards = [];
+    const prefix = `${this.plugin.cardsFolder}/`;
+    const statuses = this.plugin.settings.statuses;
+    for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+      if (!file.path.startsWith(prefix)) continue;
+      const content = await this.plugin.app.vault.read(file);
+      const fm = this.getEffectiveFrontmatter(content);
+      if (fm.kanban_rpm !== true && fm.kanban_rpm !== "true") continue;
+      const isArchived = fm.archived === true || fm.archived === "true" || file.path.split("/").includes("archive");
+      if (isArchived !== archived) continue;
+      const sectionData = this.parseLivingDocSections(content);
+      const type = this.normalizeCardType(text(fm.type));
+      const projects = this.uniqueLinks([text(fm.primary_project), ...toStringList(fm.projects)]);
+      const subprojects = this.uniqueLinks([text(fm.primary_subproject), ...toStringList(fm.subprojects)]);
+      const project = text(fm.primary_project) || projects[0] || "";
+      const subproject = text(fm.primary_subproject) || subprojects[0] || "";
+      const order = parseOrder(fm.order);
+      const title = this.getDocumentTitle(content) || file.basename;
+      cards.push({
+        file,
+        path: file.path,
+        id: text(fm.id) || file.basename,
+        title,
+        type,
+        status: normalizeStatus(fm.status, statuses),
+        projectState: this.normalizeProjectState(fm.project_state),
+        projectTitles: [],
+        subprojectTitles: [],
+        projectTitle: "",
+        subprojectTitle: "",
+        breadcrumb: "",
+        colorKey: "",
+        priority: parsePriority(fm.priority),
+        project,
+        subproject,
+        projects,
+        subprojects,
+        primaryProject: project,
+        primarySubproject: subproject,
+        workstreamType: text(fm.workstream_type),
+        nextAction: sectionData.currentFocus,
+        waitingFor: sectionData.waitingFor,
+        blocker: sectionData.blocker,
+        startDate: sectionData.startDate,
+        nextReview: sectionData.nextReview,
+        dueDate: sectionData.dueDate,
+        precededBy: sectionData.precededBy,
+        followedBy: sectionData.followedBy,
+        dependsOn: sectionData.precededBy,
+        blocks: sectionData.followedBy,
+        blockedBy: [],
+        sourceNotes: sectionData.sourceNotes,
+        routines: sectionData.routines.map((item) => ({
+          ...item,
+          cardPath: file.path,
+          cardTitle: title
+        })),
+        researchLogs: sectionData.researchLogs.map((item) => ({ ...item, cardPath: file.path, cardTitle: title })),
+        smallActions: sectionData.smallActions.map((item) => ({
+          ...item,
+          cardPath: file.path,
+          cardTitle: title
+        })),
+        actionCount: sectionData.actionCount,
+        archived: isArchived,
+        archivedAt: text(fm.archived_at),
+        archiveOriginalPath: text(fm.archive_original_path),
+        archiveOwnerProject: text(fm.archive_owner_project),
+        order
+      });
+    }
+    if (archived) {
+      const activeCards = await this.loadCardsInternal(false);
+      const combinedCards = [...activeCards, ...cards];
+      this.applyHierarchy(combinedCards);
+      this.applyBlockedBy(combinedCards);
+    } else {
+      this.applyHierarchy(cards);
+      this.applyBlockedBy(cards);
+    }
+    return cards.sort(compareCards);
+  }
+  async createCard(values) {
+    await this.plugin.ensureWorkspace();
+    const title = values.title.trim();
+    const baseName = sanitizeFileName(title);
+    const folder = await this.getCreationFolder(values);
+    const path = this.getAvailablePath(folder, baseName, "md");
+    const content = this.getLivingDocTemplate(values, title, baseName);
+    const file = await this.plugin.app.vault.create(path, content);
+    new import_obsidian5.Notice(`KanbanRPM card created: ${title}`);
+    await this.plugin.refreshViews();
+    return file;
+  }
+  async updateCardFrontmatter(file, updates, refresh = true) {
+    await this.rewriteCardFrontmatter(file, (frontmatter) => {
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === void 0) {
+          delete frontmatter[key];
+        } else {
+          frontmatter[key] = value;
+        }
+      }
+    });
+    if (refresh) await this.plugin.refreshViews();
+  }
+  async updateCard(card, values) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    await this.updateCardFrontmatter(file, {
+      type: values.type,
+      primary_project: values.project.trim() || void 0,
+      primary_subproject: values.subproject.trim() || void 0,
+      projects: this.uniqueLinks([values.project, ...textareaToList(values.projects)]),
+      subprojects: this.uniqueLinks([values.subproject, ...textareaToList(values.subprojects)]),
+      status: values.status,
+      priority: parsePriority(values.priority),
+      workstream_type: values.workstreamType.trim()
+    });
+    const content = await this.plugin.app.vault.read(file);
+    const nextContent = this.updateLivingDocBody(content, values.title.trim() || card.title, values);
+    await this.plugin.app.vault.modify(file, nextContent);
+    new import_obsidian5.Notice(`KanbanRPM card updated: ${values.title.trim() || card.title}`);
+  }
+  async moveCard(cardPath, targetStatus, beforePath) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const cards = await this.loadCards();
+    const laneCards = cards.filter((card) => card.status === targetStatus && card.path !== cardPath).sort(compareCards);
+    const foundIndex = beforePath ? laneCards.findIndex((card) => card.path === beforePath) : -1;
+    const insertIndex = beforePath && foundIndex >= 0 ? foundIndex : laneCards.length;
+    const newOrder = this.computeOrder(laneCards, insertIndex);
+    await this.updateCardFrontmatter(file, {
+      status: targetStatus,
+      order: newOrder
+    });
+  }
+  async setCardStatus(card, status) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    await this.updateCardFrontmatter(file, { status });
+    new import_obsidian5.Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
+  }
+  async updateProjectState(card, projectState) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    if (card.type !== "project") {
+      new import_obsidian5.Notice("KanbanRPM project lifecycle is only available for Project documents.");
+      return;
+    }
+    await this.updateCardFrontmatter(file, { project_state: projectState });
+    new import_obsidian5.Notice(`${projectState === "closed" ? "Closed" : "Reopened"} project: ${card.title}`);
+  }
+  async updateGanttDates(card, values) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    const next = replaceSection(
+      content,
+      "Timeline",
+      [
+        values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+        values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
+        values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
+      ].filter(Boolean).join("\n")
+    );
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice(`KanbanRPM Gantt dates updated: ${card.title}`);
+  }
+  async addResearchLogRow(_card, values) {
+    const file = await this.getResearchLogFile();
+    const content = await this.plugin.app.vault.read(file);
+    const next = this.prependResearchLog(content, values);
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice(`Added ${values.kind} log row to Research Logs.`);
+  }
+  async applyDueReviews() {
+    var _a, _b;
+    await this.plugin.ensureWorkspace();
+    const today = todayIso();
+    const targetStatus = this.plugin.settings.statuses.some((status) => status.id === this.plugin.settings.reviewReminderStatus) ? this.plugin.settings.reviewReminderStatus : (_b = (_a = this.plugin.settings.statuses[0]) == null ? void 0 : _a.id) != null ? _b : "active";
+    let applied = 0;
+    for (const card of await this.loadCards()) {
+      if (!card.nextReview || card.nextReview > today) continue;
+      if (card.status === targetStatus || this.isCompletionStatus(card.status)) continue;
+      const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+      if (!(file instanceof import_obsidian5.TFile)) continue;
+      await this.updateCardFrontmatter(file, { status: targetStatus }, false);
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, `- ${today}: next review reached; status changed to ${targetStatus}`);
+      await this.plugin.app.vault.modify(file, next);
+      applied += 1;
+    }
+    return applied;
+  }
+  async normalizeCardOrder() {
+    const cards = await this.loadCards();
+    let updated = 0;
+    let repaired = 0;
+    for (const status of this.plugin.settings.statuses) {
+      const laneCards = cards.filter((card) => card.status === status.id).sort(compareCards);
+      for (const [index, card] of laneCards.entries()) {
+        const nextOrder = (index + 1) * 1e3;
+        const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+        if (!(file instanceof import_obsidian5.TFile)) continue;
+        await this.updateCardFrontmatter(file, { order: nextOrder }, false);
+        if (card.order !== nextOrder) updated += 1;
+        repaired += 1;
+      }
+    }
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice(`KanbanRPM normalized order on ${updated} cards and repaired metadata on ${repaired} cards.`);
+  }
+  async setNextAction(cardPath, nextAction) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    await this.plugin.app.vault.modify(file, replaceSection(content, "Current Focus", `- ${nextAction.trim()}
+`));
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice("KanbanRPM Current Focus updated from Action index.");
+  }
+  async toggleSmallAction(action) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(action.cardPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split(/\r?\n/);
+    const index = action.lineNumber - 1;
+    const line = lines[index];
+    if (!line || line !== action.lineText) {
+      new import_obsidian5.Notice("KanbanRPM could not safely update this small action. Refresh and try again.");
+      return;
+    }
+    const today = /* @__PURE__ */ new Date();
+    const todayIso2 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const nextLine = action.done ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, "$1[ ]").replace(/\s*\u{2705}\s*\d{4}-\d{2}-\d{2}/u, "") : line.replace(/^(\s*[-*]\s+)\[ \]/, "$1[x]") + (action.doneDate ? "" : ` ??${todayIso2}`);
+    lines[index] = nextLine;
+    const nextContent = action.done ? lines.join("\n") : this.prependTimelineLog(lines.join("\n"), this.smallActionTimelineLog(action, todayIso2, file));
+    await this.plugin.app.vault.modify(file, nextContent);
+    await this.plugin.refreshViews();
+  }
+  async completeRoutine(cardPath, routineText, date) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    const entry = `| ${date} | ${routineText} |`;
+    const next = this.prependRoutineLog(content, entry);
+    if (next !== content) await this.plugin.app.vault.modify(file, next);
+    new import_obsidian5.Notice(`Logged routine: ${routineText}`);
+    await this.plugin.refreshViews();
+  }
+  async addPrecededBy(targetPath, sourceCard) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(targetPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    if (targetPath === sourceCard.path) {
+      new import_obsidian5.Notice("KanbanRPM cannot create a flow arrow to the same card.");
+      return;
+    }
+    const content = await this.plugin.app.vault.read(file);
+    const link = `[[${sourceCard.file.basename}]]`;
+    const next = this.updateFlowList(content, "Preceded by", link, "add");
+    if (next === content) {
+      new import_obsidian5.Notice("KanbanRPM flow link already exists.");
+      return;
+    }
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice(`KanbanRPM flow added: ${sourceCard.title} -> ${file.basename}`);
+  }
+  async removePrecededBy(targetPath, sourceCard) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(targetPath);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const content = await this.plugin.app.vault.read(file);
+    const next = this.updateFlowList(content, "Preceded by", `[[${sourceCard.file.basename}]]`, "remove", sourceCard);
+    if (next === content) {
+      new import_obsidian5.Notice("KanbanRPM could not find that flow link.");
+      return;
+    }
+    await this.plugin.app.vault.modify(file, next);
+    await this.plugin.refreshViews();
+    new import_obsidian5.Notice(`KanbanRPM flow removed: ${sourceCard.title} -> ${file.basename}`);
+  }
+  async promoteActionToBigAction(action) {
+    var _a, _b, _c, _d, _e;
+    const parentCard = (await this.loadCards()).find((card) => card.path === action.cardPath);
+    const title = action.text.replace(/#todo\b/g, "").trim() || "Promoted Big Action";
+    const file = await this.createCard({
+      title,
+      type: "big_action",
+      project: (parentCard == null ? void 0 : parentCard.primaryProject) || ((parentCard == null ? void 0 : parentCard.type) === "project" ? `[[${parentCard.file.basename}]]` : ""),
+      subproject: (parentCard == null ? void 0 : parentCard.primarySubproject) || ((parentCard == null ? void 0 : parentCard.type) === "subproject" ? `[[${parentCard.file.basename}]]` : ""),
+      projects: (_a = parentCard == null ? void 0 : parentCard.projects.join("\n")) != null ? _a : "",
+      subprojects: (_b = parentCard == null ? void 0 : parentCard.subprojects.join("\n")) != null ? _b : "",
+      status: (_d = (_c = this.plugin.settings.statuses[0]) == null ? void 0 : _c.id) != null ? _d : "inbox",
+      priority: parentCard ? String(parentCard.priority) : "3",
+      workstreamType: (_e = parentCard == null ? void 0 : parentCard.workstreamType) != null ? _e : "",
+      nextAction: title,
+      waitingFor: "",
+      blocker: "",
+      startDate: "",
+      nextReview: "",
+      dueDate: "",
+      dependsOn: "",
+      blocks: "",
+      sourceNotes: `[[${action.sourceLabel}]]`
+    });
+    new import_obsidian5.Notice(`Promoted action to Big Action: ${title}`);
+    return file;
+  }
+  async archiveCard(card) {
+    await this.plugin.ensureWorkspace();
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const archiveFolder = await this.getProjectArchiveFolder(card);
+    await this.rewriteCardFrontmatter(file, (frontmatter) => {
+      frontmatter.archived = true;
+      frontmatter.archived_at = (/* @__PURE__ */ new Date()).toISOString();
+      frontmatter.archive_original_path = file.path;
+      frontmatter.archive_owner_project = card.projectTitle || card.archiveOwnerProject || "Unassigned";
+    });
+    const archivePath = this.getAvailablePath(archiveFolder, file.basename, file.extension);
+    await this.plugin.app.fileManager.renameFile(file, archivePath);
+    new import_obsidian5.Notice(`Archived KanbanRPM card: ${card.title}`);
+    await this.plugin.refreshViews();
+  }
+  async unarchiveCard(card) {
+    await this.plugin.ensureWorkspace();
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    const targetPath = await this.getUnarchiveTargetPath(card, file);
+    await this.ensureFolder(targetPath.split("/").slice(0, -1).join("/"));
+    await this.rewriteCardFrontmatter(file, (frontmatter) => {
+      delete frontmatter.archived;
+      delete frontmatter.archived_at;
+      delete frontmatter.archive_original_path;
+      delete frontmatter.archive_owner_project;
+    });
+    await this.plugin.app.fileManager.renameFile(file, targetPath);
+    new import_obsidian5.Notice(`Unarchived KanbanRPM card: ${card.title}`);
+    await this.plugin.refreshViews();
+  }
+  async deleteCard(card) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return;
+    await this.plugin.app.vault.trash(file, true);
+    new import_obsidian5.Notice(`Deleted KanbanRPM card: ${card.title}`);
+    await this.plugin.refreshViews();
+  }
+  async duplicateCard(card) {
+    var _a, _b;
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian5.TFile)) return void 0;
+    const content = await this.plugin.app.vault.read(file);
+    const { body } = splitFrontmatter(content);
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    const frontmatter = { ...(_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : {} };
+    const copyTitle = `${card.title} Copy`;
+    delete frontmatter.position;
+    delete frontmatter.order;
+    delete frontmatter.archived;
+    delete frontmatter.archived_at;
+    delete frontmatter.archive_original_path;
+    delete frontmatter.archive_owner_project;
+    frontmatter.kanban_rpm = true;
+    frontmatter.type = card.type;
+    frontmatter.status = card.status;
+    frontmatter.priority = card.priority;
+    if (card.primaryProject) frontmatter.primary_project = card.primaryProject;
+    else delete frontmatter.primary_project;
+    if (card.primarySubproject) frontmatter.primary_subproject = card.primarySubproject;
+    else delete frontmatter.primary_subproject;
+    const copyFolder = ((_b = file.parent) == null ? void 0 : _b.path) && file.parent.path.startsWith(this.plugin.cardsFolder) ? file.parent.path : this.plugin.cardsFolder;
+    const copyPath = this.getAvailablePath(copyFolder, sanitizeFileName(copyTitle), file.extension);
+    const copyContent = `---
+${(0, import_obsidian5.stringifyYaml)(frontmatter)}---
+${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
+    const newFile = await this.plugin.app.vault.create(copyPath, copyContent);
+    new import_obsidian5.Notice(`Duplicated KanbanRPM card: ${copyTitle}`);
+    await this.plugin.refreshViews();
+    return newFile;
+  }
+  async collectActionIndex(cards) {
+    const items = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const card of cards) {
+      const refs = [...card.sourceNotes];
+      for (const ref of refs) {
+        const source = this.resolveLinkedFile(ref, card.path);
+        if (!(source instanceof import_obsidian5.TFile)) continue;
+        const content = await this.plugin.app.vault.read(source);
+        const lines = content.split(/\r?\n/);
+        lines.forEach((line, index) => {
+          var _a;
+          if (/\[[xX-]\]/.test(line)) return;
+          const checkbox = line.match(/^\s*[-*]\s+\[ \]\s+(.+)/);
+          const todo = line.includes("#todo") ? line.trim().replace(/^\s*[-*]\s*/, "") : "";
+          const raw = (_a = checkbox == null ? void 0 : checkbox[1]) != null ? _a : todo;
+          if (!raw) return;
+          const key = `${card.path}|${source.path}|${index}|${raw}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            cardPath: card.path,
+            cardTitle: card.title,
+            sourcePath: source.path,
+            sourceLabel: source.basename,
+            lineNumber: index + 1,
+            text: raw
+          });
+        });
+      }
+      for (const item of card.routines) {
+        const key = `${card.path}|routine|${item.cadence}|${item.text}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({
+          cardPath: card.path,
+          cardTitle: card.title,
+          sourcePath: card.path,
+          sourceLabel: card.file.basename,
+          lineNumber: 0,
+          text: `${item.text} ${routineScheduleLabel(item)}`,
+          recurring: true
+        });
+      }
+    }
+    return items;
+  }
+  validateCards(cards) {
+    var _a, _b, _c;
+    const issues = [];
+    for (const card of cards) {
+      const cache = this.plugin.app.metadataCache.getFileCache(card.file);
+      const fm = (_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : {};
+      const add = (level, field, message) => {
+        issues.push({
+          cardPath: card.path,
+          cardTitle: card.title,
+          level,
+          field,
+          message
+        });
+      };
+      const cardType = text(fm.type);
+      if (cardType && !["project", "subproject", "big_action"].includes(cardType)) {
+        add("warning", "type", `Expected project, subproject, or big_action; current value is "${cardType}".`);
+      }
+      const rawProjectState = text(fm.project_state).trim();
+      if (rawProjectState && !["active", "closed"].includes(rawProjectState.toLowerCase())) {
+        add("warning", "project_state", `project_state should be active or closed; current value is "${rawProjectState}".`);
+      }
+      if (card.type === "subproject" && !card.projects.length) {
+        add("warning", "projects", "Subproject documents should declare at least one project link.");
+      }
+      if (card.type === "big_action") {
+        if (!card.projects.length) add("warning", "projects", "Big Action documents should declare at least one project link.");
+        if (!card.subprojects.length) add("warning", "subprojects", "Big Action documents should declare at least one subproject link.");
+        if (card.primaryProject && card.primarySubproject) {
+          const projectFile = this.resolveLinkedFile(card.primaryProject, card.path);
+          const subprojectFile = this.resolveLinkedFile(card.primarySubproject, card.path);
+          const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path) : void 0;
+          const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path) : void 0;
+          if (projectCard && subprojectCard && !subprojectCard.projectTitles.includes(projectCard.title)) {
+            add("warning", "hierarchy", `Subproject "${subprojectCard.title}" does not belong to Project "${projectCard.title}".`);
+          }
+        }
+      }
+      if (!this.plugin.settings.statuses.some((status) => status.id === text(fm.status))) {
+        add("error", "status", `Unknown status "${text(fm.status) || "(empty)"}"; card is shown in ${(_c = (_b = this.plugin.settings.statuses[0]) == null ? void 0 : _b.label) != null ? _c : "Inbox"}.`);
+      }
+      const rawPriority = Number(fm.priority);
+      if (!Number.isFinite(rawPriority) || rawPriority < 1 || rawPriority > 5 || Math.round(rawPriority) !== rawPriority) {
+        add("warning", "priority", `Priority should be an integer from 1 to 5; current value is "${text(fm.priority) || "(empty)"}".`);
+      }
+      const category = text(fm.workstream_type).trim();
+      if (category && !this.plugin.settings.categories.includes(category)) {
+        add("warning", "workstream_type", `category is not in the configured vocabulary: ${this.plugin.settings.categories.join(", ")}.`);
+      }
+      const order = text(fm.order).trim();
+      if (order && !Number.isFinite(Number(order))) add("warning", "order", `order should be numeric; current value is "${order}".`);
+      for (const [label, value] of [
+        ["Start date", card.startDate],
+        ["Next review", card.nextReview],
+        ["Due date", card.dueDate]
+      ]) {
+        if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) add("warning", "timeline", `${label} should use YYYY-MM-DD; current value is "${value}".`);
+      }
+      for (const routine of card.routines) {
+        if (!routine.startDate) add("warning", "routine", `Routine "${routine.text}" must include @start YYYY-MM-DD to appear on the Timeline.`);
+        if (routine.cadence === "custom" && (!Number.isFinite(routine.interval) || routine.interval < 1)) {
+          add("warning", "routine", `Routine "${routine.text}" has an invalid @every interval.`);
+        }
+      }
+      const refs = [card.primaryProject, card.primarySubproject, ...card.projects, ...card.subprojects, ...card.sourceNotes].filter(Boolean);
+      for (const ref of refs) {
+        if (ref.includes("[[") && !this.resolveLinkedFile(ref, card.path)) {
+          add("warning", "links", `Could not resolve linked note ${ref}.`);
+        }
+      }
+      for (const dependency of card.precededBy) {
+        if (dependency.includes("[[") && !this.resolveLinkedFile(dependency, card.path)) {
+          add("warning", "dependencies", `Preceded by unresolved note ${dependency}.`);
+        }
+      }
+      for (const blocked of card.followedBy) {
+        if (blocked.includes("[[") && !this.resolveLinkedFile(blocked, card.path)) {
+          add("warning", "dependencies", `Followed by unresolved note ${blocked}.`);
+        }
+      }
+      if (this.hasCircularDependency(card, cards)) add("warning", "dependencies", "Circular dependency detected.");
+    }
+    return issues.sort((a, b) => {
+      if (a.level !== b.level) return a.level === "error" ? -1 : 1;
+      return a.cardTitle.localeCompare(b.cardTitle) || a.field.localeCompare(b.field);
+    });
+  }
+  async writeManagementBrief(cards) {
+    await this.plugin.ensureWorkspace();
+    const sourceCards = cards != null ? cards : this.excludeClosedProjectCards(await this.loadCards());
+    const content = this.renderManagementBrief(sourceCards);
+    const existing = this.plugin.app.vault.getAbstractFileByPath(this.plugin.managementBriefPath);
+    let file;
+    if (existing instanceof import_obsidian5.TFile) {
+      await this.plugin.app.vault.modify(existing, content);
+      file = existing;
+    } else {
+      file = await this.plugin.app.vault.create(this.plugin.managementBriefPath, content);
+    }
+    new import_obsidian5.Notice("KanbanRPM management brief updated.");
+    await this.plugin.app.workspace.getLeaf(false).openFile(file);
+  }
+  resolveLinkedFile(link, sourcePath) {
+    const target = getWikiLinkTarget(link);
+    if (!target) return null;
+    const linked = this.plugin.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
+    if (linked instanceof import_obsidian5.TFile) return linked;
+    const normalized = (0, import_obsidian5.normalizePath)(target.endsWith(".md") ? target : `${target}.md`);
+    const direct = this.plugin.app.vault.getAbstractFileByPath(normalized);
+    return direct instanceof import_obsidian5.TFile ? direct : null;
+  }
+  renderManagementBrief(cards) {
+    const sorted = [...cards].sort(compareCards);
+    const today = todayIso();
+    const soon = addDays(today, 14);
+    const boardCards = sorted.filter((card) => card.type !== "project");
+    const projectCards = sorted.filter((card) => card.type === "project");
+    const statusCounts = this.plugin.settings.statuses.map((status) => `| ${status.label} | ${cards.filter((card) => card.status === status.id).length} |`).join("\n");
+    const warningRows = this.validateCards(cards).slice(0, 30).map((issue) => `- ${issue.level.toUpperCase()} [[${issue.cardTitle}]]: ${issue.message}`).join("\n");
+    const dueSoon = boardCards.filter((card) => card.dueDate && card.dueDate <= soon || card.nextReview && card.nextReview <= soon).sort((a, b) => (a.dueDate || a.nextReview || "").localeCompare(b.dueDate || b.nextReview || "") || a.title.localeCompare(b.title));
+    const waiting = boardCards.filter((card) => card.waitingFor || card.status === this.statusId("waiting")).sort(compareCards);
+    const blocked = boardCards.filter((card) => card.blocker || card.blockedBy.length || card.status === this.statusId("blocked")).sort(compareCards);
+    const routines = boardCards.flatMap((card) => card.routines.map((routine) => ({ card, routine })));
+    const smallActionCount = boardCards.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0);
+    const attentionCards = this.briefAttentionCards(boardCards, today, soon);
+    const projectHealthRows = this.renderBriefProjectHealthRows(projectCards, boardCards);
+    const nextActionRows = this.renderBriefNextActionRows(boardCards);
+    const openSmallActions = this.renderBriefSmallActionRows(boardCards, today, soon);
+    const recentResearchLogs = this.renderBriefResearchLogRows(boardCards);
+    return `# KanbanRPM Management Brief
+
+Generated: ${today}
+
+> [!kanban-rpm]
+> This file is generated by KanbanRPM. It is designed as a compact project-management brief for human review and LLM-assisted planning.
+
+## How To Use With An LLM
+
+Ask for advice against this brief first. If more detail is needed, open the linked living documents.
+
+Suggested prompt:
+
+\`\`\`text
+Read this KanbanRPM Management Brief as my research project-management context.
+Identify the highest-risk blockers, stale waiting items, upcoming deadlines/reviews, and the next 3-5 actions I should focus on.
+Do not invent missing facts; point to the linked cards that need more information.
+\`\`\`
+
+## Snapshot
+
+| Metric | Count |
+| --- | ---: |
+| Projects | ${projectCards.length} |
+| Subprojects | ${cards.filter((card) => card.type === "subproject").length} |
+| Big Actions | ${cards.filter((card) => card.type === "big_action").length} |
+| Attention cards | ${attentionCards.length} |
+| Open small actions | ${smallActionCount} |
+| Routines | ${routines.length} |
+| Data warnings | ${this.validateCards(cards).length} |
+
+## Executive Attention
+
+${attentionCards.length ? attentionCards.slice(0, 12).map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No urgent attention cards."}
+
+## Project Health
+
+| Project | Active | Waiting | Blocked | Done | Open actions | Next date |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+${projectHealthRows || "| No project | 0 | 0 | 0 | 0 | 0 | |"}
+
+## Status Counts
+
+| Status | Count |
+| --- | ---: |
+${statusCounts}
+
+## Projects
+
+${this.renderBriefProjectSections(sorted)}
+
+## Upcoming Dates
+
+${dueSoon.length ? dueSoon.map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No due/review dates in the next 14 days."}
+
+## Next Actions
+
+${nextActionRows || "- No explicit next actions."}
+
+## Open Small Actions
+
+${openSmallActions || "- No dated or high-priority small actions."}
+
+## Waiting
+
+${waiting.length ? waiting.map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No waiting cards."}
+
+## Blocked
+
+${blocked.length ? blocked.map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No blocked cards."}
+
+## Flow Risks
+
+${this.renderBriefFlowRisks(boardCards)}
+
+## Routines
+
+${routines.length ? routines.map(({ card, routine }) => `- [[${card.file.basename}]]: ${routine.text} (${routineScheduleLabel(routine)})`).join("\n") : "- No routines."}
+
+## Recent Research Logs
+
+${recentResearchLogs || "- No research log rows found."}
+
+## Data Warnings
+
+${warningRows || "- No data warnings."}
+`;
+  }
+  renderBriefProjectSections(cards) {
+    const projects = cards.filter((card) => card.type === "project").sort(compareCards);
+    const loose = cards.filter((card) => card.type !== "project" && !card.projectTitle);
+    const sections = projects.map((project) => {
+      const children = cards.filter((card) => card.type !== "project" && card.projectTitles.includes(project.title)).sort(compareCards);
+      return `### ${project.title}
+
+- Document: [[${project.file.basename}]]
+- Status: ${this.statusLabel(project.status)}
+- Current focus: ${project.nextAction || "(none)"}
+
+${children.length ? children.map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No active child cards."}`;
+    });
+    if (loose.length) {
+      sections.push(`### No Project
+
+${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
+    }
+    return sections.join("\n\n") || "- No projects.";
+  }
+  renderBriefCardLine(card, includeContext) {
+    const context = includeContext ? ` ${card.breadcrumb ? `(${card.breadcrumb})` : ""}` : "";
+    const bits = [
+      this.statusLabel(card.status),
+      `P${card.priority}`,
+      card.workstreamType ? `category: ${card.workstreamType}` : "",
+      card.dueDate ? `due: ${card.dueDate}` : "",
+      card.nextReview ? `review: ${card.nextReview}` : "",
+      card.blockedBy.length ? `blocked by: ${card.blockedBy.join(", ")}` : ""
+    ].filter(Boolean);
+    const focus = card.nextAction ? ` - ${card.nextAction}` : "";
+    return `- [[${card.file.basename}]]${context}: ${bits.join(", ")}${focus}`;
+  }
+  renderBriefFlowRisks(cards) {
+    const risks = cards.filter((card) => card.blockedBy.length || card.precededBy.length).sort((a, b) => b.blockedBy.length - a.blockedBy.length || a.title.localeCompare(b.title)).slice(0, 30);
+    if (!risks.length) return "- No flow risks.";
+    return risks.map((card) => this.renderBriefCardLine(card, true)).join("\n");
+  }
+  briefAttentionCards(cards, today, soon) {
+    return cards.filter((card) => {
+      if (this.isCompletionStatus(card.status)) return false;
+      if (card.status === this.statusId("blocked") || card.blocker || card.blockedBy.length) return true;
+      if (card.status === this.statusId("waiting") || card.waitingFor) return true;
+      if (card.dueDate && card.dueDate <= soon) return true;
+      if (card.nextReview && card.nextReview <= today) return true;
+      if (card.priority <= 2 && card.nextAction) return true;
+      return false;
+    }).sort((a, b) => this.briefAttentionScore(b, today, soon) - this.briefAttentionScore(a, today, soon) || compareCards(a, b));
+  }
+  briefAttentionScore(card, today, soon) {
+    let score = 0;
+    if (card.status === this.statusId("blocked") || card.blocker) score += 50;
+    score += card.blockedBy.length * 12;
+    if (card.status === this.statusId("waiting") || card.waitingFor) score += 24;
+    if (card.dueDate && card.dueDate < today) score += 40;
+    else if (card.dueDate && card.dueDate <= soon) score += 22;
+    if (card.nextReview && card.nextReview <= today) score += 18;
+    score += Math.max(0, 6 - card.priority) * 4;
+    if (!card.nextAction && !this.isCompletionStatus(card.status)) score += 8;
+    return score;
+  }
+  renderBriefProjectHealthRows(projects, boardCards) {
+    const projectTitles = new Set(projects.map((project) => project.title));
+    for (const card of boardCards) {
+      if (!card.projectTitles.length) projectTitles.add("No Project");
+      for (const title of card.projectTitles) projectTitles.add(title);
+    }
+    return Array.from(projectTitles).sort((a, b) => a.localeCompare(b)).map((title) => {
+      var _a;
+      const children = title === "No Project" ? boardCards.filter((card) => !card.projectTitles.length) : boardCards.filter((card) => card.projectTitles.includes(title));
+      const active = children.filter((card) => card.status === this.statusId("active")).length;
+      const waiting = children.filter((card) => card.status === this.statusId("waiting") || card.waitingFor).length;
+      const blocked = children.filter((card) => card.status === this.statusId("blocked") || card.blocker || card.blockedBy.length).length;
+      const done = children.filter((card) => this.isCompletionStatus(card.status)).length;
+      const openActions = children.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0);
+      const nextDate = (_a = children.flatMap((card) => [card.dueDate, card.nextReview].filter(Boolean)).sort()[0]) != null ? _a : "";
+      const project = projects.find((card) => card.title === title);
+      const label = project ? `[[${project.file.basename}]]` : title;
+      return `| ${label} | ${active} | ${waiting} | ${blocked} | ${done} | ${openActions} | ${nextDate} |`;
+    }).join("\n");
+  }
+  renderBriefNextActionRows(cards) {
+    const rows = cards.filter((card) => !this.isCompletionStatus(card.status) && card.nextAction).sort((a, b) => a.priority - b.priority || compareCards(a, b)).slice(0, 20).map((card) => this.renderBriefCardLine(card, true));
+    return rows.join("\n");
+  }
+  renderBriefSmallActionRows(cards, today, soon) {
+    const actions = cards.flatMap(
+      (card) => card.smallActions.filter((action) => !action.done).filter((action) => action.dueDate || action.scheduledDate || ["highest", "high"].includes(action.priority)).map((action) => ({ card, action }))
+    ).sort((a, b) => this.briefActionDate(a.action).localeCompare(this.briefActionDate(b.action)) || a.card.title.localeCompare(b.card.title)).slice(0, 25);
+    if (!actions.length) return "";
+    return actions.map(({ card, action }) => {
+      const date = this.briefActionDate(action);
+      const timing = date && date < today ? "overdue" : date && date <= soon ? "soon" : date || "undated";
+      return `- [[${card.file.basename}]] (${card.breadcrumb || card.title}): ${action.text}${date ? ` - ${date}` : ""} ${timing !== "undated" ? `(${timing})` : ""}`;
+    }).join("\n");
+  }
+  briefActionDate(action) {
+    return action.dueDate || action.scheduledDate || "9999-99-99";
+  }
+  renderBriefResearchLogRows(cards) {
+    const logs = cards.flatMap((card) => card.researchLogs.map((log) => ({ card, log }))).sort((a, b) => b.log.date.localeCompare(a.log.date) || a.log.module.localeCompare(b.log.module)).slice(0, 12);
+    if (!logs.length) return "";
+    return logs.map(({ card, log }) => `- ${log.date} [[${card.file.basename}]]: ${log.kind}, ${log.module || "(module)"}, ${log.subject || "(subject)"} - ${log.result || "(no result)"}`).join("\n");
+  }
+  statusId(preferredId) {
+    var _a, _b;
+    return (_b = (_a = this.plugin.settings.statuses.find((status) => status.id === preferredId)) == null ? void 0 : _a.id) != null ? _b : preferredId;
+  }
+  normalizeProjectState(value) {
+    return text(value).trim().toLowerCase() === "closed" ? "closed" : "active";
+  }
+  excludeClosedProjectCards(cards) {
+    const closedProjects = new Set(cards.filter((card) => card.type === "project" && card.projectState === "closed").map((card) => card.title));
+    return cards.filter((card) => {
+      if (card.type === "project") return card.projectState !== "closed";
+      if (!card.projectTitles.length) return true;
+      return !card.projectTitles.some((title) => closedProjects.has(title)) || !card.projectTitles.every((title) => closedProjects.has(title));
+    });
+  }
+  statusLabel(statusId) {
+    var _a, _b;
+    return (_b = (_a = this.plugin.settings.statuses.find((status) => status.id === statusId)) == null ? void 0 : _a.label) != null ? _b : statusId;
+  }
+  computeOrder(laneCards, insertIndex) {
+    var _a, _b;
+    const previous = laneCards[insertIndex - 1];
+    const next = laneCards[insertIndex];
+    const prevOrder = (_a = previous == null ? void 0 : previous.order) != null ? _a : insertIndex * 1e3;
+    const nextOrder = (_b = next == null ? void 0 : next.order) != null ? _b : (insertIndex + 2) * 1e3;
+    if (previous && next && prevOrder < nextOrder) return Math.round((prevOrder + nextOrder) / 2);
+    if (!previous && next && nextOrder > 1) return Math.round(nextOrder / 2);
+    return prevOrder + 1e3;
+  }
+  getAvailablePath(folder, baseName, extension) {
+    let index = 1;
+    let path = (0, import_obsidian5.normalizePath)(`${folder}/${baseName}.${extension}`);
+    while (this.plugin.app.vault.getAbstractFileByPath(path)) {
+      index += 1;
+      path = (0, import_obsidian5.normalizePath)(`${folder}/${baseName} ${index}.${extension}`);
+    }
+    return path;
+  }
+  getEffectiveFrontmatter(content) {
+    const parsed = this.collectLeadingFrontmatter(content);
+    return parsed.frontmatters.reduce((merged, frontmatter) => ({ ...merged, ...frontmatter }), {});
+  }
+  async rewriteCardFrontmatter(file, update) {
+    const content = await this.plugin.app.vault.read(file);
+    const parsed = this.collectLeadingFrontmatter(content);
+    const frontmatter = parsed.frontmatters.reduce((merged, item) => ({ ...merged, ...item }), {});
+    update(frontmatter);
+    const body = content.slice(parsed.bodyStart).replace(/^\uFEFF?/, "");
+    await this.plugin.app.vault.modify(file, `---
+${(0, import_obsidian5.stringifyYaml)(frontmatter)}---
+${body}`);
+  }
+  collectLeadingFrontmatter(content) {
+    var _a;
+    const frontmatters = [];
+    let cursor = 0;
+    while (cursor < content.length) {
+      const remaining = content.slice(cursor).replace(/^\s+/, "");
+      const skipped = content.slice(cursor).length - remaining.length;
+      const match = remaining.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!match) break;
+      try {
+        const parsed = (_a = (0, import_obsidian5.parseYaml)(match[1])) != null ? _a : {};
+        if (parsed && typeof parsed === "object") frontmatters.push(parsed);
+      } catch (e) {
+        break;
+      }
+      cursor += skipped + match[0].length;
+    }
+    return { frontmatters, bodyStart: cursor };
+  }
+  async getCreationFolder(values) {
+    const parts = [this.plugin.cardsFolder];
+    if (values.type === "subproject" || values.type === "big_action") {
+      parts.push(this.folderNameFromLink(values.project));
+    }
+    if (values.type === "big_action") {
+      parts.push(this.folderNameFromLink(values.subproject));
+    }
+    const folder = (0, import_obsidian5.normalizePath)(parts.filter(Boolean).join("/"));
+    await this.ensureFolder(folder);
+    return folder;
+  }
+  async getProjectArchiveFolder(card) {
+    const owner = sanitizeFileName(card.projectTitle || getWikiLinkTarget(card.primaryProject) || card.archiveOwnerProject || "Unassigned");
+    const folder = (0, import_obsidian5.normalizePath)(`${this.plugin.cardsFolder}/${owner}/archive`);
+    await this.ensureFolder(folder);
+    return folder;
+  }
+  async getUnarchiveTargetPath(card, file) {
+    var _a;
+    if (card.archiveOriginalPath) {
+      const originalPath = (0, import_obsidian5.normalizePath)(card.archiveOriginalPath);
+      const folder2 = originalPath.split("/").slice(0, -1).join("/");
+      const basename = ((_a = originalPath.split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "")) || file.basename;
+      if (!this.plugin.app.vault.getAbstractFileByPath(originalPath)) return originalPath;
+      return this.getAvailablePath(folder2, basename, file.extension);
+    }
+    const owner = sanitizeFileName(card.archiveOwnerProject || card.projectTitle || getWikiLinkTarget(card.primaryProject) || "Unassigned");
+    const folderParts = [this.plugin.cardsFolder, owner];
+    if (card.type === "big_action" && card.primarySubproject) {
+      folderParts.push(this.folderNameFromLink(card.primarySubproject));
+    }
+    const folder = (0, import_obsidian5.normalizePath)(folderParts.join("/"));
+    await this.ensureFolder(folder);
+    return this.getAvailablePath(folder, file.basename, file.extension);
+  }
+  async getResearchLogFile() {
+    const path = this.plugin.researchLogsPath;
+    const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof import_obsidian5.TFile) return existing;
+    await this.ensureFolder(path.split("/").slice(0, -1).join("/"));
+    return this.plugin.app.vault.create(path, "# Research Logs\n\n### Experiment Log\n\n### Analysis Log\n");
+  }
+  folderNameFromLink(link) {
+    const target = getWikiLinkTarget(link);
+    return sanitizeFileName(target.split("/").pop() || target || "Unassigned");
+  }
+  async ensureFolder(folder) {
+    const normalized = (0, import_obsidian5.normalizePath)(folder);
+    if (this.plugin.app.vault.getAbstractFileByPath(normalized)) return;
+    const parts = normalized.split("/");
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      if (!this.plugin.app.vault.getAbstractFileByPath(current)) {
+        await this.plugin.app.vault.createFolder(current);
+      }
+    }
+  }
+  uniqueLinks(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const links = [];
+    for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+      const key = getWikiLinkTarget(value) || value;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push(value);
+    }
+    return links;
+  }
+  renderNonEmptyMetadata(values) {
+    const rows = [];
+    for (const [label, value] of [
+      ["priority", values.priority === "3" ? "" : values.priority],
+      ["workstream_type", values.workstreamType]
+    ]) {
+      if (String(value || "").trim()) rows.push(`- ${label}: ${String(value).trim()}`);
+    }
+    for (const [label, raw] of [
+      ["source_notes", values.sourceNotes]
+    ]) {
+      const list = textareaToList(raw);
+      if (list.length) rows.push(`- ${label}: ${list.join(", ")}`);
+    }
+    return rows.length ? `${rows.join("\n")}
+
+` : "";
+  }
+  getLivingDocTemplate(values, title, baseName) {
+    const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}
+` : "";
+    const seededSmallAction = values.nextAction.trim() ? `- [ ] ${values.nextAction.trim()}
+` : "";
+    const waiting = values.waitingFor.trim() ? `- ${values.waitingFor.trim()}
+` : "";
+    const blocker = values.blocker.trim() ? `- ${values.blocker.trim()}
+` : "";
+    const timelineRows = [
+      values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+      values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
+      values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
+    ].filter(Boolean).join("\n");
+    const precededBy = textareaToList(values.dependsOn).map((item) => `- ${item}`).join("\n");
+    const followedBy = textareaToList(values.blocks).map((item) => `- ${item}`).join("\n");
+    const references = textareaToList(values.sourceNotes).map((item) => `- ${item}`).join("\n");
+    const typeLabel = values.type === "big_action" ? "Big Action" : values.type === "subproject" ? "Subproject" : "Project";
+    const projects = this.uniqueLinks([values.project, ...textareaToList(values.projects)]);
+    const subprojects = this.uniqueLinks([values.subproject, ...textareaToList(values.subprojects)]);
+    const projectLine = values.project.trim() ? `
+primary_project: ${yamlScalar(values.project.trim())}` : "";
+    const subprojectLine = values.subproject.trim() ? `
+primary_subproject: ${yamlScalar(values.subproject.trim())}` : "";
+    const projectsLine = projects.length ? `
+projects:${yamlArray(projects)}` : "";
+    const subprojectsLine = subprojects.length ? `
+subprojects:${yamlArray(subprojects)}` : "";
+    const hierarchyRows = [
+      values.project.trim() ? `> project: ${values.project.trim()}` : "",
+      values.subproject.trim() ? `> subproject: ${values.subproject.trim()}` : ""
+    ].filter(Boolean).join("\n");
+    const workingSections = this.getWorkingSections(values.type, seededSmallAction);
+    return `---
+kanban_rpm: true
+type: ${yamlScalar(values.type)}
+id: ${yamlScalar(baseName)}
+status: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}
+order: 
+---
+
+# ${title}
+
+> [!kanban-rpm]
+> type: ${typeLabel}
+> status: ${values.status}${hierarchyRows ? `
+${hierarchyRows}` : ""}
+
+## PM Control
+
+### Current Focus
+
+${currentFocus}### Waiting
+
+${waiting}### Blockers
+
+${blocker}### Flow
+
+Preceded by:
+${precededBy}
+
+Followed by:
+${followedBy}
+
+### Timeline
+
+${timelineRows}
+
+### Timeline Log
+
+### Routine
+
+### References
+
+${references}
+
+### PM Metadata
+
+${this.renderNonEmptyMetadata(values)}---
+
+## Working Notes
+
+${workingSections}`;
+  }
+  getWorkingSections(type, seededSmallAction) {
+    if (type === "project") {
+      return `### Project Brief
+
+### Desired Outcomes
+
+### Subprojects
+
+### Big Actions
+
+${seededSmallAction}### Decisions
+
+### Meetings And Communication
+
+### Notes
+`;
+    }
+    if (type === "subproject") {
+      return `### Objective
+
+### Work Plan
+
+### Big Actions
+
+${seededSmallAction}### Progress Notes
+
+### Decisions
+
+### Related Materials
+`;
+    }
+    return `### Definition Of Done
+
+### Small Actions
+
+${seededSmallAction}### Progress Notes
+
+### Evidence And Links
+
+### Decisions
+
+### Related Materials
+`;
+  }
+  parseLivingDocSections(content) {
+    const flow = getSection(content, "Flow");
+    const currentFocus = this.firstListItem(getSection(content, "Current Focus"));
+    const waitingFor = this.firstListItem(getSection(content, "Waiting"));
+    const blocker = this.firstListItem(getSection(content, "Blockers"));
+    const timeline = getSection(content, "Timeline");
+    const routine = getSection(content, "Routine");
+    const routineLog = getSection(content, "Routine Log");
+    const references = getSection(content, "References");
+    const startDate = this.parseTimelineDate(timeline, "Start date");
+    const nextReview = this.parseTimelineDate(timeline, "Next review");
+    const dueDate = this.parseTimelineDate(timeline, "Due date");
+    const precededBy = this.uniqueLinks(parseDependencyList(flow, "Preceded by"));
+    const followedBy = this.uniqueLinks(parseDependencyList(flow, "Followed by"));
+    const routines = routine.split(/\r?\n/).map((line, index) => parseRoutineLine(line, index + 1)).filter((item) => Boolean(item)).map((item) => ({ ...item, completedDates: parseRoutineCompletedDates(routineLog, item.text) }));
+    const smallActions = parseSmallActions(content);
+    const actionCount = smallActions.filter((action) => !action.done).length;
+    const sourceNotes = parsePlainList(references).filter((item) => item.includes("[["));
+    const researchLogs = [
+      ...this.parseResearchLog(content, "experiment"),
+      ...this.parseResearchLog(content, "analysis")
+    ];
+    return { currentFocus, waitingFor, blocker, startDate, nextReview, dueDate, precededBy, followedBy, sourceNotes, researchLogs, routines, smallActions, actionCount };
+  }
+  firstListItem(section) {
+    var _a, _b;
+    const match = section.match(/^\s*[-*]\s+(?:\[[ xX-]\]\s*)?(.+)$/m);
+    return (_b = (_a = match == null ? void 0 : match[1]) == null ? void 0 : _a.trim()) != null ? _b : "";
+  }
+  getDocumentTitle(content) {
+    var _a, _b, _c;
+    return (_c = (_b = (_a = content.match(/^#\s+(.+)$/m)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+  }
+  updateLivingDocBody(content, title, values) {
+    let next = content.match(/^#\s+.+$/m) ? content.replace(/^#\s+.+$/m, `# ${title}`) : `${content.trimEnd()}
+
+# ${title}
+`;
+    next = replaceSection(next, "Current Focus", values.nextAction.trim() ? `- ${values.nextAction.trim()}
+` : "");
+    next = replaceSection(next, "Waiting", values.waitingFor.trim() ? `- ${values.waitingFor.trim()}
+` : "");
+    next = replaceSection(next, "Blockers", values.blocker.trim() ? `- ${values.blocker.trim()}
+` : "");
+    next = replaceSection(next, "Flow", `Preceded by:
+${textareaToList(values.dependsOn).map((item) => `- ${item}`).join("\n")}
+
+Followed by:
+${textareaToList(values.blocks).map((item) => `- ${item}`).join("\n")}
+`);
+    next = replaceSection(
+      next,
+      "Timeline",
+      [
+        values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+        values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
+        values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
+      ].filter(Boolean).join("\n")
+    );
+    next = replaceSection(next, "References", textareaToList(values.sourceNotes).map((item) => `- ${item}`).join("\n"));
+    next = replaceSection(next, "PM Metadata", this.renderNonEmptyMetadata(values).trimEnd());
+    return next;
+  }
+  updateFlowList(content, label, link, action, sourceCard) {
+    const flow = getSection(content, "Flow");
+    const precededBy = parseDependencyList(flow, "Preceded by");
+    const followedBy = parseDependencyList(flow, "Followed by");
+    const list = label === "Preceded by" ? precededBy : followedBy;
+    const matchesSource = (value) => {
+      if (!sourceCard) return value === link;
+      const target = getWikiLinkTarget(value) || value.replace(/^\[\[/, "").replace(/\]\]$/, "");
+      return value === link || target === sourceCard.file.basename || target === sourceCard.path || target === sourceCard.title;
+    };
+    let nextList = [...list];
+    if (action === "add") {
+      if (nextList.some((value) => matchesSource(value))) return content;
+      nextList.push(link);
+    } else {
+      nextList = nextList.filter((value) => !matchesSource(value));
+      if (nextList.length === list.length) return content;
+    }
+    const nextPrecededBy = label === "Preceded by" ? nextList : precededBy;
+    const nextFollowedBy = label === "Followed by" ? nextList : followedBy;
+    return replaceSection(content, "Flow", `Preceded by:
+${nextPrecededBy.map((item) => `- ${item}`).join("\n")}
+
+Followed by:
+${nextFollowedBy.map((item) => `- ${item}`).join("\n")}
+`);
+  }
+  prependTimelineLog(content, entry) {
+    if (content.includes(entry)) return content;
+    const existing = findHeadingSection(content, "Timeline Log");
+    if (existing) {
+      const body = content.slice(existing.bodyStart, existing.end).trim();
+      return replaceSection(content, "Timeline Log", body ? `${entry}
+${body}` : entry);
+    }
+    const timeline = findHeadingSection(content, "Timeline");
+    const section = `### Timeline Log
+
+${entry}
+`;
+    if (timeline) return `${content.slice(0, timeline.end).trimEnd()}
+
+${section}${content.slice(timeline.end)}`;
+    return `${content.trimEnd()}
+
+${section}`;
+  }
+  prependRoutineLog(content, entry) {
+    const tableHeader = "| Date | Routine |\n| --- | --- |";
+    const row = entry;
+    if (content.includes(row)) return content;
+    const routineLog = findHeadingSection(content, "Routine Log");
+    const existing = routineLog;
+    if (existing) {
+      const body = content.slice(existing.bodyStart, existing.end).trim();
+      const normalized = body.includes("| Date | Routine |") ? body : `${tableHeader}
+${body}`;
+      const lines = normalized.split(/\r?\n/);
+      const insertIndex = lines.findIndex((line) => /^\|\s*---/.test(line));
+      if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+      else lines.unshift(row);
+      return replaceSection(content, "Routine Log", lines.join("\n"));
+    }
+    const routine = findHeadingSection(content, "Routine");
+    const section = `### Routine Log
+
+${tableHeader}
+${row}
+`;
+    if (routine) return `${content.slice(0, routine.end).trimEnd()}
+
+${section}${content.slice(routine.end)}`;
+    return `${content.trimEnd()}
+
+${section}`;
+  }
+  prependResearchLog(content, values) {
+    const sectionTitle = values.kind === "experiment" ? "Experiment Log" : "Analysis Log";
+    const tableHeader = values.kind === "experiment" ? "| Date | Sample | Conditions | Result | Link |\n| --- | --- | --- | --- | --- |" : "| Date | Dataset / Sample | Method | Result | Link |\n| --- | --- | --- | --- | --- |";
+    const row = `| ${this.escapeTableCell(values.date)} | ${this.escapeTableCell(values.subject)} | ${this.escapeTableCell(values.conditionsOrMethod)} | ${this.escapeTableCell(values.result)} | ${this.escapeTableCell(values.link)} |`;
+    if (content.includes(row)) return content;
+    const module2 = values.module.trim() || (values.kind === "experiment" ? "General Experiment" : "General Analysis");
+    let next = content;
+    if (!findHeadingSection(next, sectionTitle)) {
+      next = `${next.trimEnd()}
+
+### ${sectionTitle}
+
+#### ${module2}
+
+${tableHeader}
+${row}
+`;
+      return next;
+    }
+    const moduleSection = findNestedHeadingSection(next, sectionTitle, module2);
+    if (!moduleSection) {
+      const parent = findHeadingSection(next, sectionTitle);
+      if (!parent) return next;
+      const addition = `
+
+#### ${module2}
+
+${tableHeader}
+${row}
+`;
+      return `${next.slice(0, parent.end).trimEnd()}${addition}${next.slice(parent.end)}`;
+    }
+    const body = next.slice(moduleSection.bodyStart, moduleSection.end).trim();
+    const normalized = body.includes("| Date |") ? body : `${tableHeader}
+${body}`;
+    const lines = normalized.split(/\r?\n/);
+    const insertIndex = lines.findIndex((line) => /^\|\s*---/.test(line));
+    if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+    else lines.unshift(row);
+    return `${next.slice(0, moduleSection.bodyStart)}${lines.join("\n")}
+${next.slice(moduleSection.end)}`;
+  }
+  escapeTableCell(value) {
+    return String(value || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+  }
+  smallActionTimelineLog(action, date, file) {
+    const heading = action.heading && action.heading !== "Timeline Log" ? ` (${action.heading})` : "";
+    return `- ${date} completed: [[${file.basename}]] - ${action.text}${heading}`;
+  }
+  parseTimelineDate(section, label) {
+    var _a;
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = section.match(new RegExp(`${escaped}:\\s*(\\d{4}-\\d{2}-\\d{2})`, "i"));
+    return (_a = match == null ? void 0 : match[1]) != null ? _a : "";
+  }
+  parseResearchLog(content, kind) {
+    const sectionTitle = kind === "experiment" ? "Experiment Log" : "Analysis Log";
+    const section = findHeadingSection(content, sectionTitle);
+    if (!section) return [];
+    const body = content.slice(section.bodyStart, section.end);
+    const entries = [];
+    let module2 = "";
+    body.split(/\r?\n/).forEach((line, index) => {
+      var _a, _b, _c, _d, _e;
+      const heading = line.match(/^#{4,6}\s+(.+)$/);
+      if (heading == null ? void 0 : heading[1]) {
+        module2 = heading[1].trim();
+        return;
+      }
+      const cells = parseMarkdownTableRow(line);
+      if (!cells || cells[0].toLowerCase() === "date" || cells.every((cell) => /^-+$/.test(cell))) return;
+      entries.push({
+        cardPath: "",
+        cardTitle: "",
+        kind,
+        module: module2,
+        date: (_a = cells[0]) != null ? _a : "",
+        subject: (_b = cells[1]) != null ? _b : "",
+        conditionsOrMethod: (_c = cells[2]) != null ? _c : "",
+        result: (_d = cells[3]) != null ? _d : "",
+        link: (_e = cells[4]) != null ? _e : "",
+        lineNumber: index + 1
+      });
+    });
+    return entries;
+  }
+  normalizeCardType(value) {
+    if (value === "subproject" || value === "big_action" || value === "project") return value;
+    return "project";
+  }
+  applyHierarchy(cards) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    for (const card of cards) {
+      const projectFile = card.primaryProject ? this.resolveLinkedFile(card.primaryProject, card.path) : null;
+      const subprojectFile = card.primarySubproject ? this.resolveLinkedFile(card.primarySubproject, card.path) : null;
+      const projectCard = projectFile ? cards.find((item) => item.path === projectFile.path || item.file.basename === projectFile.basename) : void 0;
+      const subprojectCard = subprojectFile ? cards.find((item) => item.path === subprojectFile.path || item.file.basename === subprojectFile.basename) : void 0;
+      const projectTitles = this.resolveHierarchyTitles(card.projects, card.path, cards);
+      const subprojectTitles = this.resolveHierarchyTitles(card.subprojects, card.path, cards);
+      if (card.type === "project") {
+        card.projectTitle = card.title;
+        card.projectTitles = [card.title];
+        card.subprojectTitle = "";
+        card.subprojectTitles = [];
+      } else if (card.type === "subproject") {
+        card.projectTitle = ((_b = (_a = projectCard == null ? void 0 : projectCard.title) != null ? _a : projectFile == null ? void 0 : projectFile.basename) != null ? _b : text(card.project)) || "No project";
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle];
+        card.subprojectTitle = card.title;
+        card.subprojectTitles = [card.title];
+      } else if (card.type === "big_action") {
+        card.projectTitle = ((_e = (_d = (_c = projectCard == null ? void 0 : projectCard.title) != null ? _c : projectFile == null ? void 0 : projectFile.basename) != null ? _d : subprojectCard == null ? void 0 : subprojectCard.projectTitle) != null ? _e : text(card.project)) || "No project";
+        card.subprojectTitle = (_g = (_f = subprojectCard == null ? void 0 : subprojectCard.title) != null ? _f : subprojectFile == null ? void 0 : subprojectFile.basename) != null ? _g : text(card.subproject);
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle].filter(Boolean);
+        card.subprojectTitles = subprojectTitles.length ? subprojectTitles : [card.subprojectTitle].filter(Boolean);
+      } else {
+        card.projectTitle = ((_h = projectCard == null ? void 0 : projectCard.title) != null ? _h : text(card.project)) || card.title;
+        card.subprojectTitle = (_i = subprojectCard == null ? void 0 : subprojectCard.title) != null ? _i : text(card.subproject);
+        card.projectTitles = projectTitles.length ? projectTitles : [card.projectTitle].filter(Boolean);
+        card.subprojectTitles = subprojectTitles.length ? subprojectTitles : [card.subprojectTitle].filter(Boolean);
+      }
+      card.breadcrumb = [card.projectTitle, card.subprojectTitle && card.subprojectTitle !== card.title ? card.subprojectTitle : ""].filter(Boolean).join(" > ");
+      card.colorKey = card.projectTitle || card.title;
+    }
+  }
+  resolveHierarchyTitles(links, sourcePath, cards) {
+    var _a, _b, _c;
+    const titles = [];
+    for (const link of links) {
+      const file = this.resolveLinkedFile(link, sourcePath);
+      const card = file ? cards.find((item) => item.path === file.path || item.file.basename === file.basename) : void 0;
+      titles.push((_c = (_b = (_a = card == null ? void 0 : card.title) != null ? _a : file == null ? void 0 : file.basename) != null ? _b : getWikiLinkTarget(link)) != null ? _c : link);
+    }
+    return this.uniqueLinks(titles);
+  }
+  applyBlockedBy(cards) {
+    for (const card of cards) card.blockedBy = [];
+    for (const card of cards) {
+      for (const dependency of card.precededBy) {
+        const dependencyFile = this.resolveLinkedFile(dependency, card.path);
+        const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : void 0;
+        if (dependencyCard && !this.isCompletionStatus(dependencyCard.status)) card.blockedBy.push(dependencyCard.title);
+      }
+      for (const blocked of card.followedBy) {
+        const blockedFile = this.resolveLinkedFile(blocked, card.path);
+        const blockedCard = blockedFile ? cards.find((item) => item.path === blockedFile.path) : void 0;
+        if (blockedCard && !this.isCompletionStatus(card.status)) blockedCard.blockedBy.push(card.title);
+      }
+    }
+  }
+  isCompletionStatus(statusId) {
+    var _a, _b;
+    const status = this.plugin.settings.statuses.find((item) => item.id === statusId);
+    const value = `${(_a = status == null ? void 0 : status.id) != null ? _a : statusId} ${(_b = status == null ? void 0 : status.label) != null ? _b : ""}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value) || value.includes("?\u8881\u2465\u2537");
+  }
+  hasCircularDependency(card, cards) {
+    const visited = /* @__PURE__ */ new Set();
+    const visit = (current) => {
+      if (visited.has(current.path)) return false;
+      visited.add(current.path);
+      for (const dependency of current.precededBy) {
+        const dependencyFile = this.resolveLinkedFile(dependency, current.path);
+        const dependencyCard = dependencyFile ? cards.find((item) => item.path === dependencyFile.path) : void 0;
+        if (!dependencyCard) continue;
+        if (dependencyCard.path === card.path || visit(dependencyCard)) return true;
+      }
+      return false;
+    };
+    return visit(card);
+  }
+};
+
+// src-kanbanrpm/schema.ts
+function getSchemaReferenceContent() {
+  return `# KanbanRPM Card Schema
+
+This note is a local reference for KanbanRPM card frontmatter. It is created by the plugin and can be regenerated manually from the plugin source/docs if needed.
+
+## Required Identity
+
+\`\`\`yaml
+kanban_rpm: true
+type: big_action
+id: example-workstream
+status: active
+project_state: active
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
+projects:
+  - "[[TTT]]"
+subprojects:
+  - "[[TTT Experiment]]"
+\`\`\`
+
+New living documents keep frontmatter intentionally short. The plugin treats \`Title\`, \`Type\`, and \`Status\` as required in the create/edit modal. \`Project\` is required for Subproject and Big Action documents. \`Subproject\` is also required for Big Action documents.
+
+## Execution Fields
+
+\`\`\`yaml
+status: inbox
+project_state: active
+primary_project:
+primary_subproject:
+projects: []
+subprojects: []
+order:
+\`\`\`
+
+Default \`status\` values:
+
+\`\`\`text
+${DEFAULT_STATUSES.map((status) => status.id).join(" | ")}
+\`\`\`
+
+The active status set is global and editable in KanbanRPM settings. Every Board/Table/Timeline/Gantt surface should read the same status set.
+
+\`project_state\` is mainly used on Project documents. \`active\` is the default. \`closed\` hides the Project and cards that only belong to that closed Project from default KanbanRPM views. Use \`Show closed projects\` to inspect or reopen them. Closing a Project does not change child card statuses.
+
+\`order\` is managed by drag/reorder and \`Normalize order\`. It should be numeric.
+
+\`projects\` and \`subprojects\` are multi-link hierarchy arrays. \`primary_project\` and \`primary_subproject\` define the default breadcrumb and future hierarchy folder placement. Legacy \`project\` and \`subproject\` fields are read as fallback only.
+
+Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Flow\`, \`### Timeline\`, and \`### PM Metadata\`.
+
+## Body-Backed Planning Fields
+
+\`\`\`yaml
+workstream_type:
+\`\`\`
+
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The active Category set is editable in plugin settings.
+
+Rich planning data belongs in the document body:
+
+- \`### Current Focus\` for the next visible action.
+- \`### Waiting\` for people or responses you are waiting on.
+- \`### Blockers\` for concrete blockers.
+- \`### Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
+- \`### Timeline\` for \`Next review\` and \`Due date\`.
+- \`### Routine\` for recurring review/checkup routines.
+- \`### References\` for source notes that feed the Action index.
+
+\`## PM Control\` is the plugin-readable area. \`## Working Notes\` is the human writing area. New Project/Subproject/Big Action documents use different working-note sections.
+
+## Small Actions
+
+Small actions are checkbox tasks inside the living document. KanbanRPM reads a Tasks-compatible emoji subset:
+
+\`\`\`markdown
+- [ ] Email vendor \u23F3 2026-05-10 \u{1F4C5} 2026-05-15 \u{1F53C}
+- [x] Submit quote request \u2705 2026-05-07
+\`\`\`
+
+Supported metadata:
+
+- scheduled date: \`\u23F3 YYYY-MM-DD\`
+- due date: \`\u{1F4C5} YYYY-MM-DD\`
+- done date: \`\u2705 YYYY-MM-DD\`
+- priority: \`\u23EB\`, \`\u{1F53C}\`, \`\u{1F53D}\`, \`\u23EC\`
+
+Small-action card display is controlled from plugin settings. The default is due/scheduled actions through one week, including overdue actions. Expanded card rows group small actions by their source heading.
+
+Checking a small action from a card updates the original Markdown line to \`[x]\` and appends today's done date. Unchecking returns it to \`[ ]\` and removes the done date.
+
+Default \`Category\` values:
+
+\`\`\`text
+${WORKSTREAM_TYPES.join(" | ")}
+\`\`\`
+
+## Lane Customization Decision
+
+KanbanRPM uses a global customizable status set. The default is:
+
+\`\`\`text
+${DEFAULT_STATUSES.map((status) => status.label).join(" -> ")}
+\`\`\`
+
+Edit statuses from plugin settings using one line per status:
+
+\`\`\`text
+id | Label
+\`\`\`
+
+Changing the status set does not rewrite existing cards. Unknown status values are shown as data warnings and fall back to the first configured status for display.
+
+## Validation
+
+The board shows \`Data warnings\` for:
+
+- invalid or missing \`status\`
+- invalid \`priority\`
+- unknown \`workstream_type\` / \`Category\`
+- non-numeric \`order\`
+- broken wikilinks in \`## References\` or \`## Flow\`
+
+KanbanRPM tries to display imperfect cards rather than hiding them. Invalid \`status\` falls back to \`Inbox\` for display.
+`;
+}
+
+// src-kanbanrpm/settings-tab.ts
+var import_obsidian6 = require("obsidian");
+var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.addClass("kanban-rpm-settings");
+    containerEl.createEl("h2", { text: "KanbanRPM settings" });
+    containerEl.createDiv({
+      cls: "kanban-rpm-settings-intro",
+      text: "Configure the workspace, project taxonomy, research capture, card display, and small-action filters used by KanbanRPM."
+    });
+    const workspace = this.createSection(containerEl, "Workspace", "Where KanbanRPM stores living documents and generated support files.");
+    new import_obsidian6.Setting(workspace).setName("Workspace folder").setDesc("Folder that stores KanbanRPM cards, timeline memo files, routines, attachments, archive folders, and generated reports.").addText((input) => {
+      input.setPlaceholder(DEFAULT_SETTINGS.workspaceFolder).setValue(this.plugin.settings.workspaceFolder).onChange(async (value) => {
+        this.plugin.settings.workspaceFolder = value.trim() || DEFAULT_SETTINGS.workspaceFolder;
+        await this.plugin.saveSettings();
+      });
+    });
+    const taxonomy = this.createSection(containerEl, "Taxonomy", "Edit the controlled vocabularies used across Board, Table, Timeline, Gantt, filters, and validation.");
+    taxonomy.createDiv({
+      cls: "kanban-rpm-setting-note",
+      text: 'Status format is "id | Label". Category format is one category per line.'
+    });
+    new import_obsidian6.Setting(taxonomy).setName("Global status set").setDesc("One status per line. Format: id | Label. Used by Board, Table, Timeline, and Gantt.").addTextArea((input) => {
+      input.setPlaceholder(serializeStatuses(DEFAULT_SETTINGS.statuses)).setValue(serializeStatuses(this.plugin.settings.statuses)).onChange(async (value) => {
+        const statuses = parseStatuses(value);
+        this.plugin.settings.statuses = statuses.length ? statuses : DEFAULT_SETTINGS.statuses;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      });
+      input.inputEl.rows = 8;
+    });
+    new import_obsidian6.Setting(taxonomy).setName("Category set").setDesc("One category per line. Used by card create/edit, filters, board display, and validation.").addTextArea((input) => {
+      input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.categories)).setValue(serializeCategories(this.plugin.settings.categories)).onChange(async (value) => {
+        const categories = parseCategories(value);
+        this.plugin.settings.categories = categories.length ? categories : DEFAULT_SETTINGS.categories;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      });
+      input.inputEl.rows = 8;
+    });
+    const research = this.createSection(containerEl, "Research Logs And Reminders", "Control assisted Experiment/Analysis Log capture and Next review reminders.");
+    new import_obsidian6.Setting(research).setName("Experiment log categories").setDesc("Categories that trigger an Experiment Log prompt when a Big Action moves to a completion status.").addTextArea((input) => {
+      input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.experimentLogCategories)).setValue(serializeCategories(this.plugin.settings.experimentLogCategories)).onChange(async (value) => {
+        const categories = parseCategories(value);
+        this.plugin.settings.experimentLogCategories = categories.length ? categories : DEFAULT_SETTINGS.experimentLogCategories;
+        await this.plugin.saveSettings();
+      });
+      input.inputEl.rows = 3;
+    });
+    new import_obsidian6.Setting(research).setName("Analysis log categories").setDesc("Categories that trigger an Analysis Log prompt when a Big Action moves to a completion status.").addTextArea((input) => {
+      input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.analysisLogCategories)).setValue(serializeCategories(this.plugin.settings.analysisLogCategories)).onChange(async (value) => {
+        const categories = parseCategories(value);
+        this.plugin.settings.analysisLogCategories = categories.length ? categories : DEFAULT_SETTINGS.analysisLogCategories;
+        await this.plugin.saveSettings();
+      });
+      input.inputEl.rows = 3;
+    });
+    new import_obsidian6.Setting(research).setName("Prompt for log when moving matching Big Action to Done").setDesc("When enabled, KanbanRPM asks for an Experiment/Analysis Log row after a matching Big Action moves to a completion status.").addToggle((toggle) => {
+      toggle.setValue(this.plugin.settings.promptForLogOnDone).onChange(async (value) => {
+        this.plugin.settings.promptForLogOnDone = value;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian6.Setting(research).setName("Next review reminder status").setDesc("When Next review is today or overdue, Refresh moves non-complete cards to this status.").addDropdown((dropdown) => {
+      for (const status of this.plugin.settings.statuses) dropdown.addOption(status.id, status.label);
+      dropdown.setValue(this.plugin.settings.reviewReminderStatus).onChange(async (value) => {
+        this.plugin.settings.reviewReminderStatus = value || DEFAULT_SETTINGS.reviewReminderStatus;
+        await this.plugin.saveSettings();
+      });
+    });
+    const display = this.createSection(containerEl, "Card Display", "Choose which fields appear on compact cards in the Board and Timeline surfaces.");
+    display.createDiv({
+      cls: "kanban-rpm-setting-note",
+      text: "Choose which frontmatter and body-section fields appear on board cards."
+    });
+    const displayGrid = display.createDiv({ cls: "kanban-rpm-settings-toggle-grid" });
+    for (const [key, label] of [
+      ["breadcrumb", "Project breadcrumb"],
+      ["type", "Type"],
+      ["status", "Status"],
+      ["priority", "Priority"],
+      ["category", "Category"],
+      ["currentFocus", "Current Focus"],
+      ["waiting", "Waiting"],
+      ["blockers", "Blockers"],
+      ["dates", "Due / review dates"],
+      ["dependencies", "Flow"],
+      ["sources", "Source note count"],
+      ["smallActionSummary", "Small action summary"]
+    ]) {
+      new import_obsidian6.Setting(displayGrid).setName(label).addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.cardDisplayFields[key]).onChange(async (value) => {
+          this.plugin.settings.cardDisplayFields[key] = value;
+          await this.plugin.saveSettings();
+          await this.plugin.refreshViews();
+        });
+      });
+    }
+    const smallActions = this.createSection(containerEl, "Small Actions", "Decide which checkbox tasks are summarized inside cards.");
+    new import_obsidian6.Setting(smallActions).setName("Small actions collapsed by default").setDesc("When enabled, cards show a collapsed small-action row that can be expanded with the arrow.").addToggle((toggle) => {
+      toggle.setValue(this.plugin.settings.smallActionDisplay.collapsedByDefault).onChange(async (value) => {
+        this.plugin.settings.smallActionDisplay.collapsedByDefault = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      });
+    });
+    new import_obsidian6.Setting(smallActions).setName("Small action source").setDesc("Choose which checkbox actions can appear inside board cards.").addDropdown((dropdown) => {
+      dropdown.addOption("dated", "Due or scheduled only").addOption("done", "Done only").addOption("all", "All small actions").setValue(this.plugin.settings.smallActionDisplay.sourceFilter).onChange(async (value) => {
+        this.plugin.settings.smallActionDisplay.sourceFilter = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      });
+    });
+    new import_obsidian6.Setting(smallActions).setName("Small action date window").setDesc("Relative windows include today and overdue actions. Default is one week.").addDropdown((dropdown) => {
+      dropdown.addOption("all", "Any date").addOption("overdue", "Overdue only").addOption("today", "Today only").addOption("tomorrow", "Through tomorrow").addOption("week", "Through one week").addOption("month", "Through one month").setValue(this.plugin.settings.smallActionDisplay.dateWindow).onChange(async (value) => {
+        this.plugin.settings.smallActionDisplay.dateWindow = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      });
+    });
+  }
+  createSection(container, title, description) {
+    const section = container.createEl("details", { cls: "kanban-rpm-settings-section" });
+    section.open = true;
+    const summary = section.createEl("summary", { cls: "kanban-rpm-settings-section-summary" });
+    summary.createSpan({ cls: "kanban-rpm-settings-section-title", text: title });
+    summary.createSpan({ cls: "kanban-rpm-settings-section-desc", text: description });
+    return section.createDiv({ cls: "kanban-rpm-settings-section-body" });
+  }
+};
+
+// src-kanbanrpm/main.ts
+var KanbanRPMPlugin = class extends import_obsidian7.Plugin {
+  constructor() {
+    super(...arguments);
+    this.settings = { ...DEFAULT_SETTINGS };
+  }
+  async onload() {
+    this.settings = this.normalizeSettings(await this.loadData());
+    this.repository = new CardRepository(this);
+    this.registerView(VIEW_TYPE, (leaf) => new KanbanRPMView(leaf, this));
+    this.registerCardRefreshEvents();
+    this.addRibbonIcon("layout-dashboard", "Open KanbanRPM board", () => {
+      void this.openBoard();
+    });
+    this.addCommand({
+      id: "open-board",
+      name: "Open board",
+      callback: () => void this.openBoard()
+    });
+    this.addCommand({
+      id: "new-project-card",
+      name: "New document",
+      callback: () => new NewProjectCardModal(this.app, this).open()
+    });
+    this.addCommand({
+      id: "normalize-rpm-order",
+      name: "Normalize card order",
+      callback: () => void this.normalizeCardOrder()
+    });
+    this.addCommand({
+      id: "open-schema-reference",
+      name: "Open schema reference",
+      callback: () => void this.openSchemaReference()
+    });
+    this.addCommand({
+      id: "write-management-brief",
+      name: "Write management brief",
+      callback: () => void this.writeManagementBrief()
+    });
+    this.addSettingTab(new KanbanRPMSettingTab(this.app, this));
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+  normalizeSettings(data) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    const saved = data != null ? data : {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...saved,
+      statuses: ((_a = saved.statuses) == null ? void 0 : _a.length) ? saved.statuses : DEFAULT_SETTINGS.statuses,
+      categories: ((_b = saved.categories) == null ? void 0 : _b.length) ? saved.categories : DEFAULT_SETTINGS.categories,
+      experimentLogCategories: ((_c = saved.experimentLogCategories) == null ? void 0 : _c.length) ? saved.experimentLogCategories : DEFAULT_SETTINGS.experimentLogCategories,
+      analysisLogCategories: ((_d = saved.analysisLogCategories) == null ? void 0 : _d.length) ? saved.analysisLogCategories : DEFAULT_SETTINGS.analysisLogCategories,
+      promptForLogOnDone: (_e = saved.promptForLogOnDone) != null ? _e : DEFAULT_SETTINGS.promptForLogOnDone,
+      reviewReminderStatus: saved.reviewReminderStatus || DEFAULT_SETTINGS.reviewReminderStatus,
+      boardStatusFilter: ((_f = saved.boardStatusFilter) == null ? void 0 : _f.length) ? saved.boardStatusFilter : DEFAULT_SETTINGS.boardStatusFilter,
+      timelineStatusFilter: ((_g = saved.timelineStatusFilter) == null ? void 0 : _g.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
+      cardDisplayFields: {
+        ...DEFAULT_SETTINGS.cardDisplayFields,
+        ...(_h = saved.cardDisplayFields) != null ? _h : {}
+      },
+      smallActionDisplay: {
+        ...DEFAULT_SETTINGS.smallActionDisplay,
+        ...(_i = saved.smallActionDisplay) != null ? _i : {}
+      }
+    };
+  }
+  registerCardRefreshEvents() {
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (file) => {
+        if (this.isCardFile(file)) void this.refreshViews();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        if (this.isCardFile(file)) void this.refreshViews();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (this.isCardPath(file.path)) void this.refreshViews();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (this.isCardPath(file.path) || this.isCardPath(oldPath)) void this.refreshViews();
+      })
+    );
+  }
+  get workspaceFolder() {
+    return (0, import_obsidian7.normalizePath)(this.settings.workspaceFolder || DEFAULT_SETTINGS.workspaceFolder);
+  }
+  get cardsFolder() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/cards`);
+  }
+  get archiveFolder() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/archive`);
+  }
+  get routinesFolder() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/routines`);
+  }
+  get schemaReferencePath() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/KanbanRPM Card Schema.md`);
+  }
+  get managementBriefPath() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/KanbanRPM Management Brief.md`);
+  }
+  get researchLogsPath() {
+    return (0, import_obsidian7.normalizePath)(`${this.workspaceFolder}/Research Logs.md`);
+  }
+  isCardPath(path) {
+    return (0, import_obsidian7.normalizePath)(path).startsWith(`${this.cardsFolder}/`);
+  }
+  isCardFile(file) {
+    return file instanceof import_obsidian7.TFile && this.isCardPath(file.path) && file.extension === "md";
+  }
+  async ensureWorkspace() {
+    const folders = [
+      this.workspaceFolder,
+      this.cardsFolder,
+      this.routinesFolder,
+      `${this.workspaceFolder}/timeline`,
+      `${this.workspaceFolder}/attachments`
+    ].map(import_obsidian7.normalizePath);
+    for (const folder of folders) {
+      if (!this.app.vault.getAbstractFileByPath(folder)) {
+        await this.app.vault.createFolder(folder);
+      }
+    }
+  }
+  async openBoard() {
+    await this.ensureWorkspace();
+    await this.repository.applyDueReviews();
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.setViewState({ type: VIEW_TYPE, active: true });
+    this.app.workspace.revealLeaf(leaf);
+  }
+  async loadCards() {
+    return this.repository.loadCards();
+  }
+  async loadArchivedCards() {
+    return this.repository.loadArchivedCards();
+  }
+  async loadResearchLogs() {
+    return this.repository.loadResearchLogs();
+  }
+  async createCard(values) {
+    return this.repository.createCard(values);
+  }
+  async updateCardFrontmatter(file, updates) {
+    await this.repository.updateCardFrontmatter(file, updates);
+  }
+  async updateCard(card, values) {
+    await this.repository.updateCard(card, values);
+  }
+  async moveCard(cardPath, targetStatus, beforePath) {
+    const card = (await this.repository.loadCards()).find((item) => item.path === cardPath);
+    await this.repository.moveCard(cardPath, targetStatus, beforePath);
+    if (card) this.maybePromptForResearchLog(card, targetStatus);
+  }
+  async setCardStatus(card, status) {
+    await this.repository.setCardStatus(card, status);
+    this.maybePromptForResearchLog(card, status);
+  }
+  async updateProjectState(card, projectState) {
+    await this.repository.updateProjectState(card, projectState);
+  }
+  async updateGanttDates(card, values) {
+    await this.repository.updateGanttDates(card, values);
+  }
+  async normalizeCardOrder() {
+    await this.repository.normalizeCardOrder();
+  }
+  async openSchemaReference() {
+    await this.ensureWorkspace();
+    let file = this.app.vault.getAbstractFileByPath(this.schemaReferencePath);
+    if (!(file instanceof import_obsidian7.TFile)) {
+      file = await this.app.vault.create(this.schemaReferencePath, getSchemaReferenceContent());
+      new import_obsidian7.Notice("KanbanRPM schema reference created.");
+    }
+    if (file instanceof import_obsidian7.TFile) await this.app.workspace.getLeaf(false).openFile(file);
+  }
+  async setNextAction(cardPath, nextAction) {
+    await this.repository.setNextAction(cardPath, nextAction);
+  }
+  async promoteActionToBigAction(action) {
+    return this.repository.promoteActionToBigAction(action);
+  }
+  async toggleSmallAction(action) {
+    await this.repository.toggleSmallAction(action);
+  }
+  async completeRoutine(cardPath, routineText, date) {
+    await this.repository.completeRoutine(cardPath, routineText, date);
+  }
+  async addPrecededBy(targetPath, sourceCard) {
+    await this.repository.addPrecededBy(targetPath, sourceCard);
+  }
+  async removePrecededBy(targetPath, sourceCard) {
+    await this.repository.removePrecededBy(targetPath, sourceCard);
+  }
+  async archiveCard(card) {
+    await this.repository.archiveCard(card);
+  }
+  async unarchiveCard(card) {
+    await this.repository.unarchiveCard(card);
+  }
+  async deleteCard(card) {
+    await this.repository.deleteCard(card);
+  }
+  async duplicateCard(card) {
+    return this.repository.duplicateCard(card);
+  }
+  async collectActionIndex(cards) {
+    return this.repository.collectActionIndex(cards);
+  }
+  validateCards(cards) {
+    return this.repository.validateCards(cards);
+  }
+  async writeManagementBrief(cards) {
+    await this.repository.writeManagementBrief(cards);
+  }
+  async addResearchLogRow(card, values) {
+    await this.repository.addResearchLogRow(card, values);
+  }
+  resolveLinkedFile(link, sourcePath) {
+    return this.repository.resolveLinkedFile(link, sourcePath);
+  }
+  computeOrder(laneCards, insertIndex) {
+    return this.repository.computeOrder(laneCards, insertIndex);
+  }
+  async openCard(card) {
+    const file = this.app.vault.getAbstractFileByPath(card.path);
+    if (file instanceof import_obsidian7.TFile) {
+      await this.app.workspace.getLeaf(false).openFile(file);
+    }
+  }
+  async openFilePath(path) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file instanceof import_obsidian7.TFile) {
+      await this.app.workspace.getLeaf(false).openFile(file);
+    }
+  }
+  async openLinkedReference(link, sourcePath) {
+    const file = this.resolveLinkedFile(link, sourcePath);
+    if (file instanceof import_obsidian7.TFile) {
+      await this.app.workspace.getLeaf(false).openFile(file);
+    } else {
+      new import_obsidian7.Notice(`KanbanRPM could not resolve link: ${link}`);
+    }
+  }
+  async refreshViews() {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+      const view = leaf.view;
+      if (view instanceof KanbanRPMView) await view.refresh();
+    }
+  }
+  async applyDueReviews() {
+    return this.repository.applyDueReviews();
+  }
+  maybePromptForResearchLog(card, targetStatus) {
+    if (!this.settings.promptForLogOnDone) return;
+    if (card.type !== "big_action") return;
+    if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return;
+    const kind = this.researchLogKindForCategory(card.workstreamType);
+    if (!kind) return;
+    const today = this.todayIso();
+    const initial = {
+      module: "",
+      date: today,
+      subject: "",
+      conditionsOrMethod: "",
+      result: card.nextAction || "",
+      link: `[[${card.file.basename}]]`
+    };
+    new ResearchLogModal(this.app, kind, initial, async (values) => {
+      await this.addResearchLogRow(card, values);
+    }).open();
+  }
+  researchLogKindForCategory(category) {
+    const normalized = category.trim().toLowerCase();
+    if (!normalized) return null;
+    if (this.settings.experimentLogCategories.includes(normalized)) return "experiment";
+    if (this.settings.analysisLogCategories.includes(normalized)) return "analysis";
+    return null;
+  }
+  isCompletionStatus(statusId) {
+    var _a, _b;
+    const status = this.settings.statuses.find((item) => item.id === statusId);
+    const value = `${(_a = status == null ? void 0 : status.id) != null ? _a : statusId} ${(_b = status == null ? void 0 : status.label) != null ? _b : ""}`.toLowerCase();
+    return /\b(done|complete|completed)\b/.test(value);
+  }
+  todayIso() {
+    const now = /* @__PURE__ */ new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+};

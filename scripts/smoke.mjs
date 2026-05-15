@@ -46,6 +46,9 @@ assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Timeline',
 assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Subproject filter', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
 assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Subproject', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
 assertFileContains('docs/Attribution.md', ['obsidian-community/obsidian-kanban', 'kanban-rpm']);
+for (const file of ['main.js', 'manifest.json', 'styles.css']) {
+  assert(fs.existsSync(path.join(root, file)), `root release file should exist: ${file}`);
+}
 
 console.log('KanbanRPM smoke checks passed');
 

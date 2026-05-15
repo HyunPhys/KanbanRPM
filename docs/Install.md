@@ -1,21 +1,74 @@
 # KanbanRPM Install Guide
 
-This guide explains how to install KanbanRPM from the local source project or from a prepared release bundle.
+This guide explains how to install KanbanRPM from GitHub, from release files, or from source.
 
-## Local Development Install
+## Manual Install From GitHub Release
 
-Use this when developing inside this vault.
+1. Open the latest GitHub Release for KanbanRPM.
+2. Download:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+3. Create this folder in your target Obsidian vault:
+
+```text
+<Your Vault>/.obsidian/plugins/kanban-rpm/
+```
+
+4. Copy the three files into that folder.
+5. Restart Obsidian or reload community plugins.
+6. Enable `KanbanRPM` in `Settings` -> `Community plugins`.
+7. Run `KanbanRPM: Open board`.
+
+## Install From Repository Root
+
+The repository root contains release-ready files:
+
+```text
+main.js
+manifest.json
+styles.css
+```
+
+Copy those files into:
+
+```text
+<Your Vault>/.obsidian/plugins/kanban-rpm/
+```
+
+Then enable `KanbanRPM`.
+
+## Build From Source
 
 ```powershell
-cd "D:\Obsidian Vaults\Project_Manage_test\KanbanRPM"
-$env:Path = 'C:\Program Files\nodejs;' + $env:Path
+git clone https://github.com/HyunPhys/KanbanRPM.git
+cd KanbanRPM
 npm install
 npm run check
 npm run package
 npm run smoke
 ```
 
-The build writes these files to the live Obsidian plugin folder:
+`npm run package` creates:
+
+```text
+dist/kanban-rpm-0.3.0/
+  main.js
+  manifest.json
+  styles.css
+```
+
+It also updates the repository root release files:
+
+```text
+main.js
+manifest.json
+styles.css
+```
+
+## Local Development Install
+
+When developing inside the original test vault, `npm run build` writes the live plugin files to:
 
 ```text
 D:\Obsidian Vaults\Project_Manage_test\.obsidian\plugins\kanban-rpm\
@@ -24,43 +77,20 @@ D:\Obsidian Vaults\Project_Manage_test\.obsidian\plugins\kanban-rpm\
   styles.css
 ```
 
-Then open Obsidian, go to `Settings -> Community plugins`, and enable `KanbanRPM`.
-
-## Release Bundle Install
-
-Prepare a local release bundle:
-
-```powershell
-cd "D:\Obsidian Vaults\Project_Manage_test\KanbanRPM"
-npm run package
-```
-
-This creates:
-
-```text
-KanbanRPM/dist/kanban-rpm-0.3.0/
-  main.js
-  manifest.json
-  styles.css
-```
-
-Run `npm run smoke` after packaging to confirm the release bundle and live plugin folder contain the expected files and matching versions.
-
-To install in another vault, copy that folder into:
-
-```text
-<Other Vault>/.obsidian/plugins/kanban-rpm/
-```
-
-Restart Obsidian or reload community plugins, then enable `KanbanRPM`.
+Then open Obsidian and enable `KanbanRPM`.
 
 ## Upgrade
 
-1. Run `npm run check` or `npm run package`.
-2. Replace `main.js`, `manifest.json`, and `styles.css` in the target vault plugin folder.
+1. Download or build the new `main.js`, `manifest.json`, and `styles.css`.
+2. Replace those files in:
+
+```text
+<Your Vault>/.obsidian/plugins/kanban-rpm/
+```
+
 3. Restart Obsidian or disable/enable `KanbanRPM`.
 
-KanbanRPM stores user data as Markdown files under `KanbanRPM Workspace/`. Upgrading plugin files should not modify card files.
+KanbanRPM stores user data as Markdown files under `KanbanRPM Workspace/`. Updating plugin files should not modify your card documents.
 
 ## Coexistence
 
