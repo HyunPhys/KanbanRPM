@@ -36,7 +36,7 @@ The live plugin folder may also contain Obsidian-generated `data.json`.
 - [ ] Confirm original `Laminar` can stay enabled.
 - [ ] Confirm original `Kanban` can stay enabled.
 - [ ] Run `KanbanRPM: Open board`.
-- [ ] Confirm `Board`, `Table`, `List`, and `Timeline` views render.
+- [ ] Confirm `Board`, `Table`, `Timeline`, `Gantt`, and `Archive` views render.
 - [ ] Create a `Project` document.
 - [ ] Create a `Subproject` under that Project.
 - [ ] Create a `Big Action` under that Project/Subproject.
@@ -47,6 +47,8 @@ The live plugin folder may also contain Obsidian-generated `data.json`.
 - [ ] Run `Normalize order`.
 - [ ] Duplicate the card.
 - [ ] Archive the duplicate.
+- [ ] Confirm the duplicate moves to `cards/<Project>/archive/`.
+- [ ] Open `Archive` view and unarchive the duplicate.
 - [ ] Delete a test card.
 
 ## Board Flow
@@ -77,16 +79,52 @@ The live plugin folder may also contain Obsidian-generated `data.json`.
 - [ ] Confirm `### Routine Log` receives a Markdown table row.
 - [ ] Confirm the completed routine hides for its active recurrence period.
 
+## Gantt, Research Logs, And Next Review
+
+- [ ] Add `Start date`, `Due date`, and `Next review` to a Big Action under `### Timeline`.
+- [ ] Confirm `Gantt` shows `Month+Week` by default and can switch to `Quarter+Month`.
+- [ ] Confirm a `Start date: 2026-05-15` / `Due date: 2026-06-10` Big Action bar starts around the middle of May and ends in early June.
+- [ ] Confirm Subproject summary bars use direct Subproject dates when present, otherwise child Big Action date bounds.
+- [ ] Confirm Projects, Subprojects within a Project, and Big Actions within a Subproject are sorted by earliest Start date without flattening the hierarchy.
+- [ ] Confirm Project/Subproject collapse behavior follows the current Project filter.
+- [ ] Confirm row title click opens the original living document.
+- [ ] Confirm Gantt bar click opens the date edit modal and saves `Start date`, `Due date`, and `Next review`.
+- [ ] Confirm `Next review` and today markers appear on the time grid.
+- [ ] Confirm status badges show status labels such as `Active`, `Inbox`, and `Done`.
+- [ ] Confirm flow badges show `Preceded`, `Followed`, and `Blocked` counts.
+- [ ] Confirm visible `Preceded by` relations draw Gantt connector lines between bars.
+- [ ] Confirm connector lines use warning color when the preceding card is not complete.
+- [ ] Confirm `Connectors: On/Off` hides and shows Gantt connector lines without changing stored Flow data.
+- [ ] Drag a Gantt bar's right dot to another bar's left connector area and confirm the target card gains the source under `### Flow` -> `Preceded by`.
+- [ ] Confirm Gantt connector dot drag does not open the Gantt date edit modal, while clicking the bar body still does.
+- [ ] Set a Big Action `Category` to `experiment`.
+- [ ] Move it to a completion status and confirm the Experiment Log prompt appears when enabled.
+- [ ] Confirm canceling the prompt keeps the status change without adding a log row.
+- [ ] Move another matching Big Action to completion and add a log row.
+- [ ] Confirm `### Experiment Log` is written to `KanbanRPM Workspace/Research Logs.md`, not to the completed Big Action document.
+- [ ] Confirm the log row includes the completed Big Action card link.
+- [ ] Confirm `Research index` shows the new log row.
+- [ ] Set `Next review` to today or earlier on a non-complete card.
+- [ ] Refresh the board and confirm the card moves to `Next review reminder status`.
+- [ ] Confirm `### Timeline Log` receives a next review entry.
+- [ ] Confirm completed cards are not moved by overdue `Next review`.
+
+## Project Lifecycle
+
+- [ ] Use `Close project` from a Project note and confirm `project_state: closed` is written.
+- [ ] Confirm the closed Project and cards that only belong to it disappear from default filters/views.
+- [ ] Confirm a card linked to both a closed Project and an active Project remains visible.
+- [ ] Turn on `Show closed projects` and confirm the closed Project is visible again.
+- [ ] Use `Reopen project` and confirm the Project returns to default views.
+
 ## Action Index And Weekly Review
 
 - [ ] Add a source note under `### References`.
 - [ ] Confirm `Action index` reads unchecked checkbox actions from that source.
 - [ ] Use `Set next` from `Action index`.
 - [ ] Promote a non-recurring action to a Big Action.
-- [ ] Run `Weekly review`.
-- [ ] Confirm the weekly review note opens or is created under the configured folder.
 - [ ] Run `Management brief`.
-- [ ] Confirm `KanbanRPM Workspace/KanbanRPM Management Brief.md` opens and includes Snapshot, Projects, Upcoming Dates, Waiting, Blocked, Flow Risks, Routines, and Data Warnings.
+- [ ] Confirm `KanbanRPM Workspace/KanbanRPM Management Brief.md` opens and includes Snapshot, Executive Attention, Project Health, Projects, Upcoming Dates, Next Actions, Open Small Actions, Waiting, Blocked, Flow Risks, Routines, Recent Research Logs, and Data Warnings.
 
 ## Documentation
 
@@ -118,4 +156,13 @@ KanbanRPM version: 0.2.0
 Scope: Static checks, release bundle packaging, smoke checks, documentation release criteria.
 Result: Passed.
 Notes: npm.cmd run check, npm.cmd run package, and npm.cmd run smoke passed. Manual Obsidian QA remains tracked by the checklist above.
+```
+
+```text
+Date: 2026-05-14
+Tester: Codex
+KanbanRPM version: 0.3.0
+Scope: Static checks and v0.3 feature build.
+Result: Pending manual Obsidian QA.
+Notes: v0.3 adds Project archive folders, Archive view, month-scale Gantt view, Research index, assisted Experiment/Analysis Log prompt, Next review reminders, and legacy parser cleanup.
 ```

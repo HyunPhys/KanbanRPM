@@ -1,6 +1,5 @@
-import { normalizePath } from 'obsidian';
 import { LANES } from './constants';
-import type { KanbanRPMSettings, ProjectCard, Status, StatusDefinition } from './types';
+import type { ProjectCard, Status, StatusDefinition } from './types';
 
 export function text(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -142,27 +141,6 @@ export function parsePriority(value: unknown): number {
 export function parseOrder(value: unknown): number | undefined {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
-}
-
-export function getIsoDate(date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-export function getIsoWeek(date = new Date()): { year: number; week: number } {
-  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const week = Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return { year: target.getUTCFullYear(), week };
-}
-
-export function getWeeklyReviewPath(settings: KanbanRPMSettings, date = new Date()): string {
-  const { year, week } = getIsoWeek(date);
-  return normalizePath(`${settings.weeklyReviewFolder}/${year}-W${String(week).padStart(2, '0')} Weekly Review.md`);
 }
 
 export function isPastDate(value: string): boolean {

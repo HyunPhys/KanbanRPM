@@ -42,9 +42,9 @@ for (const rel of [
 assertFileContains('README.md', ['npm run package', 'docs/Install.md', 'docs/Release Notes.md']);
 assertFileContains('docs/Install.md', [manifest.id, manifest.version, 'main.js', 'manifest.json', 'styles.css']);
 assertFileContains('docs/Migration v0.1 to v0.2.md', ['v0.1', 'v0.2', 'living document', 'Timeline']);
-assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Timeline', 'Weekly review', 'Action index', 'Management Brief']);
-assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Subproject filter', 'primary_project', 'primary hierarchy', 'Table', 'List', 'Timeline']);
-assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Subproject', 'primary_project', 'primary hierarchy', 'Table', 'List', 'Timeline']);
+assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Timeline', 'Action index', 'Management Brief']);
+assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Subproject filter', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
+assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Subproject', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
 assertFileContains('docs/Attribution.md', ['obsidian-community/obsidian-kanban', 'kanban-rpm']);
 
 console.log('KanbanRPM smoke checks passed');

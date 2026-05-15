@@ -9,8 +9,9 @@ kanban_rpm: true
 type: big_action
 id: example-workstream
 status: active
-project: "[[TTT]]"
-subproject: "[[TTT Experiment]]"
+project_state: active
+primary_project: "[[TTT]]"
+primary_subproject: "[[TTT Experiment]]"
 order:
 ```
 
@@ -20,7 +21,7 @@ Allowed `type` values:
 project | subproject | big_action
 ```
 
-`project` links a Subproject or Big Action to its Project. `subproject` links a Big Action to its Subproject. The create/edit modal provides dropdowns, so users do not need to type these links manually.
+`primary_project` links a Subproject or Big Action to its Project. `primary_subproject` links a Big Action to its Subproject. The create/edit modal provides dropdowns, so users do not need to type these links manually.
 
 KanbanRPM stores hierarchy explicitly. Current levels are `project` and `subproject`; future levels such as `pro_project` or `sub_subproject` should be added as explicit level fields instead of overloading one generic parent field.
 
@@ -31,6 +32,14 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
 `order` is managed by drag/reorder and `Normalize order`.
+
+`project_state` is a Project lifecycle field. It is mainly used on Project documents:
+
+```text
+active | closed
+```
+
+Closed Projects and cards that only belong to closed Projects are hidden from default KanbanRPM views. Use `Show closed projects` to inspect or reopen them. Closing a Project does not change child card statuses.
 
 ## Optional Frontmatter
 
@@ -78,6 +87,8 @@ Followed by:
 
 ### Timeline
 
+### Timeline Log
+
 ### Routine
 
 ### References
@@ -102,7 +113,8 @@ KanbanRPM reads these sections while keeping the document useful as a normal not
 - `### Blockers`: concrete blockers.
 - `### Flow`: `Preceded by` and `Followed by` wikilinks.
 - `### Routine`: recurring review/routine checkbox items.
-- `### Timeline`: `Next review` and `Due date` rows.
+- `### Timeline`: `Start date`, `Next review`, and `Due date` rows.
+- Research logs are stored in `KanbanRPM Workspace/Research Logs.md`, not inside Project/Subproject/Big Action documents.
 - `### References`: source notes scanned by Action index.
 - `### PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
 
@@ -122,7 +134,7 @@ Followed by:
 - [[TTT Manuscript]]
 ```
 
-Legacy `## Dependencies` sections with `Depends on` and `Blocks` are still read for compatibility, but new documents should use `## Flow`. Board arrows are stored by adding the predecessor link to the follower document's `Preceded by` list.
+Board arrows are stored by adding the predecessor link to the follower document's `Preceded by` list.
 
 Arrow state is based on the predecessor card's completion status. KanbanRPM treats status ids or labels containing `Done`, `Complete`, `Completed`, or `?꾨즺` as completion statuses. If a custom status set has no completion status, flow arrows remain in the warning state.
 
@@ -137,7 +149,34 @@ Preferred recurring routine syntax:
 - [ ] TEM Data Backup @monthly
 ```
 
-KanbanRPM v0.2.0 and later use `Routine` as the user-facing name. Older `## Perpetual` and `## Perpetual Log` sections are still read as legacy aliases, but new documents should use `## Routine` and `## Routine Log`.
+KanbanRPM uses `Routine` as the user-facing name. New documents should use `### Routine` and `### Routine Log`.
+
+## Next Review
+
+`Next review` is the reminder layer. On board open or refresh, if `Next review` is today or overdue, KanbanRPM moves non-complete cards to the configured `Next review reminder status` and writes a `### Timeline Log` entry.
+
+## Experiment And Analysis Logs
+
+Logs stay readable Markdown tables in `KanbanRPM Workspace/Research Logs.md`. KanbanRPM parses that global log document for the Research index.
+
+```markdown
+### Experiment Log
+
+#### Stacking
+
+| Date | Sample | Conditions | Result | Link |
+| --- | --- | --- | --- | --- |
+| 2026-05-14 | [[TTT Sample 8]] | PC, 8 wt%, 100C 7m | partial success | [[2026-05-14 Stacking - TTT Sample 8]] |
+
+### Analysis Log
+
+#### DF analysis
+
+| Date | Dataset / Sample | Method | Result | Link |
+| --- | --- | --- | --- | --- |
+```
+
+Category-based log prompts are controlled in plugin settings. By default, `experiment` triggers an Experiment Log prompt and `analysis` triggers an Analysis Log prompt when a matching Big Action moves to a completion status.
 
 ## Checkbox Promotion
 

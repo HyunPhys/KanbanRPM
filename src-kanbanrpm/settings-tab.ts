@@ -14,11 +14,17 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass('kanban-rpm-settings');
     containerEl.createEl('h2', { text: 'KanbanRPM settings' });
+    containerEl.createDiv({
+      cls: 'kanban-rpm-settings-intro',
+      text: 'Configure the workspace, project taxonomy, research capture, card display, and small-action filters used by KanbanRPM.',
+    });
 
-    new Setting(containerEl)
+    const workspace = this.createSection(containerEl, 'Workspace', 'Where KanbanRPM stores living documents and generated support files.');
+    new Setting(workspace)
       .setName('Workspace folder')
-      .setDesc('Folder that stores KanbanRPM cards and Laminar-style support folders.')
+      .setDesc('Folder that stores KanbanRPM cards, timeline memo files, routines, attachments, archive folders, and generated reports.')
       .addText((input) => {
         input
           .setPlaceholder(DEFAULT_SETTINGS.workspaceFolder)
@@ -29,22 +35,15 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(containerEl)
-      .setName('Weekly review folder')
-      .setDesc('Folder where KanbanRPM creates weekly review notes.')
-      .addText((input) => {
-        input
-          .setPlaceholder(DEFAULT_SETTINGS.weeklyReviewFolder)
-          .setValue(this.plugin.settings.weeklyReviewFolder)
-          .onChange(async (value) => {
-            this.plugin.settings.weeklyReviewFolder = value.trim() || DEFAULT_SETTINGS.weeklyReviewFolder;
-            await this.plugin.saveSettings();
-          });
-      });
+    const taxonomy = this.createSection(containerEl, 'Taxonomy', 'Edit the controlled vocabularies used across Board, Table, Timeline, Gantt, filters, and validation.');
+    taxonomy.createDiv({
+      cls: 'kanban-rpm-setting-note',
+      text: 'Status format is "id | Label". Category format is one category per line.',
+    });
 
-    new Setting(containerEl)
+    new Setting(taxonomy)
       .setName('Global status set')
-      .setDesc('One status per line. Format: id | Label. Used by Board, Table, List, and Timeline.')
+      .setDesc('One status per line. Format: id | Label. Used by Board, Table, Timeline, and Gantt.')
       .addTextArea((input) => {
         input
           .setPlaceholder(serializeStatuses(DEFAULT_SETTINGS.statuses))
@@ -58,7 +57,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
         input.inputEl.rows = 8;
       });
 
-    new Setting(containerEl)
+    new Setting(taxonomy)
       .setName('Category set')
       .setDesc('One category per line. Used by card create/edit, filters, board display, and validation.')
       .addTextArea((input) => {
@@ -74,12 +73,70 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
         input.inputEl.rows = 8;
       });
 
-    containerEl.createEl('h3', { text: 'Card display fields' });
-    containerEl.createDiv({
+    const research = this.createSection(containerEl, 'Research Logs And Reminders', 'Control assisted Experiment/Analysis Log capture and Next review reminders.');
+
+    new Setting(research)
+      .setName('Experiment log categories')
+      .setDesc('Categories that trigger an Experiment Log prompt when a Big Action moves to a completion status.')
+      .addTextArea((input) => {
+        input
+          .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.experimentLogCategories))
+          .setValue(serializeCategories(this.plugin.settings.experimentLogCategories))
+          .onChange(async (value) => {
+            const categories = parseCategories(value);
+            this.plugin.settings.experimentLogCategories = categories.length ? categories : DEFAULT_SETTINGS.experimentLogCategories;
+            await this.plugin.saveSettings();
+          });
+        input.inputEl.rows = 3;
+      });
+
+    new Setting(research)
+      .setName('Analysis log categories')
+      .setDesc('Categories that trigger an Analysis Log prompt when a Big Action moves to a completion status.')
+      .addTextArea((input) => {
+        input
+          .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.analysisLogCategories))
+          .setValue(serializeCategories(this.plugin.settings.analysisLogCategories))
+          .onChange(async (value) => {
+            const categories = parseCategories(value);
+            this.plugin.settings.analysisLogCategories = categories.length ? categories : DEFAULT_SETTINGS.analysisLogCategories;
+            await this.plugin.saveSettings();
+          });
+        input.inputEl.rows = 3;
+      });
+
+    new Setting(research)
+      .setName('Prompt for log when moving matching Big Action to Done')
+      .setDesc('When enabled, KanbanRPM asks for an Experiment/Analysis Log row after a matching Big Action moves to a completion status.')
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.promptForLogOnDone)
+          .onChange(async (value) => {
+            this.plugin.settings.promptForLogOnDone = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(research)
+      .setName('Next review reminder status')
+      .setDesc('When Next review is today or overdue, Refresh moves non-complete cards to this status.')
+      .addDropdown((dropdown) => {
+        for (const status of this.plugin.settings.statuses) dropdown.addOption(status.id, status.label);
+        dropdown
+          .setValue(this.plugin.settings.reviewReminderStatus)
+          .onChange(async (value) => {
+            this.plugin.settings.reviewReminderStatus = value || DEFAULT_SETTINGS.reviewReminderStatus;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    const display = this.createSection(containerEl, 'Card Display', 'Choose which fields appear on compact cards in the Board and Timeline surfaces.');
+    display.createDiv({
       cls: 'kanban-rpm-setting-note',
       text: 'Choose which frontmatter and body-section fields appear on board cards.',
     });
 
+    const displayGrid = display.createDiv({ cls: 'kanban-rpm-settings-toggle-grid' });
     for (const [key, label] of [
       ['breadcrumb', 'Project breadcrumb'],
       ['type', 'Type'],
@@ -94,7 +151,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       ['sources', 'Source note count'],
       ['smallActionSummary', 'Small action summary'],
     ] as const) {
-      new Setting(containerEl)
+      new Setting(displayGrid)
         .setName(label)
         .addToggle((toggle) => {
           toggle
@@ -107,9 +164,9 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
         });
     }
 
-    containerEl.createEl('h3', { text: 'Small actions' });
+    const smallActions = this.createSection(containerEl, 'Small Actions', 'Decide which checkbox tasks are summarized inside cards.');
 
-    new Setting(containerEl)
+    new Setting(smallActions)
       .setName('Small actions collapsed by default')
       .setDesc('When enabled, cards show a collapsed small-action row that can be expanded with the arrow.')
       .addToggle((toggle) => {
@@ -122,7 +179,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(containerEl)
+    new Setting(smallActions)
       .setName('Small action source')
       .setDesc('Choose which checkbox actions can appear inside board cards.')
       .addDropdown((dropdown) => {
@@ -138,7 +195,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(containerEl)
+    new Setting(smallActions)
       .setName('Small action date window')
       .setDesc('Relative windows include today and overdue actions. Default is one week.')
       .addDropdown((dropdown) => {
@@ -156,5 +213,14 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
             await this.plugin.refreshViews();
           });
       });
+  }
+
+  private createSection(container: HTMLElement, title: string, description: string): HTMLElement {
+    const section = container.createEl('details', { cls: 'kanban-rpm-settings-section' });
+    section.open = true;
+    const summary = section.createEl('summary', { cls: 'kanban-rpm-settings-section-summary' });
+    summary.createSpan({ cls: 'kanban-rpm-settings-section-title', text: title });
+    summary.createSpan({ cls: 'kanban-rpm-settings-section-desc', text: description });
+    return section.createDiv({ cls: 'kanban-rpm-settings-section-body' });
   }
 }
