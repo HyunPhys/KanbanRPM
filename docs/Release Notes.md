@@ -1,5 +1,43 @@
 # KanbanRPM Release Notes
 
+## Unreleased
+
+## v0.3.3
+
+KanbanRPM v0.3.3 is a usability patch for saved Board state, denser Timeline cards, and small creation/display fixes.
+
+### Highlights
+
+- Added persistent Board lane ordering with small lane arrow controls.
+- Board `Project`, `Subproject`, and `Category` filters are now saved and restored when KanbanRPM is reopened.
+- Saved Board filters are cleared automatically if their target Project/Subproject/Category no longer exists.
+- `New document` now uses the current Board filters to preselect document type and hierarchy parents.
+- Board view can now show/hide flow arrows.
+- Board and Gantt views can now show/hide Big Action rows/cards independently.
+- Card `Timeline Log` now uses a `Date | Type | Change` Markdown table and records status changes.
+- Gantt view now supports a custom date range with `Apply range` and `Auto range`.
+- Card edit, Timeline, and Gantt date fields now use native calendar date inputs.
+- Added card-level `Scheduled date`; Timeline card markers now use `Scheduled date` instead of `Due date`.
+- Added a setting to open Advanced metadata by default in the new document modal.
+- New/edit document modals now keep the action footer accessible while the form body scrolls.
+- Timeline markers are denser: status changes moved to clickable status badges, marker kind prefixes became icons, and task/recurring markers render as lightweight chips.
+- Timeline small-action chips now show their source document, and clickable status badges share the same visual sizing/color system as other status badges.
+- Timeline hides standalone small-action chips when the parent card is already scheduled on the same date.
+- Card small actions now split into collapsible `Open` and `Done` sections; `Open` starts expanded and `Done` starts collapsed.
+- Card small-action toggles now use text-style controls instead of button-like controls.
+- New documents now write selected Category to frontmatter immediately, so Board/Table/Timeline/Gantt show it without reopening the edit modal.
+- README now includes acknowledgements for Obsidian Kanban and Laminar.
+
+### Verification
+
+Validated with:
+
+```text
+npm run check
+npm run package
+npm run smoke
+```
+
 ## v0.3.2
 
 KanbanRPM v0.3.2 is a patch release for title synchronization and cleaner living-document templates.

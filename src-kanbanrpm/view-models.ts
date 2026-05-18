@@ -1,4 +1,5 @@
 import type { ProjectCard } from './types';
+import type { SmallAction } from './types';
 
 export interface PointerDragState {
   cardPath: string;
@@ -37,8 +38,9 @@ export type GanttScale = 'month-week' | 'quarter-month';
 export interface TimelineMarker {
   date: string;
   label: string;
-  kind: 'due' | 'review' | 'task' | 'recurring';
+  kind: 'scheduled' | 'review' | 'task' | 'recurring';
   card: ProjectCard;
+  action?: SmallAction;
 }
 
 export interface TimelineMemoItem {

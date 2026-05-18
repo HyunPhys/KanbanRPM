@@ -146,7 +146,7 @@ export function isValidDateString(value: string): boolean {
 }
 
 export function toDateSortValue(card: ProjectCard): string {
-  const date = card.dueDate || card.nextReview || '';
+  const date = card.scheduledDate || card.dueDate || card.nextReview || '';
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '9999-99-99';
 }
 

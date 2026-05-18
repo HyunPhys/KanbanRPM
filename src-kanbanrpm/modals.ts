@@ -4,6 +4,11 @@ import type { CategoryDefinition, GanttDateValues, NewCardValues, ProjectCard, R
 import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
+export interface NewDocumentContext {
+  status?: Status;
+  projectTitle?: string;
+  subprojectTitle?: string;
+}
 
 export class TimelineMemoModal extends Modal {
   private day: string;
@@ -66,6 +71,7 @@ export class GanttDateModal extends Modal {
     super(app);
     this.values = {
       startDate: card.startDate,
+      scheduledDate: card.scheduledDate,
       dueDate: card.dueDate,
       nextReview: card.nextReview,
     };
@@ -80,10 +86,12 @@ export class GanttDateModal extends Modal {
     const grid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
     for (const [key, label] of [
       ['startDate', 'Start date'],
+      ['scheduledDate', 'Scheduled date'],
       ['dueDate', 'Due date'],
       ['nextReview', 'Next review'],
     ] as Array<[keyof GanttDateValues, string]>) {
       new Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = 'date';
         input.setPlaceholder('YYYY-MM-DD');
         input.setValue(this.values[key]);
         input.onChange((value) => {
@@ -92,7 +100,7 @@ export class GanttDateModal extends Modal {
       });
     }
 
-    new Setting(contentEl)
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
       .addButton((button) => {
         button
           .setButtonText('Save dates')
@@ -119,6 +127,7 @@ export class GanttDateModal extends Modal {
 
 export class NewProjectCardModal extends Modal {
   private plugin: KanbanRPMPlugin;
+  private context: NewDocumentContext;
   private parentOptions: ProjectCard[] = [];
   private values: NewCardValues = {
     title: '',
@@ -134,6 +143,7 @@ export class NewProjectCardModal extends Modal {
     waitingFor: '',
     blocker: '',
     startDate: '',
+    scheduledDate: '',
     nextReview: '',
     dueDate: '',
     dependsOn: '',
@@ -141,20 +151,42 @@ export class NewProjectCardModal extends Modal {
     sourceNotes: '',
   };
 
-  constructor(app: App, plugin: KanbanRPMPlugin, defaultStatus: Status = 'inbox') {
+  constructor(app: App, plugin: KanbanRPMPlugin, context: Status | NewDocumentContext = 'inbox') {
     super(app);
     this.plugin = plugin;
-    this.values.status = defaultStatus;
+    this.context = typeof context === 'string' ? { status: context } : context;
+    this.values.status = this.context.status ?? 'inbox';
   }
 
   async onOpen(): Promise<void> {
     this.parentOptions = await this.plugin.loadCards();
+    this.applyContextDefaults();
     this.renderForm();
+  }
+
+  private applyContextDefaults(): void {
+    const project = this.context.projectTitle
+      ? this.parentOptions.find((card) => card.type === 'project' && card.title === this.context.projectTitle)
+      : undefined;
+    const subproject = this.context.subprojectTitle
+      ? this.parentOptions.find((card) => card.type === 'subproject' && card.title === this.context.subprojectTitle)
+      : undefined;
+
+    if (project) this.values.project = this.parentValue(project);
+    if (subproject) {
+      this.values.subproject = this.parentValue(subproject);
+      if (!this.values.project && subproject.project) this.values.project = subproject.project;
+    }
+
+    if (project && subproject) this.values.type = 'big_action';
+    else if (project) this.values.type = 'subproject';
+    else this.values.type = 'project';
   }
 
   private renderForm(): void {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass('kanban-rpm-card-modal');
     contentEl.createEl('h2', { text: 'New KanbanRPM living document' });
 
     this.markRequired(new Setting(contentEl).setName('Title')).addText((input) => {
@@ -178,7 +210,7 @@ export class NewProjectCardModal extends Modal {
 
     this.addAdvancedFields(contentEl);
 
-    new Setting(contentEl)
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
       .addButton((button) => {
         button
           .setButtonText('Create document')
@@ -222,6 +254,7 @@ export class NewProjectCardModal extends Modal {
 
   private addAdvancedFields(container: HTMLElement): void {
     const details = container.createEl('details', { cls: 'kanban-rpm-modal-advanced' });
+    details.open = this.plugin.settings.newCardAdvancedOpen;
     details.createEl('summary', { text: 'Advanced metadata' });
     details.createDiv({
       cls: 'kanban-rpm-modal-help',
@@ -255,6 +288,7 @@ export class NewProjectCardModal extends Modal {
 
     const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
     new Setting(dateGrid).setName('Start date').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.startDate);
       input.onChange((value) => {
@@ -262,7 +296,17 @@ export class NewProjectCardModal extends Modal {
       });
     });
 
+    new Setting(dateGrid).setName('Scheduled date').addText((input) => {
+      input.inputEl.type = 'date';
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.scheduledDate);
+      input.onChange((value) => {
+        this.values.scheduledDate = value;
+      });
+    });
+
     new Setting(dateGrid).setName('Next review').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.nextReview);
       input.onChange((value) => {
@@ -271,6 +315,7 @@ export class NewProjectCardModal extends Modal {
     });
 
     new Setting(dateGrid).setName('Due date').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.dueDate);
       input.onChange((value) => {
@@ -424,6 +469,7 @@ export class EditProjectCardModal extends Modal {
       waitingFor: card.waitingFor,
       blocker: card.blocker,
       startDate: card.startDate,
+      scheduledDate: card.scheduledDate,
       nextReview: card.nextReview,
       dueDate: card.dueDate,
       dependsOn: card.dependsOn.join('\n'),
@@ -447,6 +493,7 @@ export class EditProjectCardModal extends Modal {
   private renderForm(): void {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass('kanban-rpm-card-modal');
     contentEl.createEl('h2', { text: 'Edit KanbanRPM living document' });
 
     this.markRequired(new Setting(contentEl).setName('Title')).addText((input) => {
@@ -468,7 +515,7 @@ export class EditProjectCardModal extends Modal {
 
     this.addAdvancedFields(contentEl);
 
-    new Setting(contentEl)
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
       .addButton((button) => {
         button
           .setButtonText('Save changes')
@@ -545,6 +592,7 @@ export class EditProjectCardModal extends Modal {
 
     const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
     new Setting(dateGrid).setName('Start date').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.startDate);
       input.onChange((value) => {
@@ -552,7 +600,17 @@ export class EditProjectCardModal extends Modal {
       });
     });
 
+    new Setting(dateGrid).setName('Scheduled date').addText((input) => {
+      input.inputEl.type = 'date';
+      input.setPlaceholder('YYYY-MM-DD');
+      input.setValue(this.values.scheduledDate);
+      input.onChange((value) => {
+        this.values.scheduledDate = value;
+      });
+    });
+
     new Setting(dateGrid).setName('Next review').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.nextReview);
       input.onChange((value) => {
@@ -561,6 +619,7 @@ export class EditProjectCardModal extends Modal {
     });
 
     new Setting(dateGrid).setName('Due date').addText((input) => {
+      input.inputEl.type = 'date';
       input.setPlaceholder('YYYY-MM-DD');
       input.setValue(this.values.dueDate);
       input.onChange((value) => {
@@ -727,7 +786,7 @@ export class ResearchLogModal extends Modal {
     this.addText('Result', '', 'result');
     this.addText('Link', '[[Current card]]', 'link');
 
-    new Setting(contentEl)
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
       .addButton((button) => {
         button
           .setButtonText('Add log row')

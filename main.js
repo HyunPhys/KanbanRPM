@@ -56,6 +56,14 @@ var DEFAULT_SETTINGS = {
   promptForLogOnDone: true,
   reviewReminderStatus: "active",
   boardStatusFilter: DEFAULT_STATUSES.map((status) => status.id),
+  boardStatusOrder: DEFAULT_STATUSES.map((status) => status.id),
+  boardProjectFilter: "",
+  boardSubprojectFilter: "",
+  boardCategoryFilter: "",
+  showBoardConnectors: true,
+  showBoardBigActions: true,
+  showGanttBigActions: true,
+  newCardAdvancedOpen: false,
   timelineStatusFilter: ["active"],
   cardDisplayFields: {
     breadcrumb: true,
@@ -94,14 +102,6 @@ function addDays(day, days) {
   const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
   date.setDate(date.getDate() + days);
   return formatDate(date);
-}
-function addMonths(day, months) {
-  const date = /* @__PURE__ */ new Date(`${day}T00:00:00`);
-  date.setMonth(date.getMonth() + months);
-  return formatDate(date);
-}
-function startOfMonth(day) {
-  return `${day.slice(0, 7)}-01`;
 }
 function endOfMonth(day) {
   const date = /* @__PURE__ */ new Date(`${day.slice(0, 7)}-01T00:00:00`);
@@ -252,7 +252,7 @@ function categoryLabel(categories, id) {
   return (_b = (_a = categories.find((category) => category.id === id)) == null ? void 0 : _a.label) != null ? _b : id;
 }
 function toDateSortValue(card) {
-  const date = card.dueDate || card.nextReview || "";
+  const date = card.scheduledDate || card.dueDate || card.nextReview || "";
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "9999-99-99";
 }
 function compareCards(a, b) {
@@ -352,6 +352,7 @@ var GanttDateModal = class extends import_obsidian.Modal {
     this.card = card;
     this.values = {
       startDate: card.startDate,
+      scheduledDate: card.scheduledDate,
       dueDate: card.dueDate,
       nextReview: card.nextReview
     };
@@ -365,10 +366,12 @@ var GanttDateModal = class extends import_obsidian.Modal {
     const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
     for (const [key, label] of [
       ["startDate", "Start date"],
+      ["scheduledDate", "Scheduled date"],
       ["dueDate", "Due date"],
       ["nextReview", "Next review"]
     ]) {
       new import_obsidian.Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = "date";
         input.setPlaceholder("YYYY-MM-DD");
         input.setValue(this.values[key]);
         input.onChange((value) => {
@@ -376,7 +379,7 @@ var GanttDateModal = class extends import_obsidian.Modal {
         });
       });
     }
-    new import_obsidian.Setting(contentEl).addButton((button) => {
+    new import_obsidian.Setting(contentEl.createDiv({ cls: "kanban-rpm-modal-footer" })).addButton((button) => {
       button.setButtonText("Save dates").setCta().onClick(() => {
         void this.save();
       });
@@ -395,7 +398,8 @@ var GanttDateModal = class extends import_obsidian.Modal {
   }
 };
 var NewProjectCardModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, defaultStatus = "inbox") {
+  constructor(app, plugin, context = "inbox") {
+    var _a;
     super(app);
     this.parentOptions = [];
     this.values = {
@@ -412,6 +416,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       waitingFor: "",
       blocker: "",
       startDate: "",
+      scheduledDate: "",
       nextReview: "",
       dueDate: "",
       dependsOn: "",
@@ -419,15 +424,30 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       sourceNotes: ""
     };
     this.plugin = plugin;
-    this.values.status = defaultStatus;
+    this.context = typeof context === "string" ? { status: context } : context;
+    this.values.status = (_a = this.context.status) != null ? _a : "inbox";
   }
   async onOpen() {
     this.parentOptions = await this.plugin.loadCards();
+    this.applyContextDefaults();
     this.renderForm();
+  }
+  applyContextDefaults() {
+    const project = this.context.projectTitle ? this.parentOptions.find((card) => card.type === "project" && card.title === this.context.projectTitle) : void 0;
+    const subproject = this.context.subprojectTitle ? this.parentOptions.find((card) => card.type === "subproject" && card.title === this.context.subprojectTitle) : void 0;
+    if (project) this.values.project = this.parentValue(project);
+    if (subproject) {
+      this.values.subproject = this.parentValue(subproject);
+      if (!this.values.project && subproject.project) this.values.project = subproject.project;
+    }
+    if (project && subproject) this.values.type = "big_action";
+    else if (project) this.values.type = "subproject";
+    else this.values.type = "project";
   }
   renderForm() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("kanban-rpm-card-modal");
     contentEl.createEl("h2", { text: "New KanbanRPM living document" });
     this.markRequired(new import_obsidian.Setting(contentEl).setName("Title")).addText((input) => {
       input.setPlaceholder("TTT Manuscript");
@@ -446,7 +466,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     this.addAdvancedFields(contentEl);
-    new import_obsidian.Setting(contentEl).addButton((button) => {
+    new import_obsidian.Setting(contentEl.createDiv({ cls: "kanban-rpm-modal-footer" })).addButton((button) => {
       button.setButtonText("Create document").setCta().onClick(() => {
         void this.createCard();
       });
@@ -480,6 +500,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
   }
   addAdvancedFields(container) {
     const details = container.createEl("details", { cls: "kanban-rpm-modal-advanced" });
+    details.open = this.plugin.settings.newCardAdvancedOpen;
     details.createEl("summary", { text: "Advanced metadata" });
     details.createDiv({
       cls: "kanban-rpm-modal-help",
@@ -508,13 +529,23 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
     });
     const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
     new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.startDate);
       input.onChange((value) => {
         this.values.startDate = value;
       });
     });
+    new import_obsidian.Setting(dateGrid).setName("Scheduled date").addText((input) => {
+      input.inputEl.type = "date";
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.scheduledDate);
+      input.onChange((value) => {
+        this.values.scheduledDate = value;
+      });
+    });
     new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.nextReview);
       input.onChange((value) => {
@@ -522,6 +553,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.dueDate);
       input.onChange((value) => {
@@ -646,6 +678,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       waitingFor: card.waitingFor,
       blocker: card.blocker,
       startDate: card.startDate,
+      scheduledDate: card.scheduledDate,
       nextReview: card.nextReview,
       dueDate: card.dueDate,
       dependsOn: card.dependsOn.join("\n"),
@@ -666,6 +699,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
   renderForm() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("kanban-rpm-card-modal");
     contentEl.createEl("h2", { text: "Edit KanbanRPM living document" });
     this.markRequired(new import_obsidian.Setting(contentEl).setName("Title")).addText((input) => {
       input.setValue(this.values.title);
@@ -682,7 +716,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     this.addAdvancedFields(contentEl);
-    new import_obsidian.Setting(contentEl).addButton((button) => {
+    new import_obsidian.Setting(contentEl.createDiv({ cls: "kanban-rpm-modal-footer" })).addButton((button) => {
       button.setButtonText("Save changes").setCta().onClick(() => {
         void this.saveChanges();
       });
@@ -744,13 +778,23 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
     });
     const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
     new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.startDate);
       input.onChange((value) => {
         this.values.startDate = value;
       });
     });
+    new import_obsidian.Setting(dateGrid).setName("Scheduled date").addText((input) => {
+      input.inputEl.type = "date";
+      input.setPlaceholder("YYYY-MM-DD");
+      input.setValue(this.values.scheduledDate);
+      input.onChange((value) => {
+        this.values.scheduledDate = value;
+      });
+    });
     new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.nextReview);
       input.onChange((value) => {
@@ -758,6 +802,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
+      input.inputEl.type = "date";
       input.setPlaceholder("YYYY-MM-DD");
       input.setValue(this.values.dueDate);
       input.onChange((value) => {
@@ -886,7 +931,7 @@ var ResearchLogModal = class extends import_obsidian.Modal {
     this.addText(this.values.kind === "experiment" ? "Conditions" : "Method", "", "conditionsOrMethod");
     this.addText("Result", "", "result");
     this.addText("Link", "[[Current card]]", "link");
-    new import_obsidian.Setting(contentEl).addButton((button) => {
+    new import_obsidian.Setting(contentEl.createDiv({ cls: "kanban-rpm-modal-footer" })).addButton((button) => {
       button.setButtonText("Add log row").setCta().onClick(() => {
         void this.save();
       });
@@ -969,6 +1014,8 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.timelineScope = "all";
     this.timelineMemoVisible = true;
     this.timelineSidebarCollapsed = false;
+    this.ganttRangeStart = "";
+    this.ganttRangeEnd = "";
     this.boardStatusFilter = /* @__PURE__ */ new Set();
     this.timelineStatusFilter = /* @__PURE__ */ new Set();
     this.ganttScale = "month-week";
@@ -982,10 +1029,22 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.showResearchIndex = false;
     this.panelsExpanded = false;
     this.showClosedProjects = false;
+    this.showBoardConnectors = true;
+    this.showBoardBigActions = true;
+    this.showGanttBigActions = true;
     this.projectNotesCollapsed = false;
     this.expandedSmallActions = /* @__PURE__ */ new Set();
     this.collapsedSmallActions = /* @__PURE__ */ new Set();
+    this.expandedSmallActionSections = /* @__PURE__ */ new Set();
+    this.collapsedSmallActionSections = /* @__PURE__ */ new Set();
     this.plugin = plugin;
+    this.projectFilter = plugin.settings.boardProjectFilter || "";
+    this.subprojectFilter = plugin.settings.boardSubprojectFilter || "";
+    this.workstreamTypeFilter = plugin.settings.boardCategoryFilter || "";
+    this.boardStatusFilter = new Set(plugin.settings.boardStatusFilter);
+    this.showBoardConnectors = plugin.settings.showBoardConnectors;
+    this.showBoardBigActions = plugin.settings.showBoardBigActions;
+    this.showGanttBigActions = plugin.settings.showGanttBigActions;
   }
   getViewType() {
     return VIEW_TYPE;
@@ -1006,6 +1065,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.researchLogs = await this.plugin.loadResearchLogs();
     this.actions = await this.plugin.collectActionIndex(this.cards);
     this.issues = this.plugin.validateCards(this.cards);
+    if (this.ensureBoardFilters()) await this.saveBoardFilters();
     this.render();
   }
   render() {
@@ -1044,7 +1104,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     }
     this.renderViewSwitcher(actions);
     actions.createEl("button", { text: "New document" }).addEventListener("click", () => {
-      new NewProjectCardModal(this.app, this.plugin).open();
+      new NewProjectCardModal(this.app, this.plugin, this.newDocumentContext()).open();
     });
     if (this.viewMode === "board") {
       actions.createEl("button", { text: this.groupByProject ? "Flat board" : this.getGroupingLabel() }).addEventListener("click", () => {
@@ -1138,6 +1198,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       card.waitingFor,
       card.blocker,
       card.startDate,
+      card.scheduledDate,
       card.nextReview,
       card.dueDate,
       ...card.precededBy,
@@ -1150,14 +1211,17 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.renderSelectFilter(filters, "Project", this.projectFilter, this.uniqueValues("projectTitle"), (value) => {
       this.projectFilter = value;
       this.subprojectFilter = "";
+      void this.saveBoardFilters();
       this.render();
     });
     this.renderSelectFilter(filters, "Subproject", this.subprojectFilter, this.subprojectFilterValues(), (value) => {
       this.subprojectFilter = value;
+      void this.saveBoardFilters();
       this.render();
     });
     this.renderSelectFilter(filters, "Category", this.workstreamTypeFilter, this.uniqueCategoryValues(), (value) => {
       this.workstreamTypeFilter = value;
+      void this.saveBoardFilters();
       this.render();
     });
     filters.createEl("button", {
@@ -1169,6 +1233,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       if (!this.showClosedProjects && this.projectFilter && this.isProjectTitleClosed(this.projectFilter)) {
         this.projectFilter = "";
         this.subprojectFilter = "";
+        void this.saveBoardFilters();
       }
       this.render();
     });
@@ -1177,6 +1242,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
         this.projectFilter = "";
         this.subprojectFilter = "";
         this.workstreamTypeFilter = "";
+        void this.saveBoardFilters();
         this.render();
       });
     }
@@ -1223,6 +1289,13 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       attr: { "aria-pressed": String(active) }
     });
     button.addEventListener("click", onClick);
+  }
+  newDocumentContext(status = "inbox") {
+    return {
+      status,
+      projectTitle: this.projectFilter || void 0,
+      subprojectTitle: this.subprojectFilter || void 0
+    };
   }
   renderSelectFilter(container, label, currentValue, values, onChange) {
     const wrap = container.createDiv({ cls: "kanban-rpm-filter" });
@@ -1316,6 +1389,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
             if (this.projectFilter === project.title) {
               this.projectFilter = "";
               this.subprojectFilter = "";
+              void this.saveBoardFilters();
             }
             await this.plugin.updateProjectState(project, "closed");
           }
@@ -1357,7 +1431,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const header = panel.createDiv({ cls: "kanban-rpm-command-center-header" });
     header.createEl("h3", { text: "Command center" });
     const headerActions = header.createDiv({ cls: "kanban-rpm-panel-actions" });
-    const reviewCards = visibleCards.filter((card) => isPastDate(card.nextReview) || isDueSoon(card.nextReview) || isPastDate(card.dueDate) || isDueSoon(card.dueDate)).sort((a, b) => toDateSortValue(a).localeCompare(toDateSortValue(b))).slice(0, 6);
+    const reviewCards = visibleCards.filter((card) => isPastDate(card.nextReview) || isDueSoon(card.nextReview) || isPastDate(card.scheduledDate) || isDueSoon(card.scheduledDate) || isPastDate(card.dueDate) || isDueSoon(card.dueDate)).sort((a, b) => toDateSortValue(a).localeCompare(toDateSortValue(b))).slice(0, 6);
     headerActions.createSpan({ text: "review, waiting, blockers, flow" });
     headerActions.createEl("button", { text: "Timeline review" }).addEventListener("click", () => {
       this.viewMode = "timeline";
@@ -1372,7 +1446,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const blockedCards = visibleCards.filter((card) => card.status === blockedStatus || Boolean(card.blocker) || card.blockedBy.length).sort(compareCards).slice(0, 6);
     const dependencyCards = visibleCards.filter((card) => card.precededBy.length || card.followedBy.length).sort((a, b) => b.precededBy.length + b.followedBy.length - (a.precededBy.length + a.followedBy.length)).slice(0, 6);
     this.renderCommandSection(grid, "Review queue", reviewCards, (card) => {
-      const date = card.dueDate || card.nextReview || "no date";
+      const date = card.scheduledDate || card.nextReview || card.dueDate || "no date";
       return `${date} - ${card.nextAction || card.workstreamType || card.status}`;
     });
     this.renderCommandSection(grid, "Waiting", waitingCards, (card) => card.waitingFor || card.nextAction || card.status);
@@ -1490,25 +1564,43 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
   }
   renderBoardView(container, visibleBoardCards) {
     this.ensureBoardStatusFilter();
-    const boardCards = visibleBoardCards.filter((card) => this.boardStatusFilter.has(card.status));
+    this.ensureBoardStatusOrder();
+    const boardCards = visibleBoardCards.filter(
+      (card) => this.boardStatusFilter.has(card.status) && (this.showBoardBigActions || card.type !== "big_action")
+    );
     this.renderBoardStatusFilter(container);
     const wrap = container.createDiv({ cls: "kanban-rpm-board-wrap" });
-    const overlay = this.svgEl("svg");
-    overlay.addClass("kanban-rpm-board-flow-overlay");
-    wrap.appendChild(overlay);
+    const overlay = this.showBoardConnectors ? this.svgEl("svg") : void 0;
+    if (overlay) {
+      overlay.addClass("kanban-rpm-board-flow-overlay");
+      wrap.appendChild(overlay);
+    }
     const board = wrap.createDiv({ cls: "kanban-rpm-board" });
-    for (const lane of this.plugin.settings.statuses.filter((status) => this.boardStatusFilter.has(status.id))) {
-      this.renderLane(board, lane, boardCards.filter((card) => card.status === lane.id).sort(compareCards));
+    const visibleLanes = this.orderedBoardStatuses().filter((status) => this.boardStatusFilter.has(status.id));
+    for (const lane of visibleLanes) {
+      this.renderLane(board, lane, boardCards.filter((card) => card.status === lane.id).sort(compareCards), visibleLanes);
     }
     if (!this.boardStatusFilter.size) board.createDiv({ cls: "kanban-rpm-empty", text: "No Board statuses selected." });
-    this.queueBoardFlowOverlay(wrap, overlay, boardCards);
+    if (overlay) this.queueBoardFlowOverlay(wrap, overlay, boardCards);
   }
   renderBoardStatusFilter(container) {
     const controls = container.createDiv({ cls: "kanban-rpm-board-status-row" });
+    this.renderBoardToggleButton(controls, `Arrows: ${this.showBoardConnectors ? "On" : "Off"}`, this.showBoardConnectors, async () => {
+      this.showBoardConnectors = !this.showBoardConnectors;
+      this.plugin.settings.showBoardConnectors = this.showBoardConnectors;
+      await this.plugin.saveSettings();
+      this.render();
+    });
+    this.renderBoardToggleButton(controls, `Big actions: ${this.showBoardBigActions ? "Shown" : "Hidden"}`, this.showBoardBigActions, async () => {
+      this.showBoardBigActions = !this.showBoardBigActions;
+      this.plugin.settings.showBoardBigActions = this.showBoardBigActions;
+      await this.plugin.saveSettings();
+      this.render();
+    });
     const statusWrap = controls.createEl("details", { cls: "kanban-rpm-board-status-filter" });
     statusWrap.createEl("summary", { text: `Statuses: ${this.boardStatusFilter.size}` });
     const statusList = statusWrap.createDiv({ cls: "kanban-rpm-board-status-list" });
-    for (const status of this.plugin.settings.statuses) {
+    for (const status of this.orderedBoardStatuses()) {
       const label = statusList.createEl("label");
       const checkbox = label.createEl("input", { attr: { type: "checkbox" } });
       checkbox.checked = this.boardStatusFilter.has(status.id);
@@ -1521,6 +1613,16 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       });
       label.createSpan({ text: status.label });
     }
+  }
+  renderBoardToggleButton(container, text2, active, onClick) {
+    const button = container.createEl("button", {
+      cls: active ? "kanban-rpm-view-button is-active" : "kanban-rpm-view-button",
+      text: text2,
+      attr: { "aria-pressed": String(active) }
+    });
+    button.addEventListener("click", () => {
+      void onClick();
+    });
   }
   queueBoardFlowOverlay(wrap, overlay, visibleBoardCards) {
     window.setTimeout(() => this.renderBoardFlowOverlay(wrap, overlay, visibleBoardCards), 0);
@@ -1660,17 +1762,46 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
   }
   renderGanttView(container, visibleBoardCards) {
     const ganttCards = visibleBoardCards.filter((card) => card.type === "subproject" || card.type === "big_action");
-    const rows = this.buildGanttRows(ganttCards);
-    const range = this.ganttRange(rows, ganttCards);
+    const rows = this.buildGanttRows(ganttCards, this.showGanttBigActions);
+    const autoRange = this.ganttAutoRange(rows, ganttCards);
+    const range = this.ganttRange(autoRange);
     const dayWidth = this.ganttScale === "month-week" ? 6 : 2.8;
     const totalDays = Math.max(1, daysBetween(range.start, range.end) + 1);
     const timelineWidth = Math.max(totalDays * dayWidth, 520);
-    const connectorCount = this.countVisibleGanttConnectors(rows);
+    const connectorCount = this.countVisibleGanttConnectors(rows, range);
     const topSegments = this.ganttScale === "month-week" ? this.ganttMonthSegments(range.start, range.end) : this.ganttQuarterSegments(range.start, range.end);
     const bottomSegments = this.ganttScale === "month-week" ? this.ganttWeekSegments(range.start, range.end) : this.ganttMonthSegments(range.start, range.end);
     const wrap = container.createDiv({ cls: "kanban-rpm-gantt-wrap" });
     const controls = wrap.createDiv({ cls: "kanban-rpm-gantt-controls" });
     controls.createEl("span", { cls: "kanban-rpm-gantt-range", text: `${this.toDisplayDate(range.start)} - ${this.toDisplayDate(range.end)}` });
+    const rangeStart = controls.createEl("input", {
+      cls: "kanban-rpm-gantt-date-input",
+      attr: {
+        type: "date",
+        value: this.ganttRangeStart || autoRange.start,
+        "aria-label": "Gantt range start"
+      }
+    });
+    const rangeEnd = controls.createEl("input", {
+      cls: "kanban-rpm-gantt-date-input",
+      attr: {
+        type: "date",
+        value: this.ganttRangeEnd || autoRange.end,
+        "aria-label": "Gantt range end"
+      }
+    });
+    controls.createEl("button", { text: "Apply range" }).addEventListener("click", () => {
+      if (isIsoDate(rangeStart.value) && isIsoDate(rangeEnd.value) && rangeStart.value <= rangeEnd.value) {
+        this.ganttRangeStart = rangeStart.value;
+        this.ganttRangeEnd = rangeEnd.value;
+        this.render();
+      }
+    });
+    controls.createEl("button", { text: "Auto range" }).addEventListener("click", () => {
+      this.ganttRangeStart = "";
+      this.ganttRangeEnd = "";
+      this.render();
+    });
     for (const [scale, label] of [
       ["month-week", "Month+Week"],
       ["quarter-month", "Quarter+Month"]
@@ -1692,6 +1823,16 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       this.showGanttConnectors = !this.showGanttConnectors;
       this.render();
     });
+    controls.createEl("button", {
+      cls: this.showGanttBigActions ? "kanban-rpm-view-button is-active" : "kanban-rpm-view-button",
+      text: `Big actions: ${this.showGanttBigActions ? "Shown" : "Hidden"}`,
+      attr: { "aria-pressed": String(this.showGanttBigActions) }
+    }).addEventListener("click", () => {
+      this.showGanttBigActions = !this.showGanttBigActions;
+      this.plugin.settings.showGanttBigActions = this.showGanttBigActions;
+      void this.plugin.saveSettings();
+      this.render();
+    });
     const surface = wrap.createDiv({ cls: "kanban-rpm-gantt-surface" });
     const header = surface.createDiv({ cls: "kanban-rpm-gantt-header" });
     header.createDiv({ cls: "kanban-rpm-gantt-label-header", text: "PROJECT / WORKSTREAM" });
@@ -1707,7 +1848,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     for (const row of rows) this.renderGanttSurfaceRow(body, row, range, dayWidth, timelineWidth);
     if (this.showGanttConnectors) this.renderGanttConnectors(body, rows, range, dayWidth, timelineWidth);
   }
-  buildGanttRows(cards) {
+  buildGanttRows(cards, includeBigActions = true) {
     const rows = [];
     const projectTitles = Array.from(new Set(cards.map((card) => card.projectTitle || card.projectTitles[0] || "No project"))).sort((a, b) => this.compareGanttProjectTitles(a, b, cards));
     for (const projectTitle of projectTitles) {
@@ -1749,7 +1890,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
           period: this.ganttSubprojectPeriod(subprojectCard, bigActions),
           childCount: bigActions.length
         });
-        if (this.collapsedGanttNodes.has(subprojectKey)) continue;
+        if (this.collapsedGanttNodes.has(subprojectKey) || !includeBigActions) continue;
         for (const card of bigActions) {
           rows.push({
             key: `gantt:action:${card.path}`,
@@ -1797,7 +1938,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     track.style.width = `${timelineWidth}px`;
     if (row.card) track.dataset.path = row.card.path;
     this.renderGanttTrackGrid(track, range, dayWidth);
-    if (row.period) this.renderGanttBar(track, row, row.period, range, dayWidth);
+    if (row.period && this.ganttPeriodOverlaps(row.period, range)) this.renderGanttBar(track, row, row.period, range, dayWidth);
     if ((_a = row.card) == null ? void 0 : _a.nextReview) this.renderGanttMarker(track, row.card.nextReview, range, dayWidth, "review", "review");
   }
   renderGanttToggle(container, key, collapsed, disabled) {
@@ -1879,7 +2020,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
   }
   renderGanttConnectors(body, rows, range, dayWidth, timelineWidth) {
     var _a, _b, _c, _d, _e;
-    const rowByPath = this.ganttVisibleRowMap(rows);
+    const rowByPath = this.ganttVisibleRowMap(rows, range);
     const yByPath = this.ganttTrackCenterYMap(body);
     const totalHeight = Math.max(body.scrollHeight, body.getBoundingClientRect().height);
     const layer = body.createDiv({ cls: "kanban-rpm-gantt-connectors" });
@@ -1981,8 +2122,8 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       }).open();
     });
   }
-  countVisibleGanttConnectors(rows) {
-    const rowByPath = this.ganttVisibleRowMap(rows);
+  countVisibleGanttConnectors(rows, range) {
+    const rowByPath = this.ganttVisibleRowMap(rows, range);
     let count = 0;
     for (const target of rows) {
       if (!target.card || !target.period || !rowByPath.has(target.card.path)) continue;
@@ -1993,10 +2134,10 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     }
     return count;
   }
-  ganttVisibleRowMap(rows) {
+  ganttVisibleRowMap(rows, range) {
     const rowByPath = /* @__PURE__ */ new Map();
     rows.forEach((row, index) => {
-      if (row.card && row.period) rowByPath.set(row.card.path, { row, index, period: row.period });
+      if (row.card && row.period && (!range || this.ganttPeriodOverlaps(row.period, range))) rowByPath.set(row.card.path, { row, index, period: row.period });
     });
     return rowByPath;
   }
@@ -2089,7 +2230,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const ends = childPeriods.map((period) => period.end).sort();
     return { start: starts[0], end: ends[ends.length - 1] };
   }
-  ganttRange(rows, cards) {
+  ganttAutoRange(rows, cards) {
     var _a, _b;
     const dates = [
       ...rows.flatMap((row) => {
@@ -2101,9 +2242,18 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const first = (_a = dates[0]) != null ? _a : todayIso();
     const last = (_b = dates[dates.length - 1]) != null ? _b : addDays(todayIso(), 180);
     return {
-      start: startOfMonth(addMonths(first, -1)),
-      end: endOfMonth(addMonths(last, 1))
+      start: first,
+      end: last
     };
+  }
+  ganttRange(autoRange) {
+    if (isIsoDate(this.ganttRangeStart) && isIsoDate(this.ganttRangeEnd) && this.ganttRangeStart <= this.ganttRangeEnd) {
+      return { start: this.ganttRangeStart, end: this.ganttRangeEnd };
+    }
+    return autoRange;
+  }
+  ganttPeriodOverlaps(period, range) {
+    return period.start <= range.end && period.end >= range.start;
   }
   compareGanttProjectTitles(a, b, cards) {
     return this.compareGanttDates(this.ganttProjectSortDate(a, cards), this.ganttProjectSortDate(b, cards)) || a.localeCompare(b);
@@ -2415,9 +2565,8 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const baseDate = controls.createEl("input", {
       cls: "kanban-rpm-timeline-date-input",
       attr: {
-        type: "text",
-        placeholder: "YYYY.MM.DD",
-        value: this.toDisplayDate(this.timelineBaseDate),
+        type: "date",
+        value: this.timelineBaseDate,
         "aria-label": "Timeline base date"
       }
     });
@@ -2433,18 +2582,16 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     const rangeStart = controls.createEl("input", {
       cls: "kanban-rpm-timeline-date-input",
       attr: {
-        type: "text",
-        placeholder: "YYYY.MM.DD",
-        value: this.toDisplayDate(this.timelineRangeStart),
+        type: "date",
+        value: this.timelineRangeStart,
         "aria-label": "Timeline range start"
       }
     });
     const rangeEnd = controls.createEl("input", {
       cls: "kanban-rpm-timeline-date-input",
       attr: {
-        type: "text",
-        placeholder: "YYYY.MM.DD",
-        value: this.toDisplayDate(this.timelineRangeEnd),
+        type: "date",
+        value: this.timelineRangeEnd,
         "aria-label": "Timeline range end"
       }
     });
@@ -2479,7 +2626,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     for (const [value, label] of [
       ["all", "Show: All markers"],
       ["review", "Show: Review"],
-      ["due", "Show: Due"],
+      ["scheduled", "Show: Scheduled"],
       ["tasks", "Show: Tasks"],
       ["recurring", "Show: Recurring"]
     ]) {
@@ -2610,25 +2757,62 @@ ${addition}`;
       this.renderRecurringTimelineChip(container, marker);
       return;
     }
+    if (marker.kind === "task") {
+      this.renderTaskTimelineChip(container, marker);
+      return;
+    }
     const item = container.createDiv({
       cls: `kanban-rpm-timeline-marker kanban-rpm-timeline-marker-${marker.kind} kanban-rpm-type-${marker.card.type.replace("_", "-")}`,
       attr: { title: `${marker.card.title} - ${marker.label}` }
     });
     item.style.setProperty("--rpm-project-color", this.projectColor(marker.card.colorKey));
-    const label = item.createEl("button", { cls: "kanban-rpm-timeline-marker-title", text: marker.label });
+    const titleRow = item.createDiv({ cls: "kanban-rpm-timeline-marker-title-row" });
+    titleRow.createSpan({ cls: "kanban-rpm-timeline-marker-icon", text: this.timelineMarkerIcon(marker.kind) });
+    const label = titleRow.createEl("button", { cls: "kanban-rpm-timeline-marker-title", text: marker.label });
     label.addEventListener("click", () => {
       void this.plugin.openCard(marker.card);
     });
     const meta = item.createDiv({ cls: "kanban-rpm-timeline-marker-meta" });
     meta.createSpan({ text: this.cardDisplayBreadcrumb(marker.card) });
-    this.renderStatusBadge(meta, marker.card.status);
+    this.renderStatusBadge(meta, marker.card.status, void 0, "button").addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openStatusMenu(event, marker.card);
+    });
     this.renderPriorityBadge(meta, marker.card);
-    this.renderStatusSelect(item, marker.card);
-    const actions = this.getVisibleSmallActions(marker.card).slice(0, 3);
+    const actions = this.getTimelineCardSmallActions(marker.card);
     if (actions.length) {
       const list = item.createDiv({ cls: "kanban-rpm-timeline-marker-actions" });
-      for (const action of actions) this.renderSmallActionRow(list, action);
+      const openActions = actions.filter((action) => !action.done);
+      const doneActions = actions.filter((action) => action.done);
+      this.renderSmallActionSection(list, marker.card, "open", `Open: ${openActions.length}`, openActions, true);
+      this.renderSmallActionSection(list, marker.card, "done", `Done: ${doneActions.length}`, doneActions, false);
     }
+  }
+  renderTaskTimelineChip(container, marker) {
+    const action = marker.action;
+    const chip = container.createDiv({
+      cls: `kanban-rpm-timeline-task-chip kanban-rpm-type-${marker.card.type.replace("_", "-")}`,
+      attr: { title: `${marker.card.title} - ${marker.label}` }
+    });
+    chip.style.setProperty("--rpm-project-color", this.projectColor(marker.card.colorKey));
+    if (action) {
+      const checkbox = chip.createEl("input", { attr: { type: "checkbox", "aria-label": `Complete ${action.text}` } });
+      checkbox.checked = action.done;
+      checkbox.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      checkbox.addEventListener("change", () => {
+        void this.plugin.toggleSmallAction(action);
+      });
+    } else {
+      chip.createSpan({ cls: "kanban-rpm-timeline-task-icon", text: "\u2610" });
+    }
+    const text2 = chip.createDiv({ cls: "kanban-rpm-timeline-task-text" });
+    text2.createEl("button", { cls: "kanban-rpm-timeline-task-title", text: marker.label }).addEventListener("click", () => {
+      void this.plugin.openCard(marker.card);
+    });
+    text2.createSpan({ cls: "kanban-rpm-timeline-task-source", text: marker.card.title });
   }
   renderRecurringTimelineChip(container, marker) {
     const chip = container.createEl("button", {
@@ -2636,7 +2820,7 @@ ${addition}`;
       attr: { title: `${marker.card.title} - ${marker.label}` }
     });
     chip.style.setProperty("--rpm-project-color", this.projectColor(marker.card.colorKey));
-    chip.createSpan({ cls: "kanban-rpm-timeline-recurring-icon", text: "R" });
+    chip.createSpan({ cls: "kanban-rpm-timeline-recurring-icon", text: "\u21BB" });
     chip.createSpan({ cls: "kanban-rpm-timeline-recurring-text", text: marker.label.replace(/^(daily|weekly|monthly|custom):\s*/, "") });
     chip.addEventListener("click", () => {
       void this.plugin.openCard(marker.card);
@@ -2645,17 +2829,18 @@ ${addition}`;
   collectTimelineMarkers(cards, daySet) {
     const markers = [];
     for (const card of cards) {
-      if (card.dueDate && daySet.has(card.dueDate)) {
-        markers.push({ date: card.dueDate, label: `due: ${card.title}`, kind: "due", card });
+      if (card.scheduledDate && daySet.has(card.scheduledDate)) {
+        markers.push({ date: card.scheduledDate, label: card.title, kind: "scheduled", card });
       }
       if (card.nextReview && daySet.has(card.nextReview)) {
-        markers.push({ date: card.nextReview, label: `review: ${card.title}`, kind: "review", card });
+        markers.push({ date: card.nextReview, label: card.title, kind: "review", card });
       }
       for (const action of card.smallActions) {
         if (action.done) continue;
         const date = action.scheduledDate || action.dueDate;
+        if (date && date === card.scheduledDate) continue;
         if (date && daySet.has(date)) {
-          markers.push({ date, label: `task: ${action.text}`, kind: "task", card });
+          markers.push({ date, label: action.text, kind: "task", card, action });
         }
       }
       if (card.routines.length) {
@@ -2671,6 +2856,12 @@ ${addition}`;
       }
     }
     return markers.sort((a, b) => a.date.localeCompare(b.date) || a.card.title.localeCompare(b.card.title));
+  }
+  timelineMarkerIcon(kind) {
+    if (kind === "scheduled") return "\u{1F4CC}";
+    if (kind === "review") return "\u25C7";
+    if (kind === "task") return "\u2610";
+    return "\u21BB";
   }
   filterTimelineMarkers(markers) {
     const query = this.timelineSearchQuery.trim().toLowerCase();
@@ -2719,6 +2910,62 @@ ${addition}`;
     }
     if (this.boardStatusFilter.size) return;
     this.boardStatusFilter = new Set(this.plugin.settings.statuses.map((status) => status.id));
+  }
+  ensureBoardStatusOrder() {
+    const statusIds = this.plugin.settings.statuses.map((status) => status.id);
+    const valid = new Set(statusIds);
+    const current = this.plugin.settings.boardStatusOrder.filter((status) => valid.has(status));
+    const missing = statusIds.filter((status) => !current.includes(status));
+    const next = [...current, ...missing];
+    this.plugin.settings.boardStatusOrder = next;
+  }
+  orderedBoardStatuses() {
+    this.ensureBoardStatusOrder();
+    const byId = new Map(this.plugin.settings.statuses.map((status) => [status.id, status]));
+    return this.plugin.settings.boardStatusOrder.map((id) => byId.get(id)).filter((status) => Boolean(status));
+  }
+  async moveBoardStatus(statusId, direction) {
+    this.ensureBoardStatusOrder();
+    const order = [...this.plugin.settings.boardStatusOrder];
+    const visible = order.filter((id) => this.boardStatusFilter.has(id));
+    const visibleIndex = visible.indexOf(statusId);
+    const targetStatus = visible[visibleIndex + direction];
+    if (visibleIndex < 0 || !targetStatus) return;
+    const fromIndex = order.indexOf(statusId);
+    if (fromIndex < 0) return;
+    order.splice(fromIndex, 1);
+    const targetIndex = order.indexOf(targetStatus);
+    if (targetIndex < 0) return;
+    order.splice(direction < 0 ? targetIndex : targetIndex + 1, 0, statusId);
+    this.plugin.settings.boardStatusOrder = order;
+    await this.plugin.saveSettings();
+    this.render();
+  }
+  ensureBoardFilters() {
+    let changed = false;
+    const projectValues = new Set(this.uniqueValues("projectTitle"));
+    if (this.projectFilter && !projectValues.has(this.projectFilter)) {
+      this.projectFilter = "";
+      this.subprojectFilter = "";
+      changed = true;
+    }
+    const subprojectValues = new Set(this.subprojectFilterValues());
+    if (this.subprojectFilter && !subprojectValues.has(this.subprojectFilter)) {
+      this.subprojectFilter = "";
+      changed = true;
+    }
+    const categoryValues = new Set(this.uniqueCategoryValues().map((category) => category.id));
+    if (this.workstreamTypeFilter && !categoryValues.has(this.workstreamTypeFilter)) {
+      this.workstreamTypeFilter = "";
+      changed = true;
+    }
+    return changed;
+  }
+  async saveBoardFilters() {
+    this.plugin.settings.boardProjectFilter = this.projectFilter;
+    this.plugin.settings.boardSubprojectFilter = this.subprojectFilter;
+    this.plugin.settings.boardCategoryFilter = this.workstreamTypeFilter;
+    await this.plugin.saveSettings();
   }
   timelineDays() {
     const start = this.timelineRangeStart || addDays(this.timelineBaseDate, -7);
@@ -2966,6 +3213,7 @@ ${addition}`;
   }
   cardDateLabel(card) {
     const parts = [];
+    if (card.scheduledDate) parts.push(`scheduled ${card.scheduledDate}`);
     if (card.dueDate) parts.push(`due ${card.dueDate}`);
     if (card.nextReview) parts.push(`review ${card.nextReview}`);
     return parts.join(" - ") || "No date";
@@ -2977,19 +3225,38 @@ ${addition}`;
     if (card.followedBy.length) parts.push(`followed ${card.followedBy.length}`);
     return parts.join(" - ") || "None";
   }
-  renderLane(board, lane, cards) {
+  renderLane(board, lane, cards, visibleLanes) {
     const laneEl = board.createDiv({ cls: "kanban-rpm-lane" });
     laneEl.dataset.status = lane.id;
     const header = laneEl.createDiv({ cls: "kanban-rpm-lane-header" });
     header.createSpan({ cls: "kanban-rpm-lane-title", text: lane.label });
     const laneActions = header.createDiv({ cls: "kanban-rpm-lane-actions" });
+    const laneIndex = visibleLanes.findIndex((visibleLane) => visibleLane.id === lane.id);
+    const moveLeft = laneActions.createEl("button", {
+      cls: "kanban-rpm-lane-order",
+      text: "\u2039",
+      attr: { "aria-label": `Move ${lane.label} left` }
+    });
+    moveLeft.disabled = laneIndex <= 0;
+    moveLeft.addEventListener("click", () => {
+      void this.moveBoardStatus(lane.id, -1);
+    });
+    const moveRight = laneActions.createEl("button", {
+      cls: "kanban-rpm-lane-order",
+      text: "\u203A",
+      attr: { "aria-label": `Move ${lane.label} right` }
+    });
+    moveRight.disabled = laneIndex < 0 || laneIndex >= visibleLanes.length - 1;
+    moveRight.addEventListener("click", () => {
+      void this.moveBoardStatus(lane.id, 1);
+    });
     laneActions.createSpan({ cls: "kanban-rpm-lane-count", text: String(cards.length) });
     laneActions.createEl("button", {
       cls: "kanban-rpm-lane-add",
       text: "+",
       attr: { "aria-label": `Add card to ${lane.label}` }
     }).addEventListener("click", () => {
-      new NewProjectCardModal(this.app, this.plugin, lane.id).open();
+      new NewProjectCardModal(this.app, this.plugin, this.newDocumentContext(lane.id)).open();
     });
     const list = laneEl.createDiv({ cls: "kanban-rpm-card-list" });
     if (!cards.length) {
@@ -3014,7 +3281,7 @@ ${addition}`;
       "kanban-rpm-card",
       `kanban-rpm-type-${card.type.replace("_", "-")}`,
       `kanban-rpm-card-status-${card.status}`,
-      isPastDate(card.dueDate) || isPastDate(card.nextReview) ? "kanban-rpm-card-overdue" : ""
+      isPastDate(card.scheduledDate) || isPastDate(card.dueDate) || isPastDate(card.nextReview) ? "kanban-rpm-card-overdue" : ""
     ].filter(Boolean).join(" ");
     const cardEl = list.createDiv({ cls: cardClasses });
     cardEl.dataset.path = card.path;
@@ -3053,6 +3320,7 @@ ${addition}`;
     }
     const dateMeta = cardEl.createDiv({ cls: "kanban-rpm-meta kanban-rpm-card-date-meta" });
     if (fields.dates) {
+      this.addMeta(dateMeta, this.shortDateLabel(card.scheduledDate), "scheduled", isPastDate(card.scheduledDate) ? "kanban-rpm-overdue" : "kanban-rpm-meta-date");
       this.addMeta(dateMeta, this.shortDateLabel(card.dueDate), "due", isPastDate(card.dueDate) ? "kanban-rpm-overdue" : "kanban-rpm-meta-date");
       this.addMeta(dateMeta, this.shortDateLabel(card.nextReview), "review", isPastDate(card.nextReview) ? "kanban-rpm-overdue" : "kanban-rpm-meta-date");
     }
@@ -3345,11 +3613,12 @@ ${addition}`;
     const open = card.smallActions.filter((action) => !action.done).length;
     const expanded = this.isSmallActionsExpanded(card);
     const panel = cardEl.createDiv({ cls: "kanban-rpm-small-actions" });
-    const header = panel.createEl("button", {
+    const header = panel.createSpan({
       cls: "kanban-rpm-small-actions-toggle",
-      text: `${expanded ? "v" : ">"} Small actions: ${open} remaining`
+      text: `${expanded ? "v" : ">"} Small actions: ${open} remaining`,
+      attr: { role: "button", tabindex: "0", "aria-expanded": String(expanded) }
     });
-    header.addEventListener("click", (event) => {
+    this.bindTextToggle(header, (event) => {
       event.stopPropagation();
       this.toggleSmallActions(card);
       this.render();
@@ -3359,16 +3628,48 @@ ${addition}`;
       panel.createDiv({ cls: "kanban-rpm-small-action-empty", text: "No small actions match the display rule." });
       return;
     }
-    const list = panel.createDiv({ cls: "kanban-rpm-small-action-list" });
-    const shown = visibleActions.slice(0, 8);
+    const openActions = visibleActions.filter((action) => !action.done);
+    const doneActions = visibleActions.filter((action) => action.done);
+    this.renderSmallActionSection(panel, card, "open", `Open: ${openActions.length}`, openActions, true);
+    this.renderSmallActionSection(panel, card, "done", `Done: ${doneActions.length}`, doneActions, false);
+  }
+  renderSmallActionSection(container, card, section, label, actions, defaultExpanded) {
+    if (!actions.length) return;
+    const expanded = this.isSmallActionSectionExpanded(card, section, defaultExpanded);
+    const sectionEl = container.createDiv({ cls: `kanban-rpm-small-action-section is-${section}` });
+    const toggle = sectionEl.createSpan({
+      cls: "kanban-rpm-small-action-section-toggle",
+      text: `${expanded ? "v" : ">"} ${label}`,
+      attr: { role: "button", tabindex: "0", "aria-expanded": String(expanded) }
+    });
+    this.bindTextToggle(toggle, (event) => {
+      event.stopPropagation();
+      this.toggleSmallActionSection(card, section, defaultExpanded);
+      this.render();
+    });
+    if (!expanded) return;
+    const list = sectionEl.createDiv({ cls: "kanban-rpm-small-action-list" });
+    const shown = actions.slice(0, 8);
     for (const group of this.groupSmallActionsByHeading(shown)) {
       const groupEl = list.createDiv({ cls: "kanban-rpm-small-action-group" });
       groupEl.createDiv({ cls: "kanban-rpm-small-action-heading", text: group.heading });
       for (const action of group.actions) this.renderSmallActionRow(groupEl, action);
     }
-    if (visibleActions.length > shown.length) {
-      panel.createDiv({ cls: "kanban-rpm-small-action-more", text: `+${visibleActions.length - shown.length} more` });
+    if (actions.length > shown.length) {
+      sectionEl.createDiv({ cls: "kanban-rpm-small-action-more", text: `+${actions.length - shown.length} more` });
     }
+  }
+  bindTextToggle(element, onActivate) {
+    element.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      onActivate(event);
+    });
+    element.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onActivate(event);
+    });
   }
   renderSmallActionRow(container, action) {
     const row = container.createDiv({ cls: `kanban-rpm-small-action${action.done ? " is-done" : ""}` });
@@ -3417,6 +3718,23 @@ ${addition}`;
     if (this.collapsedSmallActions.has(card.path)) this.collapsedSmallActions.delete(card.path);
     else this.collapsedSmallActions.add(card.path);
   }
+  smallActionSectionKey(card, section) {
+    return `${card.path}::${section}`;
+  }
+  isSmallActionSectionExpanded(card, section, defaultExpanded) {
+    const key = this.smallActionSectionKey(card, section);
+    return defaultExpanded ? !this.collapsedSmallActionSections.has(key) : this.expandedSmallActionSections.has(key);
+  }
+  toggleSmallActionSection(card, section, defaultExpanded) {
+    const key = this.smallActionSectionKey(card, section);
+    if (defaultExpanded) {
+      if (this.collapsedSmallActionSections.has(key)) this.collapsedSmallActionSections.delete(key);
+      else this.collapsedSmallActionSections.add(key);
+      return;
+    }
+    if (this.expandedSmallActionSections.has(key)) this.expandedSmallActionSections.delete(key);
+    else this.expandedSmallActionSections.add(key);
+  }
   getVisibleSmallActions(card) {
     const { sourceFilter, dateWindow } = this.plugin.settings.smallActionDisplay;
     return card.smallActions.filter((action) => {
@@ -3424,6 +3742,10 @@ ${addition}`;
       if (sourceFilter === "done" && !action.done) return false;
       return this.isSmallActionInWindow(action, dateWindow);
     }).sort((a, b) => this.smallActionSortValue(a).localeCompare(this.smallActionSortValue(b)) || a.lineNumber - b.lineNumber);
+  }
+  getTimelineCardSmallActions(card) {
+    const { dateWindow } = this.plugin.settings.smallActionDisplay;
+    return card.smallActions.filter((action) => this.isSmallActionInWindow(action, dateWindow)).sort((a, b) => this.smallActionSortValue(a).localeCompare(this.smallActionSortValue(b)) || a.lineNumber - b.lineNumber);
   }
   smallActionSortValue(action) {
     return action.scheduledDate || action.dueDate || action.doneDate || "9999-99-99";
@@ -3831,6 +4153,7 @@ var CardRepository = class {
         waitingFor: sectionData.waitingFor,
         blocker: sectionData.blocker,
         startDate: sectionData.startDate,
+        scheduledDate: sectionData.scheduledDate,
         nextReview: sectionData.nextReview,
         dueDate: sectionData.dueDate,
         precededBy: sectionData.precededBy,
@@ -3897,6 +4220,7 @@ var CardRepository = class {
     var _a, _b;
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof import_obsidian5.TFile)) return;
+    const statusChanged = card.status !== values.status;
     await this.updateCardFrontmatter(file, {
       type: values.type,
       primary_project: values.project.trim() || void 0,
@@ -3906,21 +4230,24 @@ var CardRepository = class {
       status: values.status,
       priority: parsePriority(values.priority),
       workstream_type: values.workstreamType.trim()
-    });
+    }, false);
     const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
-    const nextContent = this.updateLivingDocBody(content, title, values);
+    let nextContent = this.updateLivingDocBody(content, title, values);
+    if (statusChanged) nextContent = this.prependTimelineLog(nextContent, "Status", `${this.statusLabel(card.status)} -> ${this.statusLabel(values.status)}`);
     await this.plugin.app.vault.modify(file, nextContent);
     if (title && sanitizeFileName(title) !== file.basename) {
       const targetPath = this.getAvailablePath((_b = (_a = file.parent) == null ? void 0 : _a.path) != null ? _b : this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
       await this.plugin.app.fileManager.renameFile(file, targetPath);
     }
     new import_obsidian5.Notice(`KanbanRPM card updated: ${title}`);
+    await this.plugin.refreshViews();
   }
   async moveCard(cardPath, targetStatus, beforePath) {
     const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
     if (!(file instanceof import_obsidian5.TFile)) return;
     const cards = await this.loadCards();
+    const movedCard = cards.find((item) => item.path === cardPath);
     const laneCards = cards.filter((card) => card.status === targetStatus && card.path !== cardPath).sort(compareCards);
     const foundIndex = beforePath ? laneCards.findIndex((card) => card.path === beforePath) : -1;
     const insertIndex = beforePath && foundIndex >= 0 ? foundIndex : laneCards.length;
@@ -3928,12 +4255,24 @@ var CardRepository = class {
     await this.updateCardFrontmatter(file, {
       status: targetStatus,
       order: newOrder
-    });
+    }, false);
+    if (movedCard && movedCard.status !== targetStatus) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, "Status", `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
   }
   async setCardStatus(card, status) {
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof import_obsidian5.TFile)) return;
-    await this.updateCardFrontmatter(file, { status });
+    await this.updateCardFrontmatter(file, { status }, false);
+    if (card.status !== status) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, "Status", `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
     new import_obsidian5.Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
   }
   async updateProjectState(card, projectState) {
@@ -3955,6 +4294,7 @@ var CardRepository = class {
       "Timeline",
       [
         values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+        values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : "",
         values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
         values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
       ].filter(Boolean).join("\n")
@@ -3984,7 +4324,7 @@ var CardRepository = class {
       if (!(file instanceof import_obsidian5.TFile)) continue;
       await this.updateCardFrontmatter(file, { status: targetStatus }, false);
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, `- ${today}: next review reached; status changed to ${targetStatus}`);
+      const next = this.prependTimelineLog(content, "Review", `Next review reached; status changed ${this.statusLabel(card.status)} -> ${this.statusLabel(targetStatus)}`, today);
       await this.plugin.app.vault.modify(file, next);
       applied += 1;
     }
@@ -4032,7 +4372,7 @@ var CardRepository = class {
     const todayIso2 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     const nextLine = action.done ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, "$1[ ]").replace(/\s*\u{2705}\s*\d{4}-\d{2}-\d{2}/u, "") : line.replace(/^(\s*[-*]\s+)\[ \]/, "$1[x]") + (action.doneDate ? "" : ` ??${todayIso2}`);
     lines[index] = nextLine;
-    const nextContent = action.done ? lines.join("\n") : this.prependTimelineLog(lines.join("\n"), this.smallActionTimelineLog(action, todayIso2, file));
+    const nextContent = action.done ? lines.join("\n") : this.prependTimelineLog(lines.join("\n"), "Small action", this.smallActionTimelineLog(action, file), todayIso2);
     await this.plugin.app.vault.modify(file, nextContent);
     await this.plugin.refreshViews();
   }
@@ -4095,6 +4435,7 @@ var CardRepository = class {
       waitingFor: "",
       blocker: "",
       startDate: "",
+      scheduledDate: "",
       nextReview: "",
       dueDate: "",
       dependsOn: "",
@@ -4278,6 +4619,7 @@ ${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
       if (order && !Number.isFinite(Number(order))) add("warning", "order", `order should be numeric; current value is "${order}".`);
       for (const [label, value] of [
         ["Start date", card.startDate],
+        ["Scheduled date", card.scheduledDate],
         ["Next review", card.nextReview],
         ["Due date", card.dueDate]
       ]) {
@@ -4344,7 +4686,7 @@ ${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
     const projectCards = sorted.filter((card) => card.type === "project");
     const statusCounts = this.plugin.settings.statuses.map((status) => `| ${status.label} | ${cards.filter((card) => card.status === status.id).length} |`).join("\n");
     const warningRows = this.validateCards(cards).slice(0, 30).map((issue) => `- ${issue.level.toUpperCase()} [[${issue.cardTitle}]]: ${issue.message}`).join("\n");
-    const dueSoon = boardCards.filter((card) => card.dueDate && card.dueDate <= soon || card.nextReview && card.nextReview <= soon).sort((a, b) => (a.dueDate || a.nextReview || "").localeCompare(b.dueDate || b.nextReview || "") || a.title.localeCompare(b.title));
+    const dueSoon = boardCards.filter((card) => card.scheduledDate && card.scheduledDate <= soon || card.dueDate && card.dueDate <= soon || card.nextReview && card.nextReview <= soon).sort((a, b) => (a.scheduledDate || a.dueDate || a.nextReview || "").localeCompare(b.scheduledDate || b.dueDate || b.nextReview || "") || a.title.localeCompare(b.title));
     const waiting = boardCards.filter((card) => card.waitingFor || card.status === this.statusId("waiting")).sort(compareCards);
     const blocked = boardCards.filter((card) => card.blocker || card.blockedBy.length || card.status === this.statusId("blocked")).sort(compareCards);
     const routines = boardCards.flatMap((card) => card.routines.map((routine) => ({ card, routine })));
@@ -4468,6 +4810,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
       this.statusLabel(card.status),
       `P${card.priority}`,
       card.workstreamType ? `category: ${categoryLabel(this.plugin.settings.categories, card.workstreamType)}` : "",
+      card.scheduledDate ? `scheduled: ${card.scheduledDate}` : "",
       card.dueDate ? `due: ${card.dueDate}` : "",
       card.nextReview ? `review: ${card.nextReview}` : "",
       card.blockedBy.length ? `blocked by: ${card.blockedBy.join(", ")}` : ""
@@ -4485,6 +4828,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
       if (this.isCompletionStatus(card.status)) return false;
       if (card.status === this.statusId("blocked") || card.blocker || card.blockedBy.length) return true;
       if (card.status === this.statusId("waiting") || card.waitingFor) return true;
+      if (card.scheduledDate && card.scheduledDate <= soon) return true;
       if (card.dueDate && card.dueDate <= soon) return true;
       if (card.nextReview && card.nextReview <= today) return true;
       if (card.priority <= 2 && card.nextAction) return true;
@@ -4496,6 +4840,8 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
     if (card.status === this.statusId("blocked") || card.blocker) score += 50;
     score += card.blockedBy.length * 12;
     if (card.status === this.statusId("waiting") || card.waitingFor) score += 24;
+    if (card.scheduledDate && card.scheduledDate < today) score += 42;
+    else if (card.scheduledDate && card.scheduledDate <= soon) score += 24;
     if (card.dueDate && card.dueDate < today) score += 40;
     else if (card.dueDate && card.dueDate <= soon) score += 22;
     if (card.nextReview && card.nextReview <= today) score += 18;
@@ -4517,7 +4863,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
       const blocked = children.filter((card) => card.status === this.statusId("blocked") || card.blocker || card.blockedBy.length).length;
       const done = children.filter((card) => this.isCompletionStatus(card.status)).length;
       const openActions = children.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0);
-      const nextDate = (_a = children.flatMap((card) => [card.dueDate, card.nextReview].filter(Boolean)).sort()[0]) != null ? _a : "";
+      const nextDate = (_a = children.flatMap((card) => [card.scheduledDate, card.dueDate, card.nextReview].filter(Boolean)).sort()[0]) != null ? _a : "";
       const project = projects.find((card) => card.title === title);
       const label = project ? `[[${project.file.basename}]]` : title;
       return `| ${label} | ${active} | ${waiting} | ${blocked} | ${done} | ${openActions} | ${nextDate} |`;
@@ -4716,6 +5062,7 @@ ${body}`);
 ` : "";
     const timelineRows = [
       values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+      values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : "",
       values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
       values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
     ].filter(Boolean).join("\n");
@@ -4733,6 +5080,10 @@ primary_subproject: ${yamlScalar(values.subproject.trim())}` : "";
 projects:${yamlArray(projects)}` : "";
     const subprojectsLine = subprojects.length ? `
 subprojects:${yamlArray(subprojects)}` : "";
+    const priorityLine = values.priority.trim() && values.priority.trim() !== "3" ? `
+priority: ${yamlScalar(values.priority.trim())}` : "";
+    const categoryLine = values.workstreamType.trim() ? `
+workstream_type: ${yamlScalar(values.workstreamType.trim())}` : "";
     const hierarchyRows = [
       values.project.trim() ? `> project: ${values.project.trim()}` : "",
       values.subproject.trim() ? `> subproject: ${values.subproject.trim()}` : ""
@@ -4742,7 +5093,7 @@ subprojects:${yamlArray(subprojects)}` : "";
 kanban_rpm: true
 type: ${yamlScalar(values.type)}
 id: ${yamlScalar(baseName)}
-status: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}
+status: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}${priorityLine}${categoryLine}
 order: 
 ---
 
@@ -4841,6 +5192,7 @@ ${seededSmallAction}## Progress Notes
     const routineLog = getSection(content, "Routine Log");
     const references = getSection(content, "References");
     const startDate = this.parseTimelineDate(timeline, "Start date");
+    const scheduledDate = this.parseTimelineDate(timeline, "Scheduled date");
     const nextReview = this.parseTimelineDate(timeline, "Next review");
     const dueDate = this.parseTimelineDate(timeline, "Due date");
     const precededBy = this.uniqueLinks(parseDependencyList(flow, "Preceded by"));
@@ -4853,7 +5205,7 @@ ${seededSmallAction}## Progress Notes
       ...this.parseResearchLog(content, "experiment"),
       ...this.parseResearchLog(content, "analysis")
     ];
-    return { currentFocus, waitingFor, blocker, startDate, nextReview, dueDate, precededBy, followedBy, sourceNotes, researchLogs, routines, smallActions, actionCount };
+    return { currentFocus, waitingFor, blocker, startDate, scheduledDate, nextReview, dueDate, precededBy, followedBy, sourceNotes, researchLogs, routines, smallActions, actionCount };
   }
   firstListItem(section) {
     var _a, _b;
@@ -4879,6 +5231,7 @@ ${textareaToList(values.blocks).map((item) => `- ${item}`).join("\n")}
       "Timeline",
       [
         values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : "",
+        values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : "",
         values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : "",
         values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : ""
       ].filter(Boolean).join("\n")
@@ -4918,18 +5271,27 @@ Followed by:
 ${nextFollowedBy.map((item) => `- ${item}`).join("\n")}
 `);
   }
-  prependTimelineLog(content, entry) {
-    if (content.includes(entry)) return content;
+  prependTimelineLog(content, type, change, date = todayIso()) {
+    const tableHeader = "| Date | Type | Change |\n| --- | --- | --- |";
+    const row = `| ${this.escapeTableCell(date)} | ${this.escapeTableCell(type)} | ${this.escapeTableCell(change)} |`;
+    if (content.includes(row)) return content;
     const existing = findHeadingSection(content, "Timeline Log");
     if (existing) {
       const body = content.slice(existing.bodyStart, existing.end).trim();
-      return replaceSection(content, "Timeline Log", body ? `${entry}
-${body}` : entry);
+      const normalized = body.includes("| Date | Type | Change |") ? body : body ? `${tableHeader}
+
+${body}` : tableHeader;
+      const lines = normalized.split(/\r?\n/);
+      const insertIndex = lines.findIndex((line) => /^\|\s*---\s*\|\s*---\s*\|\s*---\s*\|/.test(line));
+      if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+      else lines.unshift(row);
+      return replaceSection(content, "Timeline Log", lines.join("\n"));
     }
     const timeline = findHeadingSection(content, "Timeline");
     const section = `### Timeline Log
 
-${entry}
+${tableHeader}
+${row}
 `;
     if (timeline) return `${content.slice(0, timeline.end).trimEnd()}
 
@@ -5012,9 +5374,9 @@ ${next.slice(moduleSection.end)}`;
   escapeTableCell(value) {
     return String(value || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
   }
-  smallActionTimelineLog(action, date, file) {
+  smallActionTimelineLog(action, file) {
     const heading = action.heading && action.heading !== "Timeline Log" ? ` (${action.heading})` : "";
-    return `- ${date} completed: [[${file.basename}]] - ${action.text}${heading}`;
+    return `Completed [[${file.basename}]] - ${action.text}${heading}`;
   }
   parseTimelineDate(section, label) {
     var _a;
@@ -5205,7 +5567,7 @@ Rich planning data belongs in the document body:
 - \`## Waiting\` for people or responses you are waiting on.
 - \`## Blockers\` for concrete blockers.
 - \`## Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
-- \`## Timeline\` for \`Next review\` and \`Due date\`.
+- \`## Timeline\` for \`Start date\`, \`Scheduled date\`, \`Next review\`, and \`Due date\`.
 - \`## Routine\` for recurring review/checkup routines.
 - \`## References\` for source notes that feed the Action index.
 
@@ -5355,6 +5717,12 @@ var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
       cls: "kanban-rpm-setting-note",
       text: "Choose which frontmatter and body-section fields appear on board cards."
     });
+    new import_obsidian6.Setting(display).setName("Open Advanced metadata by default in new card modal").setDesc("When enabled, the Advanced metadata section starts expanded while creating a new living document.").addToggle((toggle) => {
+      toggle.setValue(this.plugin.settings.newCardAdvancedOpen).onChange(async (value) => {
+        this.plugin.settings.newCardAdvancedOpen = value;
+        await this.plugin.saveSettings();
+      });
+    });
     const displayGrid = display.createDiv({ cls: "kanban-rpm-settings-toggle-grid" });
     for (const [key, label] of [
       ["breadcrumb", "Project breadcrumb"],
@@ -5456,7 +5824,7 @@ var KanbanRPMPlugin = class extends import_obsidian7.Plugin {
     await this.saveData(this.settings);
   }
   normalizeSettings(data) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
     const saved = data != null ? data : {};
     return {
       ...DEFAULT_SETTINGS,
@@ -5468,14 +5836,22 @@ var KanbanRPMPlugin = class extends import_obsidian7.Plugin {
       promptForLogOnDone: (_d = saved.promptForLogOnDone) != null ? _d : DEFAULT_SETTINGS.promptForLogOnDone,
       reviewReminderStatus: saved.reviewReminderStatus || DEFAULT_SETTINGS.reviewReminderStatus,
       boardStatusFilter: ((_e = saved.boardStatusFilter) == null ? void 0 : _e.length) ? saved.boardStatusFilter : DEFAULT_SETTINGS.boardStatusFilter,
-      timelineStatusFilter: ((_f = saved.timelineStatusFilter) == null ? void 0 : _f.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
+      boardStatusOrder: ((_f = saved.boardStatusOrder) == null ? void 0 : _f.length) ? saved.boardStatusOrder : DEFAULT_SETTINGS.boardStatusOrder,
+      boardProjectFilter: (_g = saved.boardProjectFilter) != null ? _g : DEFAULT_SETTINGS.boardProjectFilter,
+      boardSubprojectFilter: (_h = saved.boardSubprojectFilter) != null ? _h : DEFAULT_SETTINGS.boardSubprojectFilter,
+      boardCategoryFilter: (_i = saved.boardCategoryFilter) != null ? _i : DEFAULT_SETTINGS.boardCategoryFilter,
+      showBoardConnectors: (_j = saved.showBoardConnectors) != null ? _j : DEFAULT_SETTINGS.showBoardConnectors,
+      showBoardBigActions: (_k = saved.showBoardBigActions) != null ? _k : DEFAULT_SETTINGS.showBoardBigActions,
+      showGanttBigActions: (_l = saved.showGanttBigActions) != null ? _l : DEFAULT_SETTINGS.showGanttBigActions,
+      newCardAdvancedOpen: (_m = saved.newCardAdvancedOpen) != null ? _m : DEFAULT_SETTINGS.newCardAdvancedOpen,
+      timelineStatusFilter: ((_n = saved.timelineStatusFilter) == null ? void 0 : _n.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
       cardDisplayFields: {
         ...DEFAULT_SETTINGS.cardDisplayFields,
-        ...(_g = saved.cardDisplayFields) != null ? _g : {}
+        ...(_o = saved.cardDisplayFields) != null ? _o : {}
       },
       smallActionDisplay: {
         ...DEFAULT_SETTINGS.smallActionDisplay,
-        ...(_h = saved.smallActionDisplay) != null ? _h : {}
+        ...(_p = saved.smallActionDisplay) != null ? _p : {}
       }
     };
   }

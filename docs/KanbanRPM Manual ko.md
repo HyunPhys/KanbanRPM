@@ -183,11 +183,15 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
 status는 plugin settings에서 수정할 수 있습니다. `Statuses` checkbox filter로 board에 표시할 lane을 고를 수 있습니다.
+작은 lane arrow button으로 현재 보이는 Board lane의 순서를 바꿀 수 있습니다. KanbanRPM은 사용자가 지정한 lane 순서를 기억합니다.
+또한 Board의 `Project`, `Subproject`, `Category` filter 선택값도 기억하므로 view 또는 Obsidian을 다시 열어도 같은 filter 상태로 시작합니다.
+`Arrows`로 Board flow arrow를 보이거나 숨길 수 있습니다. `Big actions`로 Board에서 Big Action card를 보이거나 숨길 수 있습니다.
 
 `Project` 문서는 status lane에 들어가지 않고, board 위쪽의 `Project notes` strip에 표시됩니다. lane에는 주로 `Subproject`와 `Big Action`이 표시됩니다.
 
 card 사용법:
 
+- `New document`는 현재 Board filter를 반영합니다. `Project` filter가 없으면 `Project`, `Project`만 선택되어 있으면 해당 Project에 속한 `Subproject`, `Project`와 `Subproject`가 모두 선택되어 있으면 해당 부모가 미리 선택된 `Big Action`을 만듭니다.
 - title을 클릭하면 원본 Markdown 문서가 열립니다.
 - pencil icon을 클릭하면 metadata를 수정합니다.
 - `...` menu에서 `Duplicate`, `Archive`, `Delete`를 실행합니다.
@@ -214,13 +218,18 @@ card 사용법:
 
 표시 항목:
 
-- due marker
+- scheduled card marker
 - review marker
 - scheduled/due small action
 - recurring `Routine`
 - date `Memo`
 
+Card marker는 글자 prefix 대신 compact icon을 사용합니다. Small-action과 recurring marker는 가벼운 chip으로 표시하고, scheduled/review card marker만 더 많은 card context를 보여줍니다. Timeline marker의 status badge를 클릭하면 status를 변경할 수 있습니다.
+small action의 날짜가 parent card의 `Scheduled date`와 같으면 Timeline은 중복을 피하기 위해 card marker만 표시합니다.
+card marker 내부의 small action은 `Open`과 `Done` section으로 나뉩니다. `Open`은 기본으로 펼쳐지고, `Done`은 기본으로 접힙니다.
+
 기본 range는 오늘 기준 7일 전부터 7일 후입니다. base date를 바꾸거나 직접 date range를 적용할 수 있습니다.
+Timeline date field는 Obsidian/Electron에서 지원되는 경우 native calendar picker를 사용합니다.
 
 ### Memo
 
@@ -257,9 +266,21 @@ memo 내용은 Markdown preview로 렌더링됩니다. preview mode에서 checkb
 
 Routine 완료 기록은 `### Routine Log`에 Markdown table로 저장됩니다. 현재 recurrence period 안에서 완료된 routine은 다음 occurrence 전까지 sidebar에서 숨겨집니다.
 
+### Timeline Log
+
+각 living document는 `### Timeline Log` table을 가질 수 있습니다.
+
+```markdown
+| Date | Type | Change |
+| --- | --- | --- |
+```
+
+KanbanRPM은 status 변경, 완료된 small action, 자동 `Next review` reminder event를 이 table에 기록합니다. 새 row는 위쪽에 추가됩니다.
+
 ## Gantt
 
 `Gantt`는 중장기 흐름을 보는 planning view입니다. `Start date`, `Due date`, `Next review`를 사용합니다.
+기본 Gantt range는 현재 보이는 project/card들의 가장 이른 날짜부터 가장 늦은 날짜까지입니다. 사용자가 custom date range를 적용하거나 `Auto range`로 되돌릴 수 있습니다.
 
 scale:
 
@@ -273,7 +294,9 @@ scale:
 - `Project`와 `Subproject` row는 collapse할 수 있습니다.
 - Gantt bar는 status color를 사용합니다.
 - bar를 클릭하면 `Start date`, `Due date`, `Next review`를 수정할 수 있습니다.
+- Gantt date field는 Obsidian/Electron에서 지원되는 경우 native calendar picker를 사용합니다.
 - flow badge와 connector가 card 간 관계를 보여줍니다.
+- `Big actions`로 Big Action row를 보이거나 숨길 수 있습니다. Project/Subproject summary bar는 유지됩니다.
 - 오른쪽 flow dot을 다른 row의 왼쪽 flow dot으로 drag하면 `Preceded by` 관계가 만들어집니다.
 - connector arrow를 클릭하면 확인 후 관계를 삭제할 수 있습니다.
 
@@ -455,7 +478,7 @@ priority: 3
 - `## Waiting`: 기다리는 사람, 업체, 승인, 데이터.
 - `## Blockers`: 진행을 막는 요소.
 - `## Flow`: `Preceded by` / `Followed by` 관계.
-- `## Timeline`: `Start date`, `Next review`, `Due date`.
+- `## Timeline`: `Start date`, `Scheduled date`, `Next review`, `Due date`.
 - `## Timeline Log`: 완료/리마인더 기록.
 - `## Routine`: 반복 routine.
 - `## Routine Log`: routine 완료 기록.
@@ -473,6 +496,7 @@ priority: 3
 - `Board status filter`: Board에 표시할 status lane.
 - `Timeline status filter`: Timeline에 표시할 status.
 - `Card display fields`: Board card에 표시할 정보.
+- `Open Advanced metadata by default in new card modal`: 새 document 생성 창에서 Advanced metadata를 기본적으로 펼칠지 정합니다.
 - `Small action display`: 어떤 small action을 card에서 보여줄지.
 - `Experiment log categories`: Experiment Log prompt를 띄울 Category.
 - `Analysis log categories`: Analysis Log prompt를 띄울 Category.
@@ -564,6 +588,6 @@ Do not rewrite my notes unless I explicitly ask.
 - status가 이상하면 `Settings` -> `Statuses`를 확인합니다.
 - Category warning이 뜨면 settings에 Category를 추가하거나 `workstream_type`을 수정합니다.
 - flow arrow가 깨졌다면 `### Flow`의 wikilink를 확인합니다.
-- Timeline이 비어 있으면 `Due date`, `Next review`, scheduled small action, visible status filter를 확인합니다.
+- Timeline이 비어 있으면 `Scheduled date`, `Next review`, scheduled small action, visible status filter를 확인합니다.
 - Gantt가 비어 있으면 `### Timeline`에 `Start date`와 `Due date`를 추가합니다.
 - closed Project가 안 보이면 `Show closed projects`를 켭니다.

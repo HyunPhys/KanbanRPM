@@ -115,6 +115,7 @@ export class CardRepository {
         waitingFor: sectionData.waitingFor,
         blocker: sectionData.blocker,
         startDate: sectionData.startDate,
+        scheduledDate: sectionData.scheduledDate,
         nextReview: sectionData.nextReview,
         dueDate: sectionData.dueDate,
         precededBy: sectionData.precededBy,
@@ -188,6 +189,7 @@ export class CardRepository {
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof TFile)) return;
 
+    const statusChanged = card.status !== values.status;
     await this.updateCardFrontmatter(file, {
       type: values.type,
       primary_project: values.project.trim() || undefined,
@@ -197,11 +199,12 @@ export class CardRepository {
       status: values.status,
       priority: parsePriority(values.priority),
       workstream_type: values.workstreamType.trim(),
-    });
+    }, false);
 
     const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
-    const nextContent = this.updateLivingDocBody(content, title, values);
+    let nextContent = this.updateLivingDocBody(content, title, values);
+    if (statusChanged) nextContent = this.prependTimelineLog(nextContent, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(values.status)}`);
     await this.plugin.app.vault.modify(file, nextContent);
 
     if (title && sanitizeFileName(title) !== file.basename) {
@@ -210,6 +213,7 @@ export class CardRepository {
     }
 
     new Notice(`KanbanRPM card updated: ${title}`);
+    await this.plugin.refreshViews();
   }
 
   async moveCard(cardPath: string, targetStatus: Status, beforePath?: string): Promise<void> {
@@ -217,6 +221,7 @@ export class CardRepository {
     if (!(file instanceof TFile)) return;
 
     const cards = await this.loadCards();
+    const movedCard = cards.find((item) => item.path === cardPath);
     const laneCards = cards
       .filter((card) => card.status === targetStatus && card.path !== cardPath)
       .sort(compareCards);
@@ -228,14 +233,26 @@ export class CardRepository {
     await this.updateCardFrontmatter(file, {
       status: targetStatus,
       order: newOrder,
-    });
+    }, false);
+    if (movedCard && movedCard.status !== targetStatus) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
   }
 
   async setCardStatus(card: ProjectCard, status: Status): Promise<void> {
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof TFile)) return;
 
-    await this.updateCardFrontmatter(file, { status });
+    await this.updateCardFrontmatter(file, { status }, false);
+    if (card.status !== status) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
     new Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
   }
 
@@ -260,6 +277,7 @@ export class CardRepository {
       'Timeline',
       [
         values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : '',
+        values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : '',
         values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : '',
         values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : '',
       ].filter(Boolean).join('\n')
@@ -293,7 +311,7 @@ export class CardRepository {
       if (!(file instanceof TFile)) continue;
       await this.updateCardFrontmatter(file, { status: targetStatus }, false);
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, `- ${today}: next review reached; status changed to ${targetStatus}`);
+      const next = this.prependTimelineLog(content, 'Review', `Next review reached; status changed ${this.statusLabel(card.status)} -> ${this.statusLabel(targetStatus)}`, today);
       await this.plugin.app.vault.modify(file, next);
       applied += 1;
     }
@@ -355,7 +373,7 @@ export class CardRepository {
       : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ??${todayIso}`);
 
     lines[index] = nextLine;
-    const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), this.smallActionTimelineLog(action, todayIso, file));
+    const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), 'Small action', this.smallActionTimelineLog(action, file), todayIso);
     await this.plugin.app.vault.modify(file, nextContent);
     await this.plugin.refreshViews();
   }
@@ -425,6 +443,7 @@ export class CardRepository {
       waitingFor: '',
       blocker: '',
       startDate: '',
+      scheduledDate: '',
       nextReview: '',
       dueDate: '',
       dependsOn: '',
@@ -634,6 +653,7 @@ export class CardRepository {
 
       for (const [label, value] of [
         ['Start date', card.startDate],
+        ['Scheduled date', card.scheduledDate],
         ['Next review', card.nextReview],
         ['Due date', card.dueDate],
       ]) {
@@ -717,8 +737,8 @@ export class CardRepository {
       .map((issue) => `- ${issue.level.toUpperCase()} [[${issue.cardTitle}]]: ${issue.message}`)
       .join('\n');
     const dueSoon = boardCards
-      .filter((card) => (card.dueDate && card.dueDate <= soon) || (card.nextReview && card.nextReview <= soon))
-      .sort((a, b) => (a.dueDate || a.nextReview || '').localeCompare(b.dueDate || b.nextReview || '') || a.title.localeCompare(b.title));
+      .filter((card) => (card.scheduledDate && card.scheduledDate <= soon) || (card.dueDate && card.dueDate <= soon) || (card.nextReview && card.nextReview <= soon))
+      .sort((a, b) => (a.scheduledDate || a.dueDate || a.nextReview || '').localeCompare(b.scheduledDate || b.dueDate || b.nextReview || '') || a.title.localeCompare(b.title));
     const waiting = boardCards.filter((card) => card.waitingFor || card.status === this.statusId('waiting')).sort(compareCards);
     const blocked = boardCards.filter((card) => card.blocker || card.blockedBy.length || card.status === this.statusId('blocked')).sort(compareCards);
     const routines = boardCards.flatMap((card) => card.routines.map((routine) => ({ card, routine })));
@@ -847,6 +867,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
       this.statusLabel(card.status),
       `P${card.priority}`,
       card.workstreamType ? `category: ${categoryLabel(this.plugin.settings.categories, card.workstreamType)}` : '',
+      card.scheduledDate ? `scheduled: ${card.scheduledDate}` : '',
       card.dueDate ? `due: ${card.dueDate}` : '',
       card.nextReview ? `review: ${card.nextReview}` : '',
       card.blockedBy.length ? `blocked by: ${card.blockedBy.join(', ')}` : '',
@@ -870,6 +891,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
         if (this.isCompletionStatus(card.status)) return false;
         if (card.status === this.statusId('blocked') || card.blocker || card.blockedBy.length) return true;
         if (card.status === this.statusId('waiting') || card.waitingFor) return true;
+        if (card.scheduledDate && card.scheduledDate <= soon) return true;
         if (card.dueDate && card.dueDate <= soon) return true;
         if (card.nextReview && card.nextReview <= today) return true;
         if (card.priority <= 2 && card.nextAction) return true;
@@ -883,6 +905,8 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     if (card.status === this.statusId('blocked') || card.blocker) score += 50;
     score += card.blockedBy.length * 12;
     if (card.status === this.statusId('waiting') || card.waitingFor) score += 24;
+    if (card.scheduledDate && card.scheduledDate < today) score += 42;
+    else if (card.scheduledDate && card.scheduledDate <= soon) score += 24;
     if (card.dueDate && card.dueDate < today) score += 40;
     else if (card.dueDate && card.dueDate <= soon) score += 22;
     if (card.nextReview && card.nextReview <= today) score += 18;
@@ -908,7 +932,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
         const done = children.filter((card) => this.isCompletionStatus(card.status)).length;
         const openActions = children.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0);
         const nextDate = children
-          .flatMap((card) => [card.dueDate, card.nextReview].filter(Boolean))
+          .flatMap((card) => [card.scheduledDate, card.dueDate, card.nextReview].filter(Boolean))
           .sort()[0] ?? '';
         const project = projects.find((card) => card.title === title);
         const label = project ? `[[${project.file.basename}]]` : title;
@@ -1144,6 +1168,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     const blocker = values.blocker.trim() ? `- ${values.blocker.trim()}\n` : '';
     const timelineRows = [
       values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : '',
+      values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : '',
       values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : '',
       values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : '',
     ].filter(Boolean).join('\n');
@@ -1157,13 +1182,15 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     const subprojectLine = values.subproject.trim() ? `\nprimary_subproject: ${yamlScalar(values.subproject.trim())}` : '';
     const projectsLine = projects.length ? `\nprojects:${yamlArray(projects)}` : '';
     const subprojectsLine = subprojects.length ? `\nsubprojects:${yamlArray(subprojects)}` : '';
+    const priorityLine = values.priority.trim() && values.priority.trim() !== '3' ? `\npriority: ${yamlScalar(values.priority.trim())}` : '';
+    const categoryLine = values.workstreamType.trim() ? `\nworkstream_type: ${yamlScalar(values.workstreamType.trim())}` : '';
     const hierarchyRows = [
       values.project.trim() ? `> project: ${values.project.trim()}` : '',
       values.subproject.trim() ? `> subproject: ${values.subproject.trim()}` : '',
     ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n# PM Control\n\n## Current Focus\n\n${currentFocus}## Waiting\n\n${waiting}## Blockers\n\n${blocker}## Flow\n\nPreceded by:\n${precededBy}\n\nFollowed by:\n${followedBy}\n\n## Timeline\n\n${timelineRows}\n\n## Timeline Log\n\n## Routine\n\n## References\n\n${references}\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n# Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}${priorityLine}${categoryLine}\norder: \n---\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n# PM Control\n\n## Current Focus\n\n${currentFocus}## Waiting\n\n${waiting}## Blockers\n\n${blocker}## Flow\n\nPreceded by:\n${precededBy}\n\nFollowed by:\n${followedBy}\n\n## Timeline\n\n${timelineRows}\n\n## Timeline Log\n\n## Routine\n\n## References\n\n${references}\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n# Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
@@ -1183,6 +1210,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     waitingFor: string;
     blocker: string;
     startDate: string;
+    scheduledDate: string;
     nextReview: string;
     dueDate: string;
     precededBy: string[];
@@ -1213,6 +1241,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     const routineLog = getSection(content, 'Routine Log');
     const references = getSection(content, 'References');
     const startDate = this.parseTimelineDate(timeline, 'Start date');
+    const scheduledDate = this.parseTimelineDate(timeline, 'Scheduled date');
     const nextReview = this.parseTimelineDate(timeline, 'Next review');
     const dueDate = this.parseTimelineDate(timeline, 'Due date');
     const precededBy = this.uniqueLinks(parseDependencyList(flow, 'Preceded by'));
@@ -1229,7 +1258,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
       ...this.parseResearchLog(content, 'experiment'),
       ...this.parseResearchLog(content, 'analysis'),
     ];
-    return { currentFocus, waitingFor, blocker, startDate, nextReview, dueDate, precededBy, followedBy, sourceNotes, researchLogs, routines, smallActions, actionCount };
+    return { currentFocus, waitingFor, blocker, startDate, scheduledDate, nextReview, dueDate, precededBy, followedBy, sourceNotes, researchLogs, routines, smallActions, actionCount };
   }
 
   private firstListItem(section: string): string {
@@ -1248,6 +1277,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
       'Timeline',
       [
         values.startDate.trim() ? `- Start date: ${values.startDate.trim()}` : '',
+        values.scheduledDate.trim() ? `- Scheduled date: ${values.scheduledDate.trim()}` : '',
         values.nextReview.trim() ? `- Next review: ${values.nextReview.trim()}` : '',
         values.dueDate.trim() ? `- Due date: ${values.dueDate.trim()}` : '',
       ]
@@ -1289,16 +1319,23 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return replaceSection(content, 'Flow', `Preceded by:\n${nextPrecededBy.map((item) => `- ${item}`).join('\n')}\n\nFollowed by:\n${nextFollowedBy.map((item) => `- ${item}`).join('\n')}\n`);
   }
 
-  private prependTimelineLog(content: string, entry: string): string {
-    if (content.includes(entry)) return content;
+  private prependTimelineLog(content: string, type: string, change: string, date = todayIso()): string {
+    const tableHeader = '| Date | Type | Change |\n| --- | --- | --- |';
+    const row = `| ${this.escapeTableCell(date)} | ${this.escapeTableCell(type)} | ${this.escapeTableCell(change)} |`;
+    if (content.includes(row)) return content;
     const existing = findHeadingSection(content, 'Timeline Log');
     if (existing) {
       const body = content.slice(existing.bodyStart, existing.end).trim();
-      return replaceSection(content, 'Timeline Log', body ? `${entry}\n${body}` : entry);
+      const normalized = body.includes('| Date | Type | Change |') ? body : body ? `${tableHeader}\n\n${body}` : tableHeader;
+      const lines = normalized.split(/\r?\n/);
+      const insertIndex = lines.findIndex((line) => /^\|\s*---\s*\|\s*---\s*\|\s*---\s*\|/.test(line));
+      if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+      else lines.unshift(row);
+      return replaceSection(content, 'Timeline Log', lines.join('\n'));
     }
 
     const timeline = findHeadingSection(content, 'Timeline');
-    const section = `### Timeline Log\n\n${entry}\n`;
+    const section = `### Timeline Log\n\n${tableHeader}\n${row}\n`;
     if (timeline) return `${content.slice(0, timeline.end).trimEnd()}\n\n${section}${content.slice(timeline.end)}`;
     return `${content.trimEnd()}\n\n${section}`;
   }
@@ -1362,9 +1399,9 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return String(value || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
   }
 
-  private smallActionTimelineLog(action: SmallAction, date: string, file: TFile): string {
+  private smallActionTimelineLog(action: SmallAction, file: TFile): string {
     const heading = action.heading && action.heading !== 'Timeline Log' ? ` (${action.heading})` : '';
-    return `- ${date} completed: [[${file.basename}]] - ${action.text}${heading}`;
+    return `Completed [[${file.basename}]] - ${action.text}${heading}`;
   }
 
   private parseTimelineDate(section: string, label: string): string {

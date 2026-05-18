@@ -181,11 +181,15 @@ Inbox -> Active -> Waiting -> Blocked -> Someday -> Done
 ```
 
 Statuses are customizable in plugin settings. Board lanes can be shown or hidden through the `Statuses` checkbox filter.
+Use the small lane arrow buttons to reorder visible Board lanes. KanbanRPM remembers the lane order.
+KanbanRPM also remembers the current Board `Project`, `Subproject`, and `Category` filters when the view or Obsidian is reopened.
+Use `Arrows` to show or hide Board flow arrows. Use `Big actions` to show or hide Big Action cards on the Board.
 
 Project documents do not appear inside status lanes. They appear in the `Project notes` strip above the board. Status lanes mainly show `Subproject` and `Big Action` documents.
 
 Board card basics:
 
+- `New document` follows the current Board filters: no Project filter creates a `Project`; a Project filter creates a `Subproject`; Project + Subproject filters create a `Big Action` with those parents preselected.
 - Click the title to open the original Markdown document.
 - Click the pencil icon to edit metadata.
 - Use the `...` menu for actions such as `Duplicate`, `Archive`, and `Delete`.
@@ -212,13 +216,18 @@ Common actions:
 
 It shows:
 
-- due markers
+- scheduled card markers
 - review markers
 - scheduled/due small actions
 - recurring `Routine` items
 - date `Memo` cards
 
+Card markers use compact icons instead of text prefixes. Small-action and recurring markers render as lightweight chips, while scheduled/review card markers keep richer card context. Click a status badge on a Timeline marker to change status.
+If a small action has the same date as its parent card's `Scheduled date`, Timeline shows the card marker only to avoid duplicate information.
+Inside card markers, small actions are split into `Open` and `Done` sections. `Open` starts expanded, while `Done` starts collapsed.
+
 The default range is from 7 days before today through 7 days after today. You can change the base date or apply a custom date range.
+Timeline date fields use the native calendar picker when supported by Obsidian/Electron.
 
 ### Memo
 
@@ -255,9 +264,21 @@ Supported schedules:
 
 Routine completion is written to `### Routine Log` as a Markdown table. Once completed for the active recurrence period, the routine is hidden from the sidebar until the next occurrence.
 
+### Timeline Log
+
+Each living document can keep a `### Timeline Log` table:
+
+```markdown
+| Date | Type | Change |
+| --- | --- | --- |
+```
+
+KanbanRPM writes status changes, completed small actions, and automatic `Next review` reminder events to this table. New rows are added near the top.
+
 ## Gantt
 
 `Gantt` is for medium-term planning. It uses `Start date`, `Due date`, and `Next review`.
+By default, the Gantt range spans from the earliest visible project date to the latest visible project date. You can apply a custom date range or return to `Auto range`.
 
 Scales:
 
@@ -271,7 +292,9 @@ Behavior:
 - Project/Subproject rows can be collapsed.
 - Bars use status colors.
 - Click a bar to edit `Start date`, `Due date`, and `Next review`.
+- Gantt date fields use the native calendar picker when supported by Obsidian/Electron.
 - Flow badges and connectors show relationships between cards.
+- Use `Big actions` to show or hide Big Action rows while keeping Project/Subproject summary bars.
 - Drag from a right-side flow dot to another row's left-side flow dot to create a `Preceded by` relation.
 - Click a connector arrow to remove the relation after confirmation.
 
@@ -453,7 +476,7 @@ Body sections:
 - `## Waiting`: what or who you are waiting for.
 - `## Blockers`: what blocks progress.
 - `## Flow`: `Preceded by` / `Followed by` relations.
-- `## Timeline`: `Start date`, `Next review`, `Due date`.
+- `## Timeline`: `Start date`, `Scheduled date`, `Next review`, `Due date`.
 - `## Timeline Log`: completion and reminder log.
 - `## Routine`: recurring work.
 - `## Routine Log`: recurring completion log.
@@ -471,6 +494,7 @@ Important settings:
 - `Board status filter`: which status lanes are visible.
 - `Timeline status filter`: which statuses appear in Timeline.
 - `Card display fields`: choose which card details appear on Board cards.
+- `Open Advanced metadata by default in new card modal`: whether new document forms start with Advanced metadata expanded.
 - `Small action display`: choose which small actions are shown.
 - `Experiment log categories`: Categories that trigger Experiment Log prompt.
 - `Analysis log categories`: Categories that trigger Analysis Log prompt.
@@ -564,6 +588,6 @@ The important rule is that KanbanRPM remains the source of truth, while the LLM 
 - If a status looks wrong, check `Settings` -> `Statuses`.
 - If a Category warning appears, add the Category in settings or change `workstream_type`.
 - If a flow arrow is broken, check the wikilink under `### Flow`.
-- If Timeline is empty, check `Due date`, `Next review`, scheduled small actions, and visible status filters.
+- If Timeline is empty, check `Scheduled date`, `Next review`, scheduled small actions, and visible status filters.
 - If Gantt is empty, add `Start date` and `Due date` under `### Timeline`.
 - If a closed Project is missing, enable `Show closed projects`.

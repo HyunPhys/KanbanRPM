@@ -138,6 +138,18 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       text: 'Choose which frontmatter and body-section fields appear on board cards.',
     });
 
+    new Setting(display)
+      .setName('Open Advanced metadata by default in new card modal')
+      .setDesc('When enabled, the Advanced metadata section starts expanded while creating a new living document.')
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.newCardAdvancedOpen)
+          .onChange(async (value) => {
+            this.plugin.settings.newCardAdvancedOpen = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
     const displayGrid = display.createDiv({ cls: 'kanban-rpm-settings-toggle-grid' });
     for (const [key, label] of [
       ['breadcrumb', 'Project breadcrumb'],

@@ -65,7 +65,7 @@ Rich planning data belongs in the document body:
 - \`## Waiting\` for people or responses you are waiting on.
 - \`## Blockers\` for concrete blockers.
 - \`## Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
-- \`## Timeline\` for \`Next review\` and \`Due date\`.
+- \`## Timeline\` for \`Start date\`, \`Scheduled date\`, \`Next review\`, and \`Due date\`.
 - \`## Routine\` for recurring review/checkup routines.
 - \`## References\` for source notes that feed the Action index.
 

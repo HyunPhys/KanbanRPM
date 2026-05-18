@@ -56,7 +56,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.2/
+dist/kanban-rpm-0.3.3/
   main.js
   manifest.json
   styles.css
@@ -107,7 +107,7 @@ KanbanRPM is inspired by Laminar's file-based card philosophy, flow arrows, recu
 
 ## Main Features
 
-- `Board` view with customizable status lanes.
+- `Board` view with customizable, reorderable status lanes and remembered filters.
 - `Table` view with sortable and resizable columns.
 - `Timeline` view with horizontal date columns, `Memo`, and `Routine`.
 - `Gantt` view with Project/Subproject/Big Action hierarchy and date-proportional bars.
@@ -218,7 +218,7 @@ Release checklist:
    - `main.js`
    - `manifest.json`
    - `styles.css`
-6. Tag the release, for example `v0.3.2`.
+6. Tag the release, for example `v0.3.3`.
 7. Push the tag to create the GitHub Release.
 
 ## Repository Layout
@@ -246,6 +246,13 @@ KanbanRPM uses:
 - CSS namespace: `kanban-rpm-*`
 
 It is designed to coexist with the original `Laminar` plugin and the original `Kanban` plugin.
+
+## Acknowledgements
+
+KanbanRPM exists because of prior work and generous ideas from the Obsidian plugin community.
+
+- Thank you to the creators and maintainers of [Obsidian Kanban](https://github.com/obsidian-community/obsidian-kanban). KanbanRPM started from the public Kanban source tree and keeps the upstream source and license material for attribution/reference.
+- Special thanks to [F1rstPenguin](https://github.com/F1rstPenguin), creator of [Laminar](https://github.com/F1rstPenguin/Laminar), for the inspiration behind Laminar's file-based cards, temporal workspace, routines, and flow-oriented project management. KanbanRPM also benefited from Laminar's ideas and from the creator's advice while shaping this plugin's research-management direction.
 
 ## License
 

@@ -118,7 +118,7 @@ KanbanRPM reads these sections while keeping the document useful as a normal not
 - `## Blockers`: concrete blockers.
 - `## Flow`: `Preceded by` and `Followed by` wikilinks.
 - `## Routine`: recurring review/routine checkbox items.
-- `## Timeline`: `Start date`, `Next review`, and `Due date` rows.
+- `## Timeline`: `Start date`, `Scheduled date`, `Next review`, and `Due date` rows.
 - Research logs are stored in `KanbanRPM Workspace/Research Logs.md`, not inside Project/Subproject/Big Action documents.
 - `## References`: source notes scanned by Action index.
 - `## PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
@@ -159,6 +159,8 @@ KanbanRPM uses `Routine` as the user-facing name. New documents should use `### 
 ## Next Review
 
 `Next review` is the reminder layer. On board open or refresh, if `Next review` is today or overdue, KanbanRPM moves non-complete cards to the configured `Next review reminder status` and writes a `### Timeline Log` entry.
+
+`Scheduled date` is the execution date for showing a card on the Timeline. `Due date` remains the deadline/end-date layer and is not used as the primary card marker on Timeline.
 
 ## Experiment And Analysis Logs
 

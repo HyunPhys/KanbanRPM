@@ -9,6 +9,14 @@ export interface KanbanRPMSettings {
   promptForLogOnDone: boolean;
   reviewReminderStatus: string;
   boardStatusFilter: string[];
+  boardStatusOrder: string[];
+  boardProjectFilter: string;
+  boardSubprojectFilter: string;
+  boardCategoryFilter: string;
+  showBoardConnectors: boolean;
+  showBoardBigActions: boolean;
+  showGanttBigActions: boolean;
+  newCardAdvancedOpen: boolean;
   timelineStatusFilter: string[];
   cardDisplayFields: CardDisplaySettings;
   smallActionDisplay: SmallActionDisplaySettings;
@@ -62,6 +70,7 @@ export interface ProjectCard {
   waitingFor: string;
   blocker: string;
   startDate: string;
+  scheduledDate: string;
   nextReview: string;
   dueDate: string;
   precededBy: string[];
@@ -95,6 +104,7 @@ export interface NewCardValues {
   waitingFor: string;
   blocker: string;
   startDate: string;
+  scheduledDate: string;
   nextReview: string;
   dueDate: string;
   dependsOn: string;
@@ -152,11 +162,12 @@ export interface ResearchLogValues {
 
 export interface GanttDateValues {
   startDate: string;
+  scheduledDate: string;
   dueDate: string;
   nextReview: string;
 }
 
-export type TimelineScope = 'all' | 'review' | 'due' | 'tasks' | 'recurring';
+export type TimelineScope = 'all' | 'review' | 'scheduled' | 'tasks' | 'recurring';
 
 export type SmallActionPriority = 'highest' | 'high' | 'medium' | 'normal' | 'low' | 'lowest';
 
