@@ -12,7 +12,7 @@ export function getSection(content: string, title: string): string {
 
 export function findHeadingSection(content: string, title: string): MarkdownSection | null {
   const escaped = escapeRegex(title);
-  const pattern = new RegExp(`^(#{2,6})\\s+${escaped}\\s*$`, 'gim');
+  const pattern = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, 'gim');
   const match = pattern.exec(content);
   if (!match || match.index === undefined) return null;
 
@@ -46,7 +46,7 @@ export function findNestedHeadingSection(content: string, parentTitle: string, c
 export function replaceSection(content: string, title: string, body: string): string {
   const normalizedBody = body.trimEnd();
   const existing = findHeadingSection(content, title);
-  const level = existing?.level ?? 3;
+  const level = existing?.level ?? 2;
   const replacement = `${'#'.repeat(level)} ${title}\n\n${normalizedBody}${normalizedBody ? '\n' : ''}`;
   if (existing) return `${content.slice(0, existing.start)}${replacement}${content.slice(existing.end)}`;
   return `${content.trimEnd()}\n\n${replacement}`;

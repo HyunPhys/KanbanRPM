@@ -70,62 +70,60 @@ The active Category set is editable in plugin settings using `id | Label` lines.
 New documents use this body shape:
 
 ```markdown
-# Project Title
-
 > [!kanban-rpm]
 > type: Project
 > status: active
 > project: [[TTT]]
 > subproject: [[TTT Experiment]]
 
-## PM Control
+# PM Control
 
-### Current Focus
+## Current Focus
 
-### Waiting
+## Waiting
 
-### Blockers
+## Blockers
 
-### Flow
+## Flow
 
 Preceded by:
 
 Followed by:
 
-### Timeline
+## Timeline
 
-### Timeline Log
+## Timeline Log
 
-### Routine
+## Routine
 
-### References
+## References
 
-### PM Metadata
+## PM Metadata
 
 ---
 
-## Working Notes
+# Working Notes
 
-### Project Brief
+## Project Brief
 
-### Desired Outcomes
+## Desired Outcomes
 
-### Decisions
+## Decisions
 ```
 
 KanbanRPM reads these sections while keeping the document useful as a normal note:
 
-- `### Current Focus`: the action shown on cards and used for planning/review surfaces.
-- `### Waiting`: waiting context.
-- `### Blockers`: concrete blockers.
-- `### Flow`: `Preceded by` and `Followed by` wikilinks.
-- `### Routine`: recurring review/routine checkbox items.
-- `### Timeline`: `Start date`, `Next review`, and `Due date` rows.
+- `## Current Focus`: the action shown on cards and used for planning/review surfaces.
+- `## Waiting`: waiting context.
+- `## Blockers`: concrete blockers.
+- `## Flow`: `Preceded by` and `Followed by` wikilinks.
+- `## Routine`: recurring review/routine checkbox items.
+- `## Timeline`: `Start date`, `Next review`, and `Due date` rows.
 - Research logs are stored in `KanbanRPM Workspace/Research Logs.md`, not inside Project/Subproject/Big Action documents.
-- `### References`: source notes scanned by Action index.
-- `### PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
+- `## References`: source notes scanned by Action index.
+- `## PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
 
-`## PM Control` is the plugin-readable projection area. `## Working Notes` is the human writing area. Project, Subproject, and Big Action templates have different `Working Notes` sections.
+`# PM Control` is the plugin-readable projection area. `# Working Notes` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate body H1. Project, Subproject, and Big Action templates have different `Working Notes` sections.
 
 ## Flow
 

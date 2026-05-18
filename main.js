@@ -3606,7 +3606,7 @@ function getSection(content, title) {
 }
 function findHeadingSection(content, title) {
   const escaped = escapeRegex(title);
-  const pattern = new RegExp(`^(#{2,6})\\s+${escaped}\\s*$`, "gim");
+  const pattern = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, "gim");
   const match = pattern.exec(content);
   if (!match || match.index === void 0) return null;
   const level = match[1].length;
@@ -3638,7 +3638,7 @@ function replaceSection(content, title, body) {
   var _a;
   const normalizedBody = body.trimEnd();
   const existing = findHeadingSection(content, title);
-  const level = (_a = existing == null ? void 0 : existing.level) != null ? _a : 3;
+  const level = (_a = existing == null ? void 0 : existing.level) != null ? _a : 2;
   const replacement = `${"#".repeat(level)} ${title}
 
 ${normalizedBody}${normalizedBody ? "\n" : ""}`;
@@ -3804,7 +3804,7 @@ var CardRepository = class {
       const project = text(fm.primary_project) || projects[0] || "";
       const subproject = text(fm.primary_subproject) || subprojects[0] || "";
       const order = parseOrder(fm.order);
-      const title = this.getDocumentTitle(content) || file.basename;
+      const title = file.basename;
       cards.push({
         file,
         path: file.path,
@@ -3894,6 +3894,7 @@ var CardRepository = class {
     if (refresh) await this.plugin.refreshViews();
   }
   async updateCard(card, values) {
+    var _a, _b;
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof import_obsidian5.TFile)) return;
     await this.updateCardFrontmatter(file, {
@@ -3906,10 +3907,15 @@ var CardRepository = class {
       priority: parsePriority(values.priority),
       workstream_type: values.workstreamType.trim()
     });
+    const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
-    const nextContent = this.updateLivingDocBody(content, values.title.trim() || card.title, values);
+    const nextContent = this.updateLivingDocBody(content, title, values);
     await this.plugin.app.vault.modify(file, nextContent);
-    new import_obsidian5.Notice(`KanbanRPM card updated: ${values.title.trim() || card.title}`);
+    if (title && sanitizeFileName(title) !== file.basename) {
+      const targetPath = this.getAvailablePath((_b = (_a = file.parent) == null ? void 0 : _a.path) != null ? _b : this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
+      await this.plugin.app.fileManager.renameFile(file, targetPath);
+    }
+    new import_obsidian5.Notice(`KanbanRPM card updated: ${title}`);
   }
   async moveCard(cardPath, targetStatus, beforePath) {
     const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
@@ -4699,7 +4705,7 @@ ${body}`);
 
 ` : "";
   }
-  getLivingDocTemplate(values, title, baseName) {
+  getLivingDocTemplate(values, _title, baseName) {
     const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}
 ` : "";
     const seededSmallAction = values.nextAction.trim() ? `- [ ] ${values.nextAction.trim()}
@@ -4740,22 +4746,20 @@ status: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLin
 order: 
 ---
 
-# ${title}
-
 > [!kanban-rpm]
 > type: ${typeLabel}
 > status: ${values.status}${hierarchyRows ? `
 ${hierarchyRows}` : ""}
 
-## PM Control
+# PM Control
 
-### Current Focus
+## Current Focus
 
-${currentFocus}### Waiting
+${currentFocus}## Waiting
 
-${waiting}### Blockers
+${waiting}## Blockers
 
-${blocker}### Flow
+${blocker}## Flow
 
 Preceded by:
 ${precededBy}
@@ -4763,68 +4767,68 @@ ${precededBy}
 Followed by:
 ${followedBy}
 
-### Timeline
+## Timeline
 
 ${timelineRows}
 
-### Timeline Log
+## Timeline Log
 
-### Routine
+## Routine
 
-### References
+## References
 
 ${references}
 
-### PM Metadata
+## PM Metadata
 
 ${this.renderNonEmptyMetadata(values)}---
 
-## Working Notes
+# Working Notes
 
 ${workingSections}`;
   }
   getWorkingSections(type, seededSmallAction) {
     if (type === "project") {
-      return `### Project Brief
+      return `## Project Brief
 
-### Desired Outcomes
+## Desired Outcomes
 
-### Subprojects
+## Subprojects
 
-### Big Actions
+## Big Actions
 
-${seededSmallAction}### Decisions
+${seededSmallAction}## Decisions
 
-### Meetings And Communication
+## Meetings And Communication
 
-### Notes
+## Notes
 `;
     }
     if (type === "subproject") {
-      return `### Objective
+      return `## Objective
 
-### Work Plan
+## Work Plan
 
-### Big Actions
+## Big Actions
 
-${seededSmallAction}### Progress Notes
+${seededSmallAction}## Progress Notes
 
-### Decisions
+## Decisions
 
-### Related Materials
+## Related Materials
 `;
     }
-    return `### Definition Of Done
+    return `## Definition Of Done
 
-### Small Actions
+## Small Actions
 
-${seededSmallAction}### Progress Notes
+${seededSmallAction}## Progress Notes
 
-### Evidence And Links
+## Evidence And Links
 
-### Decisions
+## Decisions
 
-### Related Materials
+## Related Materials
 `;
   }
   parseLivingDocSections(content) {
@@ -4856,15 +4860,8 @@ ${seededSmallAction}### Progress Notes
     const match = section.match(/^\s*[-*]\s+(?:\[[ xX-]\]\s*)?(.+)$/m);
     return (_b = (_a = match == null ? void 0 : match[1]) == null ? void 0 : _a.trim()) != null ? _b : "";
   }
-  getDocumentTitle(content) {
-    var _a, _b, _c;
-    return (_c = (_b = (_a = content.match(/^#\s+(.+)$/m)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-  }
   updateLivingDocBody(content, title, values) {
-    let next = content.match(/^#\s+.+$/m) ? content.replace(/^#\s+.+$/m, `# ${title}`) : `${content.trimEnd()}
-
-# ${title}
-`;
+    let next = this.removeLegacyTitleHeading(content, title);
     next = replaceSection(next, "Current Focus", values.nextAction.trim() ? `- ${values.nextAction.trim()}
 ` : "");
     next = replaceSection(next, "Waiting", values.waitingFor.trim() ? `- ${values.waitingFor.trim()}
@@ -4889,6 +4886,10 @@ ${textareaToList(values.blocks).map((item) => `- ${item}`).join("\n")}
     next = replaceSection(next, "References", textareaToList(values.sourceNotes).map((item) => `- ${item}`).join("\n"));
     next = replaceSection(next, "PM Metadata", this.renderNonEmptyMetadata(values).trimEnd());
     return next;
+  }
+  removeLegacyTitleHeading(content, title) {
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return content.replace(new RegExp(`^#\\s+${escaped}\\s*\\r?\\n{1,2}`, "m"), "");
   }
   updateFlowList(content, label, link, action, sourceCard) {
     const flow = getSection(content, "Flow");
@@ -5188,7 +5189,7 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 \`projects\` and \`subprojects\` are multi-link hierarchy arrays. \`primary_project\` and \`primary_subproject\` define the default breadcrumb and future hierarchy folder placement. Legacy \`project\` and \`subproject\` fields are read as fallback only.
 
-Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Flow\`, \`### Timeline\`, and \`### PM Metadata\`.
+Optional planning fields stay in the document body under \`# PM Control\` subsections such as \`## Current Focus\`, \`## Flow\`, \`## Timeline\`, and \`## PM Metadata\`.
 
 ## Body-Backed Planning Fields
 
@@ -5200,15 +5201,15 @@ KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the sin
 
 Rich planning data belongs in the document body:
 
-- \`### Current Focus\` for the next visible action.
-- \`### Waiting\` for people or responses you are waiting on.
-- \`### Blockers\` for concrete blockers.
-- \`### Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
-- \`### Timeline\` for \`Next review\` and \`Due date\`.
-- \`### Routine\` for recurring review/checkup routines.
-- \`### References\` for source notes that feed the Action index.
+- \`## Current Focus\` for the next visible action.
+- \`## Waiting\` for people or responses you are waiting on.
+- \`## Blockers\` for concrete blockers.
+- \`## Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
+- \`## Timeline\` for \`Next review\` and \`Due date\`.
+- \`## Routine\` for recurring review/checkup routines.
+- \`## References\` for source notes that feed the Action index.
 
-\`## PM Control\` is the plugin-readable area. \`## Working Notes\` is the human writing area. New Project/Subproject/Big Action documents use different working-note sections.
+\`# PM Control\` is the plugin-readable area. \`# Working Notes\` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate H1 title in the body.
 
 ## Small Actions
 

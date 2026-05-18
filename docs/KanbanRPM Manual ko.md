@@ -450,17 +450,18 @@ priority: 3
 
 본문 section:
 
-- `### Current Focus`: 지금 가장 중요한 다음 focus.
-- `### Waiting`: 기다리는 사람, 업체, 승인, 데이터.
-- `### Blockers`: 진행을 막는 요소.
-- `### Flow`: `Preceded by` / `Followed by` 관계.
-- `### Timeline`: `Start date`, `Next review`, `Due date`.
-- `### Timeline Log`: 완료/리마인더 기록.
-- `### Routine`: 반복 routine.
-- `### Routine Log`: routine 완료 기록.
-- `### References`: `Action index`가 scan할 source note.
-- `### PM Metadata`: 사람이 읽기 좋은 추가 metadata.
-- `## Working Notes`: 자유롭게 작성하는 본문 영역.
+- `# PM Control`: plugin이 읽는 planning 영역.
+- `## Current Focus`: 지금 가장 중요한 다음 focus.
+- `## Waiting`: 기다리는 사람, 업체, 승인, 데이터.
+- `## Blockers`: 진행을 막는 요소.
+- `## Flow`: `Preceded by` / `Followed by` 관계.
+- `## Timeline`: `Start date`, `Next review`, `Due date`.
+- `## Timeline Log`: 완료/리마인더 기록.
+- `## Routine`: 반복 routine.
+- `## Routine Log`: routine 완료 기록.
+- `## References`: `Action index`가 scan할 source note.
+- `## PM Metadata`: 사람이 읽기 좋은 추가 metadata.
+- `# Working Notes`: 자유롭게 작성하는 본문 영역.
 
 ## Settings
 

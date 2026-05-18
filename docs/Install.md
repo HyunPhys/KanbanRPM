@@ -52,7 +52,7 @@ npm run smoke
 `npm run package` creates:
 
 ```text
-dist/kanban-rpm-0.3.1/
+dist/kanban-rpm-0.3.2/
   main.js
   manifest.json
   styles.css

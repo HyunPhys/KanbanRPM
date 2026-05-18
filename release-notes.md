@@ -1,9 +1,14 @@
-# KanbanRPM v0.3.1
+# KanbanRPM v0.3.2
 
-KanbanRPM v0.3.1 is a patch release focused on taxonomy polish and documentation.
+KanbanRPM v0.3.2 is a patch release focused on title synchronization and cleaner living-document templates.
 
 ## Highlights
 
+- Board titles now follow the Obsidian note title/file name, so manual note renames are reflected in Board and Project/Subproject pickers.
+- Editing a card title from the modal now renames the Markdown file instead of only changing the body heading.
+- New document templates no longer create a duplicate card-name H1 in the body.
+- New document body headings now start at `# PM Control` and `# Working Notes`, with child sections promoted one level.
+- Existing documents remain readable.
 - Category settings now support `id | Label`, matching the global status set format.
 - Category ids remain stored in card frontmatter while labels are displayed in UI dropdowns, filters, and cards.
 - Existing string-based category settings are migrated automatically.

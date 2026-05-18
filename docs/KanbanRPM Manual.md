@@ -448,17 +448,18 @@ User-facing meaning:
 
 Body sections:
 
-- `### Current Focus`: the next meaningful focus.
-- `### Waiting`: what or who you are waiting for.
-- `### Blockers`: what blocks progress.
-- `### Flow`: `Preceded by` / `Followed by` relations.
-- `### Timeline`: `Start date`, `Next review`, `Due date`.
-- `### Timeline Log`: completion and reminder log.
-- `### Routine`: recurring work.
-- `### Routine Log`: recurring completion log.
-- `### References`: notes scanned by `Action index`.
-- `### PM Metadata`: optional readable metadata.
-- `## Working Notes`: free writing area.
+- `# PM Control`: plugin-readable planning area.
+- `## Current Focus`: the next meaningful focus.
+- `## Waiting`: what or who you are waiting for.
+- `## Blockers`: what blocks progress.
+- `## Flow`: `Preceded by` / `Followed by` relations.
+- `## Timeline`: `Start date`, `Next review`, `Due date`.
+- `## Timeline Log`: completion and reminder log.
+- `## Routine`: recurring work.
+- `## Routine Log`: recurring completion log.
+- `## References`: notes scanned by `Action index`.
+- `## PM Metadata`: optional readable metadata.
+- `# Working Notes`: free writing area.
 
 ## Settings
 

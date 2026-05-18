@@ -87,7 +87,7 @@ export class CardRepository {
       const project = text(fm.primary_project) || projects[0] || '';
       const subproject = text(fm.primary_subproject) || subprojects[0] || '';
       const order = parseOrder(fm.order);
-      const title = this.getDocumentTitle(content) || file.basename;
+      const title = file.basename;
 
       cards.push({
         file,
@@ -199,11 +199,17 @@ export class CardRepository {
       workstream_type: values.workstreamType.trim(),
     });
 
+    const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
-    const nextContent = this.updateLivingDocBody(content, values.title.trim() || card.title, values);
+    const nextContent = this.updateLivingDocBody(content, title, values);
     await this.plugin.app.vault.modify(file, nextContent);
 
-    new Notice(`KanbanRPM card updated: ${values.title.trim() || card.title}`);
+    if (title && sanitizeFileName(title) !== file.basename) {
+      const targetPath = this.getAvailablePath(file.parent?.path ?? this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
+      await this.plugin.app.fileManager.renameFile(file, targetPath);
+    }
+
+    new Notice(`KanbanRPM card updated: ${title}`);
   }
 
   async moveCard(cardPath: string, targetStatus: Status, beforePath?: string): Promise<void> {
@@ -1131,7 +1137,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return rows.length ? `${rows.join('\n')}\n\n` : '';
   }
 
-  private getLivingDocTemplate(values: NewCardValues, title: string, baseName: string): string {
+  private getLivingDocTemplate(values: NewCardValues, _title: string, baseName: string): string {
     const currentFocus = values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '';
     const seededSmallAction = values.nextAction.trim() ? `- [ ] ${values.nextAction.trim()}\n` : '';
     const waiting = values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '';
@@ -1157,19 +1163,19 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     ].filter(Boolean).join('\n');
     const workingSections = this.getWorkingSections(values.type, seededSmallAction);
 
-    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n# ${title}\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n## PM Control\n\n### Current Focus\n\n${currentFocus}### Waiting\n\n${waiting}### Blockers\n\n${blocker}### Flow\n\nPreceded by:\n${precededBy}\n\nFollowed by:\n${followedBy}\n\n### Timeline\n\n${timelineRows}\n\n### Timeline Log\n\n### Routine\n\n### References\n\n${references}\n\n### PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n## Working Notes\n\n${workingSections}`;
+    return `---\nkanban_rpm: true\ntype: ${yamlScalar(values.type)}\nid: ${yamlScalar(baseName)}\nstatus: ${yamlScalar(values.status)}${projectLine}${subprojectLine}${projectsLine}${subprojectsLine}\norder: \n---\n\n> [!kanban-rpm]\n> type: ${typeLabel}\n> status: ${values.status}${hierarchyRows ? `\n${hierarchyRows}` : ''}\n\n# PM Control\n\n## Current Focus\n\n${currentFocus}## Waiting\n\n${waiting}## Blockers\n\n${blocker}## Flow\n\nPreceded by:\n${precededBy}\n\nFollowed by:\n${followedBy}\n\n## Timeline\n\n${timelineRows}\n\n## Timeline Log\n\n## Routine\n\n## References\n\n${references}\n\n## PM Metadata\n\n${this.renderNonEmptyMetadata(values)}---\n\n# Working Notes\n\n${workingSections}`;
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
     if (type === 'project') {
-      return `### Project Brief\n\n### Desired Outcomes\n\n### Subprojects\n\n### Big Actions\n\n${seededSmallAction}### Decisions\n\n### Meetings And Communication\n\n### Notes\n`;
+      return `## Project Brief\n\n## Desired Outcomes\n\n## Subprojects\n\n## Big Actions\n\n${seededSmallAction}## Decisions\n\n## Meetings And Communication\n\n## Notes\n`;
     }
 
     if (type === 'subproject') {
-      return `### Objective\n\n### Work Plan\n\n### Big Actions\n\n${seededSmallAction}### Progress Notes\n\n### Decisions\n\n### Related Materials\n`;
+      return `## Objective\n\n## Work Plan\n\n## Big Actions\n\n${seededSmallAction}## Progress Notes\n\n## Decisions\n\n## Related Materials\n`;
     }
 
-    return `### Definition Of Done\n\n### Small Actions\n\n${seededSmallAction}### Progress Notes\n\n### Evidence And Links\n\n### Decisions\n\n### Related Materials\n`;
+    return `## Definition Of Done\n\n## Small Actions\n\n${seededSmallAction}## Progress Notes\n\n## Evidence And Links\n\n## Decisions\n\n## Related Materials\n`;
   }
 
   private parseLivingDocSections(content: string): {
@@ -1231,12 +1237,8 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return match?.[1]?.trim() ?? '';
   }
 
-  private getDocumentTitle(content: string): string {
-    return content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? '';
-  }
-
   private updateLivingDocBody(content: string, title: string, values: NewCardValues): string {
-    let next = content.match(/^#\s+.+$/m) ? content.replace(/^#\s+.+$/m, `# ${title}`) : `${content.trimEnd()}\n\n# ${title}\n`;
+    let next = this.removeLegacyTitleHeading(content, title);
     next = replaceSection(next, 'Current Focus', values.nextAction.trim() ? `- ${values.nextAction.trim()}\n` : '');
     next = replaceSection(next, 'Waiting', values.waitingFor.trim() ? `- ${values.waitingFor.trim()}\n` : '');
     next = replaceSection(next, 'Blockers', values.blocker.trim() ? `- ${values.blocker.trim()}\n` : '');
@@ -1255,6 +1257,11 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     next = replaceSection(next, 'References', textareaToList(values.sourceNotes).map((item) => `- ${item}`).join('\n'));
     next = replaceSection(next, 'PM Metadata', this.renderNonEmptyMetadata(values).trimEnd());
     return next;
+  }
+
+  private removeLegacyTitleHeading(content: string, title: string): string {
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return content.replace(new RegExp(`^#\\s+${escaped}\\s*\\r?\\n{1,2}`, 'm'), '');
   }
 
   private updateFlowList(content: string, label: 'Preceded by' | 'Followed by', link: string, action: 'add' | 'remove', sourceCard?: ProjectCard): string {

@@ -49,7 +49,7 @@ The active status set is global and editable in KanbanRPM settings. Every Board/
 
 \`projects\` and \`subprojects\` are multi-link hierarchy arrays. \`primary_project\` and \`primary_subproject\` define the default breadcrumb and future hierarchy folder placement. Legacy \`project\` and \`subproject\` fields are read as fallback only.
 
-Optional planning fields stay in the document body under \`## PM Control\` subsections such as \`### Current Focus\`, \`### Flow\`, \`### Timeline\`, and \`### PM Metadata\`.
+Optional planning fields stay in the document body under \`# PM Control\` subsections such as \`## Current Focus\`, \`## Flow\`, \`## Timeline\`, and \`## PM Metadata\`.
 
 ## Body-Backed Planning Fields
 
@@ -61,15 +61,15 @@ KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the sin
 
 Rich planning data belongs in the document body:
 
-- \`### Current Focus\` for the next visible action.
-- \`### Waiting\` for people or responses you are waiting on.
-- \`### Blockers\` for concrete blockers.
-- \`### Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
-- \`### Timeline\` for \`Next review\` and \`Due date\`.
-- \`### Routine\` for recurring review/checkup routines.
-- \`### References\` for source notes that feed the Action index.
+- \`## Current Focus\` for the next visible action.
+- \`## Waiting\` for people or responses you are waiting on.
+- \`## Blockers\` for concrete blockers.
+- \`## Flow\` for \`Preceded by\` and \`Followed by\` wikilinks.
+- \`## Timeline\` for \`Next review\` and \`Due date\`.
+- \`## Routine\` for recurring review/checkup routines.
+- \`## References\` for source notes that feed the Action index.
 
-\`## PM Control\` is the plugin-readable area. \`## Working Notes\` is the human writing area. New Project/Subproject/Big Action documents use different working-note sections.
+\`# PM Control\` is the plugin-readable area. \`# Working Notes\` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate H1 title in the body.
 
 ## Small Actions
 
