@@ -444,7 +444,7 @@ priority: 3
 - `projects`: 연결된 모든 Project입니다.
 - `subprojects`: 연결된 모든 Subproject입니다.
 - `project_state`: Project lifecycle입니다. `closed`면 기본 view에서 숨겨집니다.
-- `workstream_type`: UI에서는 `Category`로 표시됩니다. settings에서 수정 가능합니다.
+- `workstream_type`: UI에서는 `Category`로 표시됩니다. 저장값은 Category id이고, UI에는 Category label이 표시됩니다.
 - `priority`: priority badge로 표시됩니다.
 - `archived`: archive 여부입니다.
 
@@ -468,7 +468,7 @@ priority: 3
 
 - `Workspace folder`: KanbanRPM data root.
 - `Statuses`: 모든 view가 사용하는 global status set.
-- `Categories`: `Category` vocabulary.
+- `Categories`: `Category`의 `id | Label` vocabulary.
 - `Board status filter`: Board에 표시할 status lane.
 - `Timeline status filter`: Timeline에 표시할 status.
 - `Card display fields`: Board card에 표시할 정보.

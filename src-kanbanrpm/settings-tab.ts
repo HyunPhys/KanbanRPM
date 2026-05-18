@@ -1,7 +1,9 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type KanbanRPMPlugin from './main';
-import { parseCategories, parseStatuses, serializeCategories, serializeStatuses } from './utils';
+import { categoryIds, parseCategories, parseStatuses, serializeCategories, serializeStatuses } from './utils';
+
+const serializeCategoryIds = (categories: string[]): string => categories.join('\n');
 
 export class KanbanRPMSettingTab extends PluginSettingTab {
   private plugin: KanbanRPMPlugin;
@@ -38,7 +40,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
     const taxonomy = this.createSection(containerEl, 'Taxonomy', 'Edit the controlled vocabularies used across Board, Table, Timeline, Gantt, filters, and validation.');
     taxonomy.createDiv({
       cls: 'kanban-rpm-setting-note',
-      text: 'Status format is "id | Label". Category format is one category per line.',
+      text: 'Status and Category format is "id | Label". Existing category ids remain stored in card frontmatter.',
     });
 
     new Setting(taxonomy)
@@ -59,7 +61,7 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
 
     new Setting(taxonomy)
       .setName('Category set')
-      .setDesc('One category per line. Used by card create/edit, filters, board display, and validation.')
+      .setDesc('One category per line. Format: id | Label. Used by card create/edit, filters, board display, and validation.')
       .addTextArea((input) => {
         input
           .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.categories))
@@ -80,11 +82,11 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       .setDesc('Categories that trigger an Experiment Log prompt when a Big Action moves to a completion status.')
       .addTextArea((input) => {
         input
-          .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.experimentLogCategories))
-          .setValue(serializeCategories(this.plugin.settings.experimentLogCategories))
+          .setPlaceholder(serializeCategoryIds(DEFAULT_SETTINGS.experimentLogCategories))
+          .setValue(serializeCategoryIds(this.plugin.settings.experimentLogCategories))
           .onChange(async (value) => {
             const categories = parseCategories(value);
-            this.plugin.settings.experimentLogCategories = categories.length ? categories : DEFAULT_SETTINGS.experimentLogCategories;
+            this.plugin.settings.experimentLogCategories = categories.length ? categoryIds(categories) : DEFAULT_SETTINGS.experimentLogCategories;
             await this.plugin.saveSettings();
           });
         input.inputEl.rows = 3;
@@ -95,11 +97,11 @@ export class KanbanRPMSettingTab extends PluginSettingTab {
       .setDesc('Categories that trigger an Analysis Log prompt when a Big Action moves to a completion status.')
       .addTextArea((input) => {
         input
-          .setPlaceholder(serializeCategories(DEFAULT_SETTINGS.analysisLogCategories))
-          .setValue(serializeCategories(this.plugin.settings.analysisLogCategories))
+          .setPlaceholder(serializeCategoryIds(DEFAULT_SETTINGS.analysisLogCategories))
+          .setValue(serializeCategoryIds(this.plugin.settings.analysisLogCategories))
           .onChange(async (value) => {
             const categories = parseCategories(value);
-            this.plugin.settings.analysisLogCategories = categories.length ? categories : DEFAULT_SETTINGS.analysisLogCategories;
+            this.plugin.settings.analysisLogCategories = categories.length ? categoryIds(categories) : DEFAULT_SETTINGS.analysisLogCategories;
             await this.plugin.saveSettings();
           });
         input.inputEl.rows = 3;

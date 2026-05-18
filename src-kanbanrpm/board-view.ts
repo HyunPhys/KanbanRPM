@@ -6,7 +6,7 @@ import { Notice } from 'obsidian';
 import { ConfirmCardActionModal, EditProjectCardModal, GanttDateModal, NewProjectCardModal, TimelineMemoModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, RecurringItem, ResearchLogEntry, SmallAction, Status, TimelineScope, ViewMode } from './types';
-import { compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
+import { categoryLabel, compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
 import type {
   FlowConnectState,
   GanttPeriod,
@@ -269,7 +269,7 @@ export class KanbanRPMView extends ItemView {
       this.subprojectFilter = value;
       this.render();
     });
-    this.renderSelectFilter(filters, 'Category', this.workstreamTypeFilter, this.uniqueValues('workstreamType'), (value) => {
+    this.renderSelectFilter(filters, 'Category', this.workstreamTypeFilter, this.uniqueCategoryValues(), (value) => {
       this.workstreamTypeFilter = value;
       this.render();
     });
@@ -356,14 +356,18 @@ export class KanbanRPMView extends ItemView {
     container: HTMLElement,
     label: string,
     currentValue: string,
-    values: string[],
+    values: Array<string | { id: string; label: string }>,
     onChange: (value: string) => void
   ): void {
     const wrap = container.createDiv({ cls: 'kanban-rpm-filter' });
     wrap.createSpan({ text: label });
     const select = wrap.createEl('select');
     select.createEl('option', { text: 'All', attr: { value: '' } });
-    for (const value of values) select.createEl('option', { text: value, attr: { value } });
+    for (const value of values) {
+      const id = typeof value === 'string' ? value : value.id;
+      const optionLabel = typeof value === 'string' ? value : value.label;
+      select.createEl('option', { text: optionLabel, attr: { value: id } });
+    }
     select.value = currentValue;
     select.addEventListener('change', () => onChange(select.value));
   }
@@ -385,6 +389,16 @@ export class KanbanRPMView extends ItemView {
     return Array.from(new Set(cards.flatMap((card) => card.subprojectTitles).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b)
     );
+  }
+
+  private uniqueCategoryValues(): Array<{ id: string; label: string }> {
+    const configured = this.plugin.settings.categories;
+    const configuredIds = new Set(configured.map((category) => category.id));
+    const cards = this.showClosedProjects ? this.cards : this.cards.filter((card) => !this.isHiddenByClosedProject(card));
+    const unknown = Array.from(new Set(cards.map((card) => card.workstreamType).filter((category) => category && !configuredIds.has(category)))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return [...configured, ...unknown.map((id) => ({ id, label: id }))];
   }
 
   private isProjectTitleClosed(title: string): boolean {
@@ -439,7 +453,7 @@ export class KanbanRPMView extends ItemView {
       const meta = note.createDiv({ cls: 'kanban-rpm-project-note-meta' });
       if (project.projectState === 'closed') this.renderStatusBadge(meta, 'closed', 'closed');
       if (project.status) this.renderStatusBadge(meta, project.status);
-      if (project.workstreamType) meta.createSpan({ text: project.workstreamType });
+      if (project.workstreamType) meta.createSpan({ text: this.categoryLabel(project.workstreamType) });
       meta.createEl('button', { text: project.projectState === 'closed' ? 'Reopen project' : 'Close project' }).addEventListener('click', () => {
         if (project.projectState === 'closed') {
           void this.plugin.updateProjectState(project, 'active');
@@ -2409,7 +2423,7 @@ export class KanbanRPMView extends ItemView {
     const fields = this.plugin.settings.cardDisplayFields;
     const primaryMeta = cardEl.createDiv({ cls: 'kanban-rpm-meta kanban-rpm-card-primary-meta' });
     if (card.blockedBy.length) this.addMeta(primaryMeta, String(card.blockedBy.length), 'waiting on', 'kanban-rpm-meta-dependency');
-    if (fields.category) this.addMeta(primaryMeta, card.workstreamType, 'category', 'kanban-rpm-meta-kind');
+    if (fields.category) this.addMeta(primaryMeta, this.categoryLabel(card.workstreamType), 'category', 'kanban-rpm-meta-kind');
     if (!primaryMeta.childElementCount) primaryMeta.remove();
 
     if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: 'kanban-rpm-next', text: card.nextAction });
@@ -3022,6 +3036,10 @@ export class KanbanRPMView extends ItemView {
 
   private statusLabel(statusId: string): string {
     return this.plugin.settings.statuses.find((status) => status.id === statusId)?.label ?? statusId;
+  }
+
+  private categoryLabel(categoryId: string): string {
+    return categoryLabel(this.plugin.settings.categories, categoryId);
   }
 
   private projectColor(key: string): string {

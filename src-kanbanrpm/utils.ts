@@ -1,5 +1,5 @@
 import { LANES } from './constants';
-import type { ProjectCard, Status, StatusDefinition } from './types';
+import type { CategoryDefinition, ProjectCard, Status, StatusDefinition } from './types';
 
 export function text(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -83,22 +83,59 @@ export function serializeStatuses(statuses: StatusDefinition[]): string {
   return statuses.map((status) => `${status.id} | ${status.label}`).join('\n');
 }
 
-export function parseCategories(value: string): string[] {
+export function parseCategories(value: string): CategoryDefinition[] {
   const seen = new Set<string>();
   return value
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''))
+    .map((line) => {
+      const [idPart, labelPart] = line.split('|').map((part) => part.trim());
+      const id = (idPart || labelPart || 'category').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+      return {
+        id,
+        label: labelPart || idPart || id,
+      };
+    })
     .filter((category) => {
-      if (!category || seen.has(category)) return false;
-      seen.add(category);
+      if (!category.id || seen.has(category.id)) return false;
+      seen.add(category.id);
       return true;
     });
 }
 
-export function serializeCategories(categories: string[]): string {
-  return categories.join('\n');
+export function normalizeCategoryDefinitions(value: unknown): CategoryDefinition[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        const id = item.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+        return { id, label: item.trim() || id };
+      }
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const id = text(record.id).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+      const label = text(record.label).trim() || id;
+      return id ? { id, label } : null;
+    })
+    .filter((category): category is CategoryDefinition => {
+      if (!category?.id || seen.has(category.id)) return false;
+      seen.add(category.id);
+      return true;
+    });
+}
+
+export function serializeCategories(categories: CategoryDefinition[]): string {
+  return categories.map((category) => `${category.id} | ${category.label}`).join('\n');
+}
+
+export function categoryIds(categories: CategoryDefinition[]): string[] {
+  return categories.map((category) => category.id);
+}
+
+export function categoryLabel(categories: CategoryDefinition[], id: string): string {
+  return categories.find((category) => category.id === id)?.label ?? id;
 }
 
 export function isValidDateString(value: string): boolean {

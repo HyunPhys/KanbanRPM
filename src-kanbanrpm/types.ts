@@ -3,7 +3,7 @@ import type { TFile } from 'obsidian';
 export interface KanbanRPMSettings {
   workspaceFolder: string;
   statuses: StatusDefinition[];
-  categories: string[];
+  categories: CategoryDefinition[];
   experimentLogCategories: string[];
   analysisLogCategories: string[];
   promptForLogOnDone: boolean;
@@ -22,6 +22,11 @@ export type ProjectState = 'active' | 'closed';
 export type ViewMode = 'board' | 'table' | 'timeline' | 'gantt' | 'archive';
 
 export interface StatusDefinition {
+  id: string;
+  label: string;
+}
+
+export interface CategoryDefinition {
   id: string;
   label: string;
 }

@@ -1,9 +1,13 @@
-# KanbanRPM v0.3.0
+# KanbanRPM v0.3.1
 
-KanbanRPM v0.3.0 is the first public-ready release candidate.
+KanbanRPM v0.3.1 is a patch release focused on taxonomy polish and documentation.
 
 ## Highlights
 
+- Category settings now support `id | Label`, matching the global status set format.
+- Category ids remain stored in card frontmatter while labels are displayed in UI dropdowns, filters, and cards.
+- Existing string-based category settings are migrated automatically.
+- Added LLM Wiki agent protocol documents for using KanbanRPM and an LLM Wiki in the same vault.
 - Living-docs-first `Project -> Subproject -> Big Action -> Checkbox task` model.
 - Board, Table, Timeline, Gantt, and Archive views.
 - Project notes strip with close/reopen lifecycle.

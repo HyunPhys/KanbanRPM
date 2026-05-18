@@ -48,15 +48,22 @@ priority: 3
 workstream_type: experiment
 ```
 
-KanbanRPM shows `workstream_type` as `Category`. It is the single broad classification field.
+KanbanRPM shows `workstream_type` as `Category`. It is the single broad classification field. The stored value is the Category id; the UI displays the Category label.
 
 Default `Category` values:
 
 ```text
-research | experiment | analysis | writing | setup | purchase | admin | communication
+research | Research
+experiment | Experiment
+analysis | Analysis
+writing | Writing
+setup | Setup
+purchase | Purchase
+admin | Admin
+communication | Communication
 ```
 
-The active Category set is editable in plugin settings and is used by create/edit dropdowns, filters, card display, and validation.
+The active Category set is editable in plugin settings using `id | Label` lines. It is used by create/edit dropdowns, filters, card display, and validation.
 
 ## Living Document Sections
 

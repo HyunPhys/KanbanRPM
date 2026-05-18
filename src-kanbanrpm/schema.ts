@@ -57,7 +57,7 @@ Optional planning fields stay in the document body under \`## PM Control\` subse
 workstream_type:
 \`\`\`
 
-KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The active Category set is editable in plugin settings.
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The stored value is the Category id; the displayed text is the Category label. The active Category set is editable in plugin settings with one \`id | Label\` definition per line.
 
 Rich planning data belongs in the document body:
 
@@ -94,7 +94,7 @@ Checking a small action from a card updates the original Markdown line to \`[x]\
 Default \`Category\` values:
 
 \`\`\`text
-${WORKSTREAM_TYPES.join(' | ')}
+${WORKSTREAM_TYPES.map((category) => `${category.id} | ${category.label}`).join('\n')}
 \`\`\`
 
 ## Lane Customization Decision
@@ -106,6 +106,12 @@ ${DEFAULT_STATUSES.map((status) => status.label).join(' -> ')}
 \`\`\`
 
 Edit statuses from plugin settings using one line per status:
+
+\`\`\`text
+id | Label
+\`\`\`
+
+Edit categories from plugin settings using the same format:
 
 \`\`\`text
 id | Label

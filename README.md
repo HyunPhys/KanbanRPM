@@ -56,7 +56,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.0/
+dist/kanban-rpm-0.3.1/
   main.js
   manifest.json
   styles.css
@@ -218,7 +218,7 @@ Release checklist:
    - `main.js`
    - `manifest.json`
    - `styles.css`
-6. Tag the release, for example `v0.3.0`.
+6. Tag the release, for example `v0.3.1`.
 7. Push the tag to create the GitHub Release.
 
 ## Repository Layout

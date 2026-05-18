@@ -1,4 +1,4 @@
-import type { KanbanRPMSettings, Lane, StatusDefinition } from './types';
+import type { CategoryDefinition, KanbanRPMSettings, Lane, StatusDefinition } from './types';
 
 export const VIEW_TYPE = 'kanban-rpm-board';
 
@@ -11,7 +11,16 @@ export const DEFAULT_STATUSES: StatusDefinition[] = [
   { id: 'done', label: 'Done' },
 ];
 
-export const DEFAULT_CATEGORIES = ['research', 'experiment', 'analysis', 'writing', 'setup', 'purchase', 'admin', 'communication'];
+export const DEFAULT_CATEGORIES: CategoryDefinition[] = [
+  { id: 'research', label: 'Research' },
+  { id: 'experiment', label: 'Experiment' },
+  { id: 'analysis', label: 'Analysis' },
+  { id: 'writing', label: 'Writing' },
+  { id: 'setup', label: 'Setup' },
+  { id: 'purchase', label: 'Purchase' },
+  { id: 'admin', label: 'Admin' },
+  { id: 'communication', label: 'Communication' },
+];
 
 export const HIERARCHY_LEVELS = [
   { id: 'project', label: 'Project', cardType: 'project' },

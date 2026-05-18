@@ -25,6 +25,8 @@ import type {
 import { parseSmallActions } from './task-parser';
 import { parseRoutineCompletedDates, parseRoutineLine, routineScheduleLabel } from './routine-utils';
 import {
+  categoryIds,
+  categoryLabel,
   compareCards,
   getWikiLinkTarget,
   normalizeStatus,
@@ -616,8 +618,9 @@ export class CardRepository {
       }
 
       const category = text(fm.workstream_type).trim();
-      if (category && !this.plugin.settings.categories.includes(category)) {
-        add('warning', 'workstream_type', `category is not in the configured vocabulary: ${this.plugin.settings.categories.join(', ')}.`);
+      const configuredCategories = categoryIds(this.plugin.settings.categories);
+      if (category && !configuredCategories.includes(category)) {
+        add('warning', 'workstream_type', `category is not in the configured vocabulary: ${configuredCategories.join(', ')}.`);
       }
 
       const order = text(fm.order).trim();
@@ -837,7 +840,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     const bits = [
       this.statusLabel(card.status),
       `P${card.priority}`,
-      card.workstreamType ? `category: ${card.workstreamType}` : '',
+      card.workstreamType ? `category: ${categoryLabel(this.plugin.settings.categories, card.workstreamType)}` : '',
       card.dueDate ? `due: ${card.dueDate}` : '',
       card.nextReview ? `review: ${card.nextReview}` : '',
       card.blockedBy.length ? `blocked by: ${card.blockedBy.join(', ')}` : '',

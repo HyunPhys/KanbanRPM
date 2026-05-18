@@ -1,5 +1,27 @@
 # KanbanRPM Release Notes
 
+## v0.3.1
+
+KanbanRPM v0.3.1 is a patch release for taxonomy polish and LLM Wiki integration notes.
+
+### Highlights
+
+- Category settings now support `id | Label`, matching the global status set format.
+- Card frontmatter still stores Category ids in `workstream_type`, while UI dropdowns, filters, cards, and validation use configured labels.
+- Existing string-based Category settings are migrated automatically.
+- Added compact and full LLM Wiki agent protocol documents for using KanbanRPM in the same vault as an LLM Wiki.
+- Updated manuals and schema docs for Category id/label behavior.
+
+### Verification
+
+Validated with:
+
+```text
+npm run check
+npm run package
+npm run smoke
+```
+
 ## v0.3.0
 
 KanbanRPM v0.3 adds operations and long-range planning features on top of the v0.2 living-document model.
@@ -166,6 +188,7 @@ KanbanRPM keeps upstream `obsidian-community/obsidian-kanban` source and license
 ### Phase 3.10 Category Settings And Project Strip
 
 - Added a configurable `Category set` in plugin settings.
+- Category definitions now support `id | Label`, matching the global status set format.
 - Updated card create/edit dropdowns, Category filter, and validation to use configured categories.
 - Removed Project documents from board lanes and rendered them in a dedicated `Project notes` strip above the board.
 - Made grouped board behavior depend on the Project filter: all projects group by Project, one Project groups by Subproject.

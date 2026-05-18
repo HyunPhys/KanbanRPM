@@ -12,6 +12,7 @@ import { NewProjectCardModal, ResearchLogModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
 import type { ActionItem, CardIssue, GanttDateValues, KanbanRPMSettings, NewCardValues, ProjectCard, ResearchLogEntry, ResearchLogKind, ResearchLogValues, SmallAction, Status } from './types';
+import { normalizeCategoryDefinitions } from './utils';
 
 export default class KanbanRPMPlugin extends Plugin {
   settings: KanbanRPMSettings = { ...DEFAULT_SETTINGS };
@@ -71,7 +72,7 @@ export default class KanbanRPMPlugin extends Plugin {
       ...DEFAULT_SETTINGS,
       ...saved,
       statuses: saved.statuses?.length ? saved.statuses : DEFAULT_SETTINGS.statuses,
-      categories: saved.categories?.length ? saved.categories : DEFAULT_SETTINGS.categories,
+      categories: normalizeCategoryDefinitions(saved.categories).length ? normalizeCategoryDefinitions(saved.categories) : DEFAULT_SETTINGS.categories,
       experimentLogCategories: saved.experimentLogCategories?.length ? saved.experimentLogCategories : DEFAULT_SETTINGS.experimentLogCategories,
       analysisLogCategories: saved.analysisLogCategories?.length ? saved.analysisLogCategories : DEFAULT_SETTINGS.analysisLogCategories,
       promptForLogOnDone: saved.promptForLogOnDone ?? DEFAULT_SETTINGS.promptForLogOnDone,

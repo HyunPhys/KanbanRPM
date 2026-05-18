@@ -37,7 +37,16 @@ var DEFAULT_STATUSES = [
   { id: "someday", label: "Someday" },
   { id: "done", label: "Done" }
 ];
-var DEFAULT_CATEGORIES = ["research", "experiment", "analysis", "writing", "setup", "purchase", "admin", "communication"];
+var DEFAULT_CATEGORIES = [
+  { id: "research", label: "Research" },
+  { id: "experiment", label: "Experiment" },
+  { id: "analysis", label: "Analysis" },
+  { id: "writing", label: "Writing" },
+  { id: "setup", label: "Setup" },
+  { id: "purchase", label: "Purchase" },
+  { id: "admin", label: "Admin" },
+  { id: "communication", label: "Communication" }
+];
 var DEFAULT_SETTINGS = {
   workspaceFolder: "KanbanRPM Workspace",
   statuses: DEFAULT_STATUSES,
@@ -200,14 +209,47 @@ function serializeStatuses(statuses) {
 }
 function parseCategories(value) {
   const seen = /* @__PURE__ */ new Set();
-  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => line.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "")).filter((category) => {
-    if (!category || seen.has(category)) return false;
-    seen.add(category);
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    const [idPart, labelPart] = line.split("|").map((part) => part.trim());
+    const id = (idPart || labelPart || "category").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+    return {
+      id,
+      label: labelPart || idPart || id
+    };
+  }).filter((category) => {
+    if (!category.id || seen.has(category.id)) return false;
+    seen.add(category.id);
+    return true;
+  });
+}
+function normalizeCategoryDefinitions(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = /* @__PURE__ */ new Set();
+  return value.map((item) => {
+    if (typeof item === "string") {
+      const id2 = item.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+      return { id: id2, label: item.trim() || id2 };
+    }
+    if (!item || typeof item !== "object") return null;
+    const record = item;
+    const id = text(record.id).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+    const label = text(record.label).trim() || id;
+    return id ? { id, label } : null;
+  }).filter((category) => {
+    if (!(category == null ? void 0 : category.id) || seen.has(category.id)) return false;
+    seen.add(category.id);
     return true;
   });
 }
 function serializeCategories(categories) {
-  return categories.join("\n");
+  return categories.map((category) => `${category.id} | ${category.label}`).join("\n");
+}
+function categoryIds(categories) {
+  return categories.map((category) => category.id);
+}
+function categoryLabel(categories, id) {
+  var _a, _b;
+  return (_b = (_a = categories.find((category) => category.id === id)) == null ? void 0 : _a.label) != null ? _b : id;
 }
 function toDateSortValue(card) {
   const date = card.dueDate || card.nextReview || "";
@@ -495,7 +537,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
   addVocabularyDropdown(grid, name, key, values, fallback = "") {
     new import_obsidian.Setting(grid).setName(name).addDropdown((dropdown) => {
       if (!fallback) dropdown.addOption("", "");
-      for (const value of values) dropdown.addOption(value, value);
+      for (const value of values) dropdown.addOption(value.id, value.label);
       dropdown.setValue(this.values[key] || fallback);
       dropdown.onChange((value) => {
         this.values[key] = value;
@@ -731,7 +773,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
   addVocabularyDropdown(grid, name, key, values, fallback = "") {
     new import_obsidian.Setting(grid).setName(name).addDropdown((dropdown) => {
       if (!fallback) dropdown.addOption("", "");
-      for (const value of values) dropdown.addOption(value, value);
+      for (const value of values) dropdown.addOption(value.id, value.label);
       dropdown.setValue(this.values[key] || fallback);
       dropdown.onChange((value) => {
         this.values[key] = value;
@@ -1114,7 +1156,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       this.subprojectFilter = value;
       this.render();
     });
-    this.renderSelectFilter(filters, "Category", this.workstreamTypeFilter, this.uniqueValues("workstreamType"), (value) => {
+    this.renderSelectFilter(filters, "Category", this.workstreamTypeFilter, this.uniqueCategoryValues(), (value) => {
       this.workstreamTypeFilter = value;
       this.render();
     });
@@ -1187,7 +1229,11 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     wrap.createSpan({ text: label });
     const select = wrap.createEl("select");
     select.createEl("option", { text: "All", attr: { value: "" } });
-    for (const value of values) select.createEl("option", { text: value, attr: { value } });
+    for (const value of values) {
+      const id = typeof value === "string" ? value : value.id;
+      const optionLabel = typeof value === "string" ? value : value.label;
+      select.createEl("option", { text: optionLabel, attr: { value: id } });
+    }
     select.value = currentValue;
     select.addEventListener("change", () => onChange(select.value));
   }
@@ -1207,6 +1253,15 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     return Array.from(new Set(cards.flatMap((card) => card.subprojectTitles).filter(Boolean))).sort(
       (a, b) => a.localeCompare(b)
     );
+  }
+  uniqueCategoryValues() {
+    const configured = this.plugin.settings.categories;
+    const configuredIds = new Set(configured.map((category) => category.id));
+    const cards = this.showClosedProjects ? this.cards : this.cards.filter((card) => !this.isHiddenByClosedProject(card));
+    const unknown = Array.from(new Set(cards.map((card) => card.workstreamType).filter((category) => category && !configuredIds.has(category)))).sort(
+      (a, b) => a.localeCompare(b)
+    );
+    return [...configured, ...unknown.map((id) => ({ id, label: id }))];
   }
   isProjectTitleClosed(title) {
     return this.cards.some((card) => card.type === "project" && card.title === title && card.projectState === "closed");
@@ -1247,7 +1302,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       const meta = note.createDiv({ cls: "kanban-rpm-project-note-meta" });
       if (project.projectState === "closed") this.renderStatusBadge(meta, "closed", "closed");
       if (project.status) this.renderStatusBadge(meta, project.status);
-      if (project.workstreamType) meta.createSpan({ text: project.workstreamType });
+      if (project.workstreamType) meta.createSpan({ text: this.categoryLabel(project.workstreamType) });
       meta.createEl("button", { text: project.projectState === "closed" ? "Reopen project" : "Close project" }).addEventListener("click", () => {
         if (project.projectState === "closed") {
           void this.plugin.updateProjectState(project, "active");
@@ -2987,7 +3042,7 @@ ${addition}`;
     const fields = this.plugin.settings.cardDisplayFields;
     const primaryMeta = cardEl.createDiv({ cls: "kanban-rpm-meta kanban-rpm-card-primary-meta" });
     if (card.blockedBy.length) this.addMeta(primaryMeta, String(card.blockedBy.length), "waiting on", "kanban-rpm-meta-dependency");
-    if (fields.category) this.addMeta(primaryMeta, card.workstreamType, "category", "kanban-rpm-meta-kind");
+    if (fields.category) this.addMeta(primaryMeta, this.categoryLabel(card.workstreamType), "category", "kanban-rpm-meta-kind");
     if (!primaryMeta.childElementCount) primaryMeta.remove();
     if (fields.currentFocus && card.nextAction) cardEl.createDiv({ cls: "kanban-rpm-next", text: card.nextAction });
     if (fields.waiting && card.status === this.getConfiguredStatusId("waiting") && card.waitingFor) {
@@ -3530,6 +3585,9 @@ ${addition}`;
   statusLabel(statusId) {
     var _a, _b;
     return (_b = (_a = this.plugin.settings.statuses.find((status) => status.id === statusId)) == null ? void 0 : _a.label) != null ? _b : statusId;
+  }
+  categoryLabel(categoryId) {
+    return categoryLabel(this.plugin.settings.categories, categoryId);
   }
   projectColor(key) {
     let hash = 0;
@@ -4206,8 +4264,9 @@ ${body.replace(/^#\s+.+$/m, `# ${copyTitle}`)}`;
         add("warning", "priority", `Priority should be an integer from 1 to 5; current value is "${text(fm.priority) || "(empty)"}".`);
       }
       const category = text(fm.workstream_type).trim();
-      if (category && !this.plugin.settings.categories.includes(category)) {
-        add("warning", "workstream_type", `category is not in the configured vocabulary: ${this.plugin.settings.categories.join(", ")}.`);
+      const configuredCategories = categoryIds(this.plugin.settings.categories);
+      if (category && !configuredCategories.includes(category)) {
+        add("warning", "workstream_type", `category is not in the configured vocabulary: ${configuredCategories.join(", ")}.`);
       }
       const order = text(fm.order).trim();
       if (order && !Number.isFinite(Number(order))) add("warning", "order", `order should be numeric; current value is "${order}".`);
@@ -4402,7 +4461,7 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
     const bits = [
       this.statusLabel(card.status),
       `P${card.priority}`,
-      card.workstreamType ? `category: ${card.workstreamType}` : "",
+      card.workstreamType ? `category: ${categoryLabel(this.plugin.settings.categories, card.workstreamType)}` : "",
       card.dueDate ? `due: ${card.dueDate}` : "",
       card.nextReview ? `review: ${card.nextReview}` : "",
       card.blockedBy.length ? `blocked by: ${card.blockedBy.join(", ")}` : ""
@@ -5137,7 +5196,7 @@ Optional planning fields stay in the document body under \`## PM Control\` subse
 workstream_type:
 \`\`\`
 
-KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The active Category set is editable in plugin settings.
+KanbanRPM shows \`workstream_type\` as \`Category\` in the UI. Use it as the single broad project/workstream classification field. The stored value is the Category id; the displayed text is the Category label. The active Category set is editable in plugin settings with one \`id | Label\` definition per line.
 
 Rich planning data belongs in the document body:
 
@@ -5174,7 +5233,7 @@ Checking a small action from a card updates the original Markdown line to \`[x]\
 Default \`Category\` values:
 
 \`\`\`text
-${WORKSTREAM_TYPES.join(" | ")}
+${WORKSTREAM_TYPES.map((category) => `${category.id} | ${category.label}`).join("\n")}
 \`\`\`
 
 ## Lane Customization Decision
@@ -5186,6 +5245,12 @@ ${DEFAULT_STATUSES.map((status) => status.label).join(" -> ")}
 \`\`\`
 
 Edit statuses from plugin settings using one line per status:
+
+\`\`\`text
+id | Label
+\`\`\`
+
+Edit categories from plugin settings using the same format:
 
 \`\`\`text
 id | Label
@@ -5209,6 +5274,7 @@ KanbanRPM tries to display imperfect cards rather than hiding them. Invalid \`st
 
 // src-kanbanrpm/settings-tab.ts
 var import_obsidian6 = require("obsidian");
+var serializeCategoryIds = (categories) => categories.join("\n");
 var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -5233,7 +5299,7 @@ var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
     const taxonomy = this.createSection(containerEl, "Taxonomy", "Edit the controlled vocabularies used across Board, Table, Timeline, Gantt, filters, and validation.");
     taxonomy.createDiv({
       cls: "kanban-rpm-setting-note",
-      text: 'Status format is "id | Label". Category format is one category per line.'
+      text: 'Status and Category format is "id | Label". Existing category ids remain stored in card frontmatter.'
     });
     new import_obsidian6.Setting(taxonomy).setName("Global status set").setDesc("One status per line. Format: id | Label. Used by Board, Table, Timeline, and Gantt.").addTextArea((input) => {
       input.setPlaceholder(serializeStatuses(DEFAULT_SETTINGS.statuses)).setValue(serializeStatuses(this.plugin.settings.statuses)).onChange(async (value) => {
@@ -5244,7 +5310,7 @@ var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
       });
       input.inputEl.rows = 8;
     });
-    new import_obsidian6.Setting(taxonomy).setName("Category set").setDesc("One category per line. Used by card create/edit, filters, board display, and validation.").addTextArea((input) => {
+    new import_obsidian6.Setting(taxonomy).setName("Category set").setDesc("One category per line. Format: id | Label. Used by card create/edit, filters, board display, and validation.").addTextArea((input) => {
       input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.categories)).setValue(serializeCategories(this.plugin.settings.categories)).onChange(async (value) => {
         const categories = parseCategories(value);
         this.plugin.settings.categories = categories.length ? categories : DEFAULT_SETTINGS.categories;
@@ -5255,17 +5321,17 @@ var KanbanRPMSettingTab = class extends import_obsidian6.PluginSettingTab {
     });
     const research = this.createSection(containerEl, "Research Logs And Reminders", "Control assisted Experiment/Analysis Log capture and Next review reminders.");
     new import_obsidian6.Setting(research).setName("Experiment log categories").setDesc("Categories that trigger an Experiment Log prompt when a Big Action moves to a completion status.").addTextArea((input) => {
-      input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.experimentLogCategories)).setValue(serializeCategories(this.plugin.settings.experimentLogCategories)).onChange(async (value) => {
+      input.setPlaceholder(serializeCategoryIds(DEFAULT_SETTINGS.experimentLogCategories)).setValue(serializeCategoryIds(this.plugin.settings.experimentLogCategories)).onChange(async (value) => {
         const categories = parseCategories(value);
-        this.plugin.settings.experimentLogCategories = categories.length ? categories : DEFAULT_SETTINGS.experimentLogCategories;
+        this.plugin.settings.experimentLogCategories = categories.length ? categoryIds(categories) : DEFAULT_SETTINGS.experimentLogCategories;
         await this.plugin.saveSettings();
       });
       input.inputEl.rows = 3;
     });
     new import_obsidian6.Setting(research).setName("Analysis log categories").setDesc("Categories that trigger an Analysis Log prompt when a Big Action moves to a completion status.").addTextArea((input) => {
-      input.setPlaceholder(serializeCategories(DEFAULT_SETTINGS.analysisLogCategories)).setValue(serializeCategories(this.plugin.settings.analysisLogCategories)).onChange(async (value) => {
+      input.setPlaceholder(serializeCategoryIds(DEFAULT_SETTINGS.analysisLogCategories)).setValue(serializeCategoryIds(this.plugin.settings.analysisLogCategories)).onChange(async (value) => {
         const categories = parseCategories(value);
-        this.plugin.settings.analysisLogCategories = categories.length ? categories : DEFAULT_SETTINGS.analysisLogCategories;
+        this.plugin.settings.analysisLogCategories = categories.length ? categoryIds(categories) : DEFAULT_SETTINGS.analysisLogCategories;
         await this.plugin.saveSettings();
       });
       input.inputEl.rows = 3;
@@ -5389,26 +5455,26 @@ var KanbanRPMPlugin = class extends import_obsidian7.Plugin {
     await this.saveData(this.settings);
   }
   normalizeSettings(data) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const saved = data != null ? data : {};
     return {
       ...DEFAULT_SETTINGS,
       ...saved,
       statuses: ((_a = saved.statuses) == null ? void 0 : _a.length) ? saved.statuses : DEFAULT_SETTINGS.statuses,
-      categories: ((_b = saved.categories) == null ? void 0 : _b.length) ? saved.categories : DEFAULT_SETTINGS.categories,
-      experimentLogCategories: ((_c = saved.experimentLogCategories) == null ? void 0 : _c.length) ? saved.experimentLogCategories : DEFAULT_SETTINGS.experimentLogCategories,
-      analysisLogCategories: ((_d = saved.analysisLogCategories) == null ? void 0 : _d.length) ? saved.analysisLogCategories : DEFAULT_SETTINGS.analysisLogCategories,
-      promptForLogOnDone: (_e = saved.promptForLogOnDone) != null ? _e : DEFAULT_SETTINGS.promptForLogOnDone,
+      categories: normalizeCategoryDefinitions(saved.categories).length ? normalizeCategoryDefinitions(saved.categories) : DEFAULT_SETTINGS.categories,
+      experimentLogCategories: ((_b = saved.experimentLogCategories) == null ? void 0 : _b.length) ? saved.experimentLogCategories : DEFAULT_SETTINGS.experimentLogCategories,
+      analysisLogCategories: ((_c = saved.analysisLogCategories) == null ? void 0 : _c.length) ? saved.analysisLogCategories : DEFAULT_SETTINGS.analysisLogCategories,
+      promptForLogOnDone: (_d = saved.promptForLogOnDone) != null ? _d : DEFAULT_SETTINGS.promptForLogOnDone,
       reviewReminderStatus: saved.reviewReminderStatus || DEFAULT_SETTINGS.reviewReminderStatus,
-      boardStatusFilter: ((_f = saved.boardStatusFilter) == null ? void 0 : _f.length) ? saved.boardStatusFilter : DEFAULT_SETTINGS.boardStatusFilter,
-      timelineStatusFilter: ((_g = saved.timelineStatusFilter) == null ? void 0 : _g.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
+      boardStatusFilter: ((_e = saved.boardStatusFilter) == null ? void 0 : _e.length) ? saved.boardStatusFilter : DEFAULT_SETTINGS.boardStatusFilter,
+      timelineStatusFilter: ((_f = saved.timelineStatusFilter) == null ? void 0 : _f.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
       cardDisplayFields: {
         ...DEFAULT_SETTINGS.cardDisplayFields,
-        ...(_h = saved.cardDisplayFields) != null ? _h : {}
+        ...(_g = saved.cardDisplayFields) != null ? _g : {}
       },
       smallActionDisplay: {
         ...DEFAULT_SETTINGS.smallActionDisplay,
-        ...(_i = saved.smallActionDisplay) != null ? _i : {}
+        ...(_h = saved.smallActionDisplay) != null ? _h : {}
       }
     };
   }

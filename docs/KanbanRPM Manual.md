@@ -442,7 +442,7 @@ User-facing meaning:
 - `projects`: all linked Projects.
 - `subprojects`: all linked Subprojects.
 - `project_state`: Project lifecycle; `closed` hides completed Projects from default views.
-- `workstream_type`: shown as `Category`; customizable in settings.
+- `workstream_type`: shown as `Category`; stores the Category id while the UI displays the Category label.
 - `priority`: displayed as a priority badge.
 - `archived`: marks a card as archived.
 
@@ -466,7 +466,7 @@ Important settings:
 
 - `Workspace folder`: root folder for KanbanRPM data.
 - `Statuses`: global status list used by all views.
-- `Categories`: editable vocabulary for `Category`.
+- `Categories`: editable `id | Label` vocabulary for `Category`.
 - `Board status filter`: which status lanes are visible.
 - `Timeline status filter`: which statuses appear in Timeline.
 - `Card display fields`: choose which card details appear on Board cards.

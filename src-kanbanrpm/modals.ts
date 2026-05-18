@@ -1,6 +1,6 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import type KanbanRPMPlugin from './main';
-import type { GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, Status } from './types';
+import type { CategoryDefinition, GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, Status } from './types';
 import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
@@ -289,12 +289,12 @@ export class NewProjectCardModal extends Modal {
     grid: HTMLElement,
     name: string,
     key: keyof Pick<NewCardValues, 'workstreamType'>,
-    values: string[],
+    values: CategoryDefinition[],
     fallback = ''
   ): void {
     new Setting(grid).setName(name).addDropdown((dropdown) => {
       if (!fallback) dropdown.addOption('', '');
-      for (const value of values) dropdown.addOption(value, value);
+      for (const value of values) dropdown.addOption(value.id, value.label);
       dropdown.setValue(this.values[key] || fallback);
       dropdown.onChange((value) => {
         this.values[key] = value;
@@ -579,12 +579,12 @@ export class EditProjectCardModal extends Modal {
     grid: HTMLElement,
     name: string,
     key: keyof Pick<NewCardValues, 'workstreamType'>,
-    values: string[],
+    values: CategoryDefinition[],
     fallback = ''
   ): void {
     new Setting(grid).setName(name).addDropdown((dropdown) => {
       if (!fallback) dropdown.addOption('', '');
-      for (const value of values) dropdown.addOption(value, value);
+      for (const value of values) dropdown.addOption(value.id, value.label);
       dropdown.setValue(this.values[key] || fallback);
       dropdown.onChange((value) => {
         this.values[key] = value;
