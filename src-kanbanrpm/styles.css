@@ -707,6 +707,31 @@
   gap: 10px;
   padding: 12px;
   overflow: visible;
+  zoom: var(--rpm-view-zoom, 1);
+}
+
+.kanban-rpm-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px solid var(--rpm-border);
+  border-radius: 8px;
+  background: var(--rpm-panel);
+}
+
+.kanban-rpm-zoom-button {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+}
+
+.kanban-rpm-zoom-value {
+  min-width: 34px;
+  color: var(--rpm-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .kanban-rpm-board-flow-overlay {
@@ -1037,6 +1062,7 @@
   background: var(--background-primary);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
   overflow: visible;
+  zoom: var(--rpm-view-zoom, 1);
 }
 
 .kanban-rpm-gantt-header,
@@ -1123,6 +1149,10 @@
 
 .kanban-rpm-gantt-row.is-project {
   min-height: 42px;
+}
+
+.kanban-rpm-gantt-row.has-short-label {
+  min-height: 56px;
 }
 
 .kanban-rpm-gantt-row.is-project .kanban-rpm-gantt-row-label,
@@ -1481,6 +1511,31 @@
 
 .kanban-rpm-gantt-bar.is-blocked {
   outline: 2px solid color-mix(in srgb, var(--text-warning) 70%, transparent);
+}
+
+.kanban-rpm-gantt-short-label {
+  position: absolute;
+  top: calc(50% + 11px);
+  z-index: 24;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rpm-normal);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 0 var(--background-primary);
+}
+
+.kanban-rpm-gantt-short-label.is-project {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.kanban-rpm-gantt-short-label.is-subproject {
+  font-weight: 800;
 }
 
 .kanban-rpm-gantt-marker {
@@ -1879,21 +1934,21 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-timeline-routine-group-title::before {
-  content: '▶';
+  content: '>';
   display: inline-block;
   margin-right: 4px;
   color: var(--rpm-muted);
 }
 
 .kanban-rpm-timeline-routine-group[open] > .kanban-rpm-timeline-routine-group-title::before {
-  content: '▼';
+  content: 'v';
 }
 
 .kanban-rpm-timeline-routine {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
-  align-items: center;
+  align-items: start;
   width: 100%;
   padding: 7px;
   border: 1px solid color-mix(in srgb, var(--interactive-accent) 26%, var(--rpm-border));
@@ -1901,19 +1956,27 @@ button.kanban-rpm-status-closed,
   background: color-mix(in srgb, var(--rpm-panel-alt) 92%, var(--interactive-accent) 8%);
   color: var(--rpm-normal);
   overflow-wrap: anywhere;
+  min-height: max-content;
 }
 
 .kanban-rpm-timeline-routine-open {
   display: grid;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--rpm-normal);
   font-size: 11px;
+  line-height: 1.25;
   text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
 }
 
 .kanban-rpm-timeline-routine-open:hover .kanban-rpm-timeline-routine-text {
@@ -1923,16 +1986,27 @@ button.kanban-rpm-status-closed,
 .kanban-rpm-timeline-routine-done {
   padding: 3px 6px;
   font-size: 10px;
+  align-self: center;
 }
 
 .kanban-rpm-timeline-routine-text {
   font-weight: 650;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .kanban-rpm-timeline-routine-meta,
 .kanban-rpm-timeline-routine-more {
   color: var(--rpm-muted);
   font-size: 10px;
+  line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .kanban-rpm-timeline-routine-filter {
@@ -2022,6 +2096,7 @@ button.kanban-rpm-status-closed,
   gap: 10px;
   min-width: max-content;
   padding: 10px;
+  zoom: var(--rpm-view-zoom, 1);
 }
 
 .kanban-rpm-timeline-day-column {
@@ -2064,7 +2139,7 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-timeline-section {
-  padding: 9px;
+  padding: 7px;
   border-bottom: 1px solid var(--rpm-border);
 }
 
@@ -2076,13 +2151,13 @@ button.kanban-rpm-status-closed,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  min-height: 24px;
-  margin-bottom: 7px;
-  padding-left: 7px;
-  border-left: 4px solid var(--rpm-project-color, var(--interactive-accent));
+  gap: 4px;
+  min-height: 17px;
+  margin-bottom: 4px;
+  padding-left: 5px;
+  border-left: 3px solid var(--rpm-project-color, var(--interactive-accent));
   color: var(--rpm-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 750;
   overflow-wrap: anywhere;
 }
@@ -2165,7 +2240,9 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-timeline-memo-modal-input {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 260px;
   resize: vertical;
@@ -2175,7 +2252,40 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-memo-modal {
-  min-width: min(720px, 92vw);
+  box-sizing: border-box;
+  width: min(720px, 92vw);
+  max-width: 92vw;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.kanban-rpm-memo-modal-shell {
+  box-sizing: border-box;
+  width: min(760px, 94vw);
+  max-width: 94vw;
+  overflow-x: hidden;
+}
+
+.kanban-rpm-memo-modal-shell .modal-content,
+.kanban-rpm-memo-modal-shell .modal-button-container,
+.kanban-rpm-memo-modal > * {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.kanban-rpm-memo-modal .setting-item {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+  overflow-x: hidden;
+}
+
+.kanban-rpm-memo-modal .setting-item-control {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .kanban-rpm-timeline-memo-empty,
@@ -2191,10 +2301,10 @@ button.kanban-rpm-status-closed,
 .kanban-rpm-timeline-marker {
   position: relative;
   display: grid;
-  gap: 6px;
+  gap: 3px;
   width: 100%;
-  margin-bottom: 7px;
-  padding: 7px 8px 7px 18px;
+  margin-bottom: 5px;
+  padding: 4px 7px 4px 18px;
   border: 1px solid var(--rpm-border);
   border-radius: 8px;
   background: var(--rpm-panel);
@@ -2203,7 +2313,7 @@ button.kanban-rpm-status-closed,
   line-height: 1.3;
   text-align: left;
   overflow-wrap: anywhere;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .kanban-rpm-timeline-marker::before {
@@ -2234,13 +2344,16 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-timeline-marker-title {
-  padding: 0;
+  height: auto;
+  min-height: 17px;
+  padding: 1px 0;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--text-accent);
   font-size: 11px;
   font-weight: 700;
+  line-height: 1.15;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -2249,22 +2362,54 @@ button.kanban-rpm-status-closed,
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
+  gap: 2px;
+  min-height: 0;
 }
 
 .kanban-rpm-timeline-marker-icon {
   color: var(--rpm-muted);
-  font-size: 12px;
+  font-size: 9px;
+  font-weight: 800;
   line-height: 1;
 }
 
 .kanban-rpm-timeline-marker-meta {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 4px;
   color: var(--rpm-muted);
   font-size: 10px;
+}
+
+.kanban-rpm-timeline-marker-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.kanban-rpm-timeline-marker-actions-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-self: end;
+}
+
+.kanban-rpm-timeline-marker-edit,
+.kanban-rpm-timeline-card-more summary {
+  width: 20px;
+  min-width: 20px;
+  height: 22px;
+  min-height: 22px;
+  padding: 2px;
+}
+
+.kanban-rpm-timeline-marker-edit svg,
+.kanban-rpm-timeline-card-more summary svg {
+  width: 12px;
+  height: 12px;
 }
 
 .kanban-rpm-timeline-marker-actions {
@@ -3031,17 +3176,17 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-project-group {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .kanban-rpm-project-group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 4px 2px 8px;
-  padding: 4px 2px;
+  gap: 5px;
+  margin: 2px 2px 5px;
+  padding: 2px 2px;
   color: var(--rpm-normal);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
   border-bottom: 1px solid var(--rpm-border);
 }

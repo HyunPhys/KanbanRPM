@@ -1,4 +1,4 @@
-# KanbanRPM Living Document Schema
+﻿# KanbanRPM Living Document Schema
 
 KanbanRPM v0.2 treats every Project, Subproject, and Big Action as a living Markdown document. Frontmatter is intentionally short; project-management context belongs in readable document sections.
 
@@ -104,11 +104,27 @@ Followed by:
 
 # Working Notes
 
-## Project Brief
+## Overview
+%% Write what this note is responsible for and what success roughly means. %%
 
-## Desired Outcomes
+## Current Thinking
+%% Capture the current interpretation, open questions, assumptions, or strategy. %%
+
+## Work Log
+%% Add dated progress notes, meeting outcomes, attempts, observations, and follow-up context. %%
 
 ## Decisions
+%% Record decisions with enough context to understand why they were made. %%
+
+## Notes
+%% Put miscellaneous context, links, rough ideas, and material that does not yet fit elsewhere. %%
+```
+
+Big Action documents also include:
+
+```markdown
+## Small Actions
+%% Keep concrete checkbox tasks here; dated tasks can appear in Timeline. %%
 ```
 
 KanbanRPM reads these sections while keeping the document useful as a normal note:
@@ -123,7 +139,7 @@ KanbanRPM reads these sections while keeping the document useful as a normal not
 - `## References`: source notes scanned by Action index.
 - `## PM Metadata`: compact optional structured notes that are better in the body than in frontmatter.
 
-`# PM Control` is the plugin-readable projection area. `# Working Notes` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate body H1. Project, Subproject, and Big Action templates have different `Working Notes` sections.
+`# PM Control` is the plugin-readable projection area. `# Working Notes` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate body H1. Project, Subproject, and Big Action templates share the same Research PM heading spine; only Big Action includes `## Small Actions` by default. `%% ... %%` comments are authoring guides that Obsidian hides in preview.
 
 ## Flow
 
@@ -191,23 +207,23 @@ Detailed tasks stay as Markdown checkboxes by default. Use `Promote` in the Acti
 
 ## Small Actions
 
-Small actions are checkbox tasks inside Project/Subproject/Big Action documents. KanbanRPM reads a Tasks-compatible emoji subset:
+Small actions are checkbox tasks inside Project/Subproject/Big Action documents. KanbanRPM reads ASCII metadata and also tolerates the common Tasks emoji date subset:
 
 ```markdown
-- [ ] Email vendor ??2026-05-10 ?뱟 2026-05-15 ?뵾
-- [x] Submit quote request ??2026-05-07
+- [ ] Email vendor @scheduled 2026-05-10 @due 2026-05-15 @priority high
+- [x] Submit quote request ✅ 2026-05-07
 ```
 
 Supported fields:
 
-- scheduled date: `??YYYY-MM-DD`
-- due date: `?뱟 YYYY-MM-DD`
-- done date: `??YYYY-MM-DD`
-- priority: `??, `?뵾`, `?뵿`, `??
+- scheduled date: `@scheduled YYYY-MM-DD`
+- due date: `@due YYYY-MM-DD`
+- done date: `✅ YYYY-MM-DD` or `@done YYYY-MM-DD`
+- priority: `@priority highest|high|normal|low|lowest`
 
 Small actions are displayed on board cards according to plugin settings. The default is to show due/scheduled actions through one week, including overdue actions. Expanded card rows group small actions by their source heading.
 
-Checking a small action from a card updates the original Markdown line to `[x]` and appends today's done date. Unchecking it returns the task to `[ ]` and removes the done date.
+Checking a small action from a card updates the original Markdown line to `[x]` and appends today's `✅ YYYY-MM-DD`. Unchecking it returns the task to `[ ]` and removes the done date.
 
 ## Validation
 
@@ -221,3 +237,4 @@ KanbanRPM warns about:
 - circular flow
 
 Invalid or unknown status values fall back to the first configured status for display.
+

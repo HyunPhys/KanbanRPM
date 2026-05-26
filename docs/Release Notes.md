@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## v0.3.4
+
+KanbanRPM v0.3.4 is a polish release for Timeline/Routine behavior, hierarchy folder renames, and Gantt/Board display controls.
+
+- Timeline scheduled/review card markers now omit the internal breadcrumb line for denser date columns.
+- Timeline group labels and card title spacing are tighter.
+- Board, Timeline, and Gantt surfaces now have saved zoom controls.
+- Project/Subproject/Category filters are now saved separately per view.
+- New document `Working Notes` templates now use a simpler shared Research PM heading spine with Obsidian comment guidance; only Big Action includes `Small Actions` by default.
+- Small action examples document ASCII `@scheduled`, `@due`, and `@priority` metadata while keeping emoji done dates; the parser reads both ASCII and the common Tasks emoji subset.
+- Checking a small action from a card now appends the done date as `✅ YYYY-MM-DD`; ASCII `@done YYYY-MM-DD` remains readable.
+- Renaming a Project or Subproject living document now also renames its matching child folder when there is no target folder conflict.
+- Routine `Done` now logs the actual completion date instead of the scheduled occurrence date.
+- Board and Gantt now include saved Subproject visibility toggles.
+- Gantt now expands short date ranges to fill the available width while preserving minimum week/month widths for long ranges.
+- Short Gantt bars now show an additional title label below the bar.
+
 ## v0.3.3
 
 KanbanRPM v0.3.3 is a usability patch for saved Board state, denser Timeline cards, and small creation/display fixes.

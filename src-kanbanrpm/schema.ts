@@ -1,4 +1,4 @@
-import { DEFAULT_STATUSES, WORKSTREAM_TYPES } from './constants';
+﻿import { DEFAULT_STATUSES, WORKSTREAM_TYPES } from './constants';
 
 export function getSchemaReferenceContent(): string {
   return `# KanbanRPM Card Schema
@@ -71,25 +71,27 @@ Rich planning data belongs in the document body:
 
 \`# PM Control\` is the plugin-readable area. \`# Working Notes\` is the human writing area. The Obsidian note title/file name is the card title, so new documents do not include a duplicate H1 title in the body.
 
+New Working Notes use a common Research PM spine: \`Overview\`, \`Current Thinking\`, \`Work Log\`, \`Decisions\`, and \`Notes\`. \`Big Action\` documents additionally include \`Small Actions\`. Template guidance is written as Obsidian comments using \`%% ... %%\`.
+
 ## Small Actions
 
-Small actions are checkbox tasks inside the living document. KanbanRPM reads a Tasks-compatible emoji subset:
+Small actions are checkbox tasks inside the living document. KanbanRPM reads ASCII metadata and also tolerates the common Tasks emoji date subset:
 
 \`\`\`markdown
-- [ ] Email vendor ⏳ 2026-05-10 📅 2026-05-15 🔼
+- [ ] Email vendor @scheduled 2026-05-10 @due 2026-05-15 @priority high
 - [x] Submit quote request ✅ 2026-05-07
 \`\`\`
 
 Supported metadata:
 
-- scheduled date: \`⏳ YYYY-MM-DD\`
-- due date: \`📅 YYYY-MM-DD\`
-- done date: \`✅ YYYY-MM-DD\`
-- priority: \`⏫\`, \`🔼\`, \`🔽\`, \`⏬\`
+- scheduled date: \`@scheduled YYYY-MM-DD\`
+- due date: \`@due YYYY-MM-DD\`
+- done date: \`✅ YYYY-MM-DD\` or \`@done YYYY-MM-DD\`
+- priority: \`@priority highest|high|normal|low|lowest\`
 
 Small-action card display is controlled from plugin settings. The default is due/scheduled actions through one week, including overdue actions. Expanded card rows group small actions by their source heading.
 
-Checking a small action from a card updates the original Markdown line to \`[x]\` and appends today's done date. Unchecking returns it to \`[ ]\` and removes the done date.
+Checking a small action from a card updates the original Markdown line to \`[x]\` and appends today''s \`✅ YYYY-MM-DD\`. Unchecking returns it to \`[ ]\` and removes the done date.
 
 Default \`Category\` values:
 
@@ -132,3 +134,4 @@ The board shows \`Data warnings\` for:
 KanbanRPM tries to display imperfect cards rather than hiding them. Invalid \`status\` falls back to \`Inbox\` for display.
 `;
 }
+

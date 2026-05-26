@@ -13,9 +13,15 @@ export interface KanbanRPMSettings {
   boardProjectFilter: string;
   boardSubprojectFilter: string;
   boardCategoryFilter: string;
+  viewFilters: Record<ViewMode, ViewFilterSettings>;
   showBoardConnectors: boolean;
+  showBoardSubprojects: boolean;
   showBoardBigActions: boolean;
+  showGanttSubprojects: boolean;
   showGanttBigActions: boolean;
+  boardZoom: number;
+  timelineZoom: number;
+  ganttZoom: number;
   newCardAdvancedOpen: boolean;
   timelineStatusFilter: string[];
   cardDisplayFields: CardDisplaySettings;
@@ -28,6 +34,12 @@ export type CardType = 'project' | 'subproject' | 'big_action';
 export type ProjectState = 'active' | 'closed';
 
 export type ViewMode = 'board' | 'table' | 'timeline' | 'gantt' | 'archive';
+
+export interface ViewFilterSettings {
+  project: string;
+  subproject: string;
+  category: string;
+}
 
 export interface StatusDefinition {
   id: string;

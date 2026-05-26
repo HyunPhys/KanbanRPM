@@ -1,5 +1,6 @@
 ﻿import { Notice, TFile, normalizePath, parseYaml, stringifyYaml } from 'obsidian';
 import type KanbanRPMPlugin from './main';
+import { TFolder } from 'obsidian';
 import { addDays, formatDate, todayIso } from './date-utils';
 import {
   findHeadingSection,
@@ -216,6 +217,42 @@ export class CardRepository {
     await this.plugin.refreshViews();
   }
 
+  async syncHierarchyFolderRename(file: TFile, oldPath: string): Promise<void> {
+    if (!this.plugin.isCardPath(file.path) && !this.plugin.isCardPath(oldPath)) return;
+    if (file.extension !== 'md') return;
+    if (this.pathParts(oldPath).includes('archive') || this.pathParts(file.path).includes('archive')) return;
+
+    const oldBase = this.fileBaseNameFromPath(oldPath);
+    const newBase = file.basename;
+    if (!oldBase || !newBase || oldBase === newBase) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const frontmatter = this.parseFirstFrontmatter(content);
+    const type = this.normalizeCardType(text(frontmatter.type));
+    if (type !== 'project' && type !== 'subproject') return;
+
+    const oldFolder = type === 'project'
+      ? normalizePath(`${this.plugin.cardsFolder}/${sanitizeFileName(oldBase)}`)
+      : normalizePath(`${this.folderPathFromFilePath(oldPath)}/${sanitizeFileName(oldBase)}`);
+    const newFolder = type === 'project'
+      ? normalizePath(`${this.plugin.cardsFolder}/${sanitizeFileName(newBase)}`)
+      : normalizePath(`${this.folderPathFromFilePath(file.path)}/${sanitizeFileName(newBase)}`);
+
+    if (oldFolder === newFolder) return;
+    const folder = this.plugin.app.vault.getAbstractFileByPath(oldFolder);
+    if (!(folder instanceof TFolder)) return;
+
+    const existing = this.plugin.app.vault.getAbstractFileByPath(newFolder);
+    if (existing) {
+      new Notice(`KanbanRPM skipped folder rename because target already exists: ${newFolder}`);
+      return;
+    }
+
+    await this.ensureFolder(this.folderPathFromFilePath(newFolder));
+    await this.plugin.app.fileManager.renameFile(folder, newFolder);
+    new Notice(`KanbanRPM folder renamed: ${oldFolder} -> ${newFolder}`);
+  }
+
   async moveCard(cardPath: string, targetStatus: Status, beforePath?: string): Promise<void> {
     const file = this.plugin.app.vault.getAbstractFileByPath(cardPath);
     if (!(file instanceof TFile)) return;
@@ -369,8 +406,8 @@ export class CardRepository {
     const today = new Date();
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const nextLine = action.done
-      ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, '$1[ ]').replace(/\s*\u{2705}\s*\d{4}-\d{2}-\d{2}/u, '')
-      : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` ??${todayIso}`);
+      ? line.replace(/^(\s*[-*]\s+)\[[xX]\]/, '$1[ ]').replace(/\s*(?:\u{2705}|\?\?|@done)\s*\d{4}-\d{2}-\d{2}/u, '')
+      : line.replace(/^(\s*[-*]\s+)\[ \]/, '$1[x]') + (action.doneDate ? '' : ` \u2705 ${todayIso}`);
 
     lines[index] = nextLine;
     const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), 'Small action', this.smallActionTimelineLog(action, file), todayIso);
@@ -1118,6 +1155,30 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return sanitizeFileName(target.split('/').pop() || target || 'Unassigned');
   }
 
+  private parseFirstFrontmatter(content: string): Record<string, unknown> {
+    const match = content.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+    if (!match) return {};
+    try {
+      const parsed = parseYaml(match[1]) ?? {};
+      return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private fileBaseNameFromPath(path: string): string {
+    const fileName = normalizePath(path).split('/').pop() ?? '';
+    return fileName.replace(/\.[^/.]+$/, '');
+  }
+
+  private folderPathFromFilePath(path: string): string {
+    return normalizePath(path).split('/').slice(0, -1).join('/');
+  }
+
+  private pathParts(path: string): string[] {
+    return normalizePath(path).split('/').filter(Boolean);
+  }
+
   private async ensureFolder(folder: string): Promise<void> {
     const normalized = normalizePath(folder);
     if (this.plugin.app.vault.getAbstractFileByPath(normalized)) return;
@@ -1194,15 +1255,10 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
   }
 
   private getWorkingSections(type: NewCardValues['type'], seededSmallAction: string): string {
-    if (type === 'project') {
-      return `## Project Brief\n\n## Desired Outcomes\n\n## Subprojects\n\n## Big Actions\n\n${seededSmallAction}## Decisions\n\n## Meetings And Communication\n\n## Notes\n`;
-    }
-
-    if (type === 'subproject') {
-      return `## Objective\n\n## Work Plan\n\n## Big Actions\n\n${seededSmallAction}## Progress Notes\n\n## Decisions\n\n## Related Materials\n`;
-    }
-
-    return `## Definition Of Done\n\n## Small Actions\n\n${seededSmallAction}## Progress Notes\n\n## Evidence And Links\n\n## Decisions\n\n## Related Materials\n`;
+    const smallActions = type === 'big_action'
+      ? `## Small Actions\n%% Keep concrete checkbox tasks here; dated tasks can appear in Timeline. %%\n\n${seededSmallAction}`
+      : '';
+    return `## Overview\n%% Write what this note is responsible for and what success roughly means. %%\n\n## Current Thinking\n%% Capture the current interpretation, open questions, assumptions, or strategy. %%\n\n${smallActions}## Work Log\n%% Add dated progress notes, meeting outcomes, attempts, observations, and follow-up context. %%\n\n## Decisions\n%% Record decisions with enough context to understand why they were made. %%\n\n## Notes\n%% Put miscellaneous context, links, rough ideas, and material that does not yet fit elsewhere. %%\n`;
   }
 
   private parseLivingDocSections(content: string): {

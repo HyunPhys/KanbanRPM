@@ -82,9 +82,15 @@ export default class KanbanRPMPlugin extends Plugin {
       boardProjectFilter: saved.boardProjectFilter ?? DEFAULT_SETTINGS.boardProjectFilter,
       boardSubprojectFilter: saved.boardSubprojectFilter ?? DEFAULT_SETTINGS.boardSubprojectFilter,
       boardCategoryFilter: saved.boardCategoryFilter ?? DEFAULT_SETTINGS.boardCategoryFilter,
+      viewFilters: this.normalizeViewFilters(saved),
       showBoardConnectors: saved.showBoardConnectors ?? DEFAULT_SETTINGS.showBoardConnectors,
+      showBoardSubprojects: saved.showBoardSubprojects ?? DEFAULT_SETTINGS.showBoardSubprojects,
       showBoardBigActions: saved.showBoardBigActions ?? DEFAULT_SETTINGS.showBoardBigActions,
+      showGanttSubprojects: saved.showGanttSubprojects ?? DEFAULT_SETTINGS.showGanttSubprojects,
       showGanttBigActions: saved.showGanttBigActions ?? DEFAULT_SETTINGS.showGanttBigActions,
+      boardZoom: this.normalizeZoom(saved.boardZoom, DEFAULT_SETTINGS.boardZoom),
+      timelineZoom: this.normalizeZoom(saved.timelineZoom, DEFAULT_SETTINGS.timelineZoom),
+      ganttZoom: this.normalizeZoom(saved.ganttZoom, DEFAULT_SETTINGS.ganttZoom),
       newCardAdvancedOpen: saved.newCardAdvancedOpen ?? DEFAULT_SETTINGS.newCardAdvancedOpen,
       timelineStatusFilter: saved.timelineStatusFilter?.length ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
       cardDisplayFields: {
@@ -96,6 +102,36 @@ export default class KanbanRPMPlugin extends Plugin {
         ...(saved.smallActionDisplay ?? {}),
       },
     };
+  }
+
+  private normalizeZoom(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? Math.min(1.4, Math.max(0.7, value)) : fallback;
+  }
+
+  private normalizeViewFilters(saved: Partial<KanbanRPMSettings>): KanbanRPMSettings['viewFilters'] {
+    const next: KanbanRPMSettings['viewFilters'] = {
+      board: { ...DEFAULT_SETTINGS.viewFilters.board },
+      table: { ...DEFAULT_SETTINGS.viewFilters.table },
+      timeline: { ...DEFAULT_SETTINGS.viewFilters.timeline },
+      gantt: { ...DEFAULT_SETTINGS.viewFilters.gantt },
+      archive: { ...DEFAULT_SETTINGS.viewFilters.archive },
+    };
+    const savedFilters = (saved.viewFilters ?? {}) as Partial<KanbanRPMSettings['viewFilters']>;
+    for (const mode of Object.keys(next) as Array<keyof KanbanRPMSettings['viewFilters']>) {
+      next[mode] = {
+        project: savedFilters[mode]?.project ?? '',
+        subproject: savedFilters[mode]?.subproject ?? '',
+        category: savedFilters[mode]?.category ?? '',
+      };
+    }
+    if (!saved.viewFilters) {
+      next.board = {
+        project: saved.boardProjectFilter ?? '',
+        subproject: saved.boardSubprojectFilter ?? '',
+        category: saved.boardCategoryFilter ?? '',
+      };
+    }
+    return next;
   }
 
   private registerCardRefreshEvents(): void {
@@ -119,6 +155,13 @@ export default class KanbanRPMPlugin extends Plugin {
 
     this.registerEvent(
       this.app.vault.on('rename', (file, oldPath) => {
+        if (file instanceof TFile && file.extension === 'md' && (this.isCardPath(file.path) || this.isCardPath(oldPath))) {
+          void (async () => {
+            await this.repository.syncHierarchyFolderRename(file, oldPath);
+            await this.refreshViews();
+          })();
+          return;
+        }
         if (this.isCardPath(file.path) || this.isCardPath(oldPath)) void this.refreshViews();
       })
     );

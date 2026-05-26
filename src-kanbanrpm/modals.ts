@@ -24,6 +24,7 @@ export class TimelineMemoModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    this.modalEl.addClass('kanban-rpm-memo-modal-shell');
     contentEl.empty();
     contentEl.addClass('kanban-rpm-memo-modal');
     contentEl.createEl('h2', { text: `${this.day} Memo` });
