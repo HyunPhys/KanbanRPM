@@ -174,6 +174,19 @@ filter row에는 다음이 있습니다.
 - `Action index`
 - `Research index`
 
+## Mobile
+
+KanbanRPM은 desktop과 mobile에서 같은 plugin과 같은 `KanbanRPM Workspace/`를 사용합니다.
+
+- Phone layout은 review/check workflow에 맞춰져 있고 기본 진입 view는 `Timeline`입니다.
+- Phone `Board`는 lane tab을 사용하며 한 번에 하나의 status lane만 보여줍니다.
+- Phone `Timeline`은 `Routine`, `Memo`, scheduled/review card, small action, recurring item을 세로 agenda로 보여줍니다.
+- Phone `Gantt`는 full bar/connector surface 대신 compact planning list로 표시됩니다.
+- Phone `Table`은 compact card-like list로 표시됩니다. column resize는 desktop/tablet 전용입니다.
+- Tablet landscape에서는 더 큰 touch target과 overflow 보정이 적용된 desktop-like Board/Gantt/Timeline을 유지합니다.
+
+desktop에서 테스트할 때는 Obsidian developer console에서 `this.app.emulateMobile(true)`를 실행하고 pane width를 phone 크기로 줄이면 됩니다. 되돌릴 때는 `this.app.emulateMobile(false)`를 실행합니다.
+
 ## Board
 
 `Board`는 기본 실행 화면입니다. 기본 status lane은 다음과 같습니다.
@@ -536,6 +549,48 @@ priority: 3
 ## LLM을 이용한 management
 
 KanbanRPM은 LLM이 UI를 해석하지 않아도 Markdown만 읽고 project 상태를 이해할 수 있도록 설계되어 있습니다.
+
+### Layered LLM Context 생성
+
+다음 메뉴를 사용합니다.
+
+```text
+More -> Generate LLM context
+```
+
+또는 command:
+
+```text
+KanbanRPM: Generate LLM context
+```
+
+KanbanRPM은 아래 폴더에 generated read model을 작성합니다.
+
+```text
+KanbanRPM Workspace/LLM/
+```
+
+생성되는 context:
+
+- `00 LLM Entry.md`: LLM이 읽을 순서와 규칙.
+- `01 Next Work Candidates.md`: active가 아닌 card 중 다음에 activate할 후보.
+- `02 Project Map.md`: compact hierarchy map.
+- `03 Recent Changes.md`: 최근 card `Timeline Log` 변경.
+- `04 Open Loops.md`: waiting, blocked, blocked-by, next action 누락 항목.
+- `Project Briefs/*.md`: Project별 briefing 문서.
+
+Layered context는 두 가지 workflow에 사용합니다.
+
+1. Next work recommendation: active가 아닌 card 중 다음에 무엇을 active로 올릴지 논의합니다.
+2. PM briefing: 특정 Project의 현재 상태, risk, open loop를 요약받습니다.
+
+Research/content planning에서는 generated brief만 의존하지 않습니다. 사용자가 논의하려는 원본 living document와 관련 reference/wiki page를 직접 읽게 합니다. Generated context는 orientation 용도입니다.
+
+Prompt template은 `docs/KanbanRPM LLM Skills.md`에 정리되어 있습니다.
+
+- `/kanbanrpm-next`: active가 아닌 card 중 다음에 activate할 후보를 고릅니다.
+- `/kanbanrpm-brief`: Project/Subproject/Big Action briefing을 받습니다.
+- `/kanbanrpm-plan`: 원본 living document 기반으로 research/content 방향을 논의합니다.
 
 ### Management Brief 생성
 

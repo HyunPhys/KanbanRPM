@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.3.5
+
+KanbanRPM v0.3.5 adds the layered LLM context read model for project-management discussions.
+
+- Added `Generate LLM context`, which writes layered read-model files under `KanbanRPM Workspace/LLM/` for next-work recommendations and PM briefings.
+- LLM guidance now separates generated PM context from research/content planning, where the LLM should read the original living documents and references directly.
+- Added `docs/KanbanRPM LLM Skills.md` with `/kanbanrpm-next`, `/kanbanrpm-brief`, and `/kanbanrpm-plan` prompt templates.
+- Improved LLM candidate scoring with dormant cards, active parent context, active sibling load, clear next actions, dates, and research categories.
+- Project Briefs now include recommended attention, stale waiting, unresolved blockers, recently completed work, and active workload.
+- `Recent Changes` now includes daily timeline `Completed Log` rows as well as card `Timeline Log` rows.
+
 ## v0.3.4
 
 KanbanRPM v0.3.4 is a polish release for Timeline/Routine behavior, hierarchy folder renames, and Gantt/Board display controls.
@@ -18,6 +29,7 @@ KanbanRPM v0.3.4 is a polish release for Timeline/Routine behavior, hierarchy fo
 - Board and Gantt now include saved Subproject visibility toggles.
 - Gantt now expands short date ranges to fill the available width while preserving minimum week/month widths for long ranges.
 - Short Gantt bars now show an additional title label below the bar.
+- Added responsive mobile layouts: phone defaults to Timeline, Board uses lane tabs, Gantt uses a planning list, and Table uses compact card rows.
 
 ## v0.3.3
 

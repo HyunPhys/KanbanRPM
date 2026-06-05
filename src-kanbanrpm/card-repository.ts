@@ -1,7 +1,7 @@
 ﻿import { Notice, TFile, normalizePath, parseYaml, stringifyYaml } from 'obsidian';
 import type KanbanRPMPlugin from './main';
 import { TFolder } from 'obsidian';
-import { addDays, formatDate, todayIso } from './date-utils';
+import { addDays, daysBetween, formatDate, todayIso } from './date-utils';
 import {
   findHeadingSection,
   findNestedHeadingSection,
@@ -41,6 +41,16 @@ import {
   yamlArray,
   yamlScalar,
 } from './utils';
+
+interface LLMRecentChange {
+  date: string;
+  type: string;
+  card?: ProjectCard;
+  item: string;
+  context: string;
+  change: string;
+  source: 'card' | 'daily';
+}
 
 export class CardRepository {
   constructor(private plugin: KanbanRPMPlugin) {}
@@ -207,6 +217,7 @@ export class CardRepository {
     let nextContent = this.updateLivingDocBody(content, title, values);
     if (statusChanged) nextContent = this.prependTimelineLog(nextContent, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(values.status)}`);
     await this.plugin.app.vault.modify(file, nextContent);
+    if (statusChanged) await this.logCardCompletionSideEffects(card, values.status, title);
 
     if (title && sanitizeFileName(title) !== file.basename) {
       const targetPath = this.getAvailablePath(file.parent?.path ?? this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
@@ -275,6 +286,7 @@ export class CardRepository {
       const content = await this.plugin.app.vault.read(file);
       const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
       await this.plugin.app.vault.modify(file, next);
+      await this.logCardCompletionSideEffects(movedCard, targetStatus, file.basename, cards);
     }
     await this.plugin.refreshViews();
   }
@@ -288,6 +300,7 @@ export class CardRepository {
       const content = await this.plugin.app.vault.read(file);
       const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
       await this.plugin.app.vault.modify(file, next);
+      await this.logCardCompletionSideEffects(card, status, file.basename);
     }
     await this.plugin.refreshViews();
     new Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
@@ -412,6 +425,9 @@ export class CardRepository {
     lines[index] = nextLine;
     const nextContent = action.done ? lines.join('\n') : this.prependTimelineLog(lines.join('\n'), 'Small action', this.smallActionTimelineLog(action, file), todayIso);
     await this.plugin.app.vault.modify(file, nextContent);
+    if (!action.done) {
+      await this.appendDailyCompletedLog('small action', action.text, `Completed<br>Source: [[${file.basename}]]`);
+    }
     await this.plugin.refreshViews();
   }
 
@@ -422,6 +438,7 @@ export class CardRepository {
     const entry = `| ${date} | ${routineText} |`;
     const next = this.prependRoutineLog(content, entry);
     if (next !== content) await this.plugin.app.vault.modify(file, next);
+    await this.appendDailyCompletedLog('routine', routineText, `Completed<br>Source: [[${file.basename}]]`, date);
     new Notice(`Logged routine: ${routineText}`);
     await this.plugin.refreshViews();
   }
@@ -746,6 +763,420 @@ export class CardRepository {
     }
     new Notice('KanbanRPM management brief updated.');
     await this.plugin.app.workspace.getLeaf(false).openFile(file);
+  }
+
+  async writeLLMContext(cards?: ProjectCard[]): Promise<void> {
+    await this.plugin.ensureWorkspace();
+    await this.ensureFolder(this.plugin.llmFolder);
+    await this.ensureFolder(this.plugin.llmProjectBriefsFolder);
+
+    const sourceCards = cards ?? this.excludeClosedProjectCards(await this.loadCards());
+    const sorted = [...sourceCards].sort(compareCards);
+    const recentChanges = await this.collectRecentChanges(sorted, 14);
+    const files = [
+      await this.writeGeneratedFile(`${this.plugin.llmFolder}/00 LLM Entry.md`, this.renderLLMEntry()),
+      await this.writeGeneratedFile(`${this.plugin.llmFolder}/01 Next Work Candidates.md`, this.renderLLMNextWorkCandidates(sorted)),
+      await this.writeGeneratedFile(`${this.plugin.llmFolder}/02 Project Map.md`, this.renderLLMProjectMap(sorted)),
+      await this.writeGeneratedFile(`${this.plugin.llmFolder}/03 Recent Changes.md`, this.renderLLMRecentChanges(recentChanges)),
+      await this.writeGeneratedFile(`${this.plugin.llmFolder}/04 Open Loops.md`, this.renderLLMOpenLoops(sorted)),
+    ];
+
+    for (const project of sorted.filter((card) => card.type === 'project')) {
+      const path = `${this.plugin.llmProjectBriefsFolder}/${sanitizeFileName(project.title)} Brief.md`;
+      files.push(await this.writeGeneratedFile(path, this.renderLLMProjectBrief(project, sorted, recentChanges)));
+    }
+
+    new Notice(`KanbanRPM LLM context updated (${files.length} files).`);
+    await this.plugin.app.workspace.getLeaf(false).openFile(files[0]);
+  }
+
+  private async writeGeneratedFile(path: string, content: string): Promise<TFile> {
+    const normalized = normalizePath(path);
+    await this.ensureFolder(normalized.split('/').slice(0, -1).join('/'));
+    const existing = this.plugin.app.vault.getAbstractFileByPath(normalized);
+    if (existing instanceof TFile) {
+      await this.plugin.app.vault.modify(existing, content);
+      return existing;
+    }
+    return this.plugin.app.vault.create(normalized, content);
+  }
+
+  private renderLLMEntry(): string {
+    const today = todayIso();
+    return `# KanbanRPM LLM Entry
+
+Generated: ${today}
+
+> [!kanban-rpm]
+> Generated read model. Do not edit manually. KanbanRPM living documents remain the source of truth.
+
+## Read Order
+
+### Next work recommendation
+
+1. [[01 Next Work Candidates]]
+2. [[03 Recent Changes]]
+3. Relevant files under [[Project Briefs]]
+4. Open original living documents only when a recommendation needs more detail.
+
+### Project/Subproject/Big Action briefing
+
+1. Relevant Project Brief.
+2. [[02 Project Map]]
+3. [[03 Recent Changes]]
+4. Original living document only if the brief is insufficient.
+
+### Research or content planning
+
+Do not rely on generated briefs alone. Read the user-specified living document and relevant references/wiki pages. Use generated files only for orientation.
+
+## Output Rules For LLMs
+
+- Separate PM state from research interpretation.
+- Do not invent missing facts.
+- When recommending next work, discuss urgency, dependency, cognitive load, and research value.
+- When planning research content, cite which original note or wiki page supports the reasoning.
+`;
+  }
+
+  private renderLLMNextWorkCandidates(cards: ProjectCard[]): string {
+    const today = todayIso();
+    const soon = addDays(today, 14);
+    const candidates = cards
+      .filter((card) => card.type !== 'project')
+      .filter((card) => !card.archived && !this.isCompletionStatus(card.status) && card.status !== this.statusId('active'))
+      .map((card) => ({ card, score: this.llmCandidateScore(card, cards, today, soon), reasons: this.llmCandidateReasons(card, cards, today, soon) }))
+      .sort((a, b) => b.score - a.score || compareCards(a.card, b.card));
+
+    const rows = candidates
+      .map(({ card, score, reasons }) =>
+        `| [[${card.file.basename}]] | ${this.cardTypeLogLabel(card.type)} | ${this.escapeTableCell(card.projectTitle || 'No project')} | ${this.escapeTableCell(card.subprojectTitle)} | ${this.statusLabel(card.status)} | P${card.priority} | ${score} | ${this.escapeTableCell(reasons.join('; ') || 'candidate for review')} | ${this.escapeTableCell(card.nextAction || '')} | ${this.escapeTableCell(this.cardDateSummary(card))} |`
+      )
+      .join('\n');
+
+    return `# Next Work Candidates
+
+Generated: ${today}
+
+Use this file to discuss which non-active card should become active next. Excludes completed, closed, archived, and currently active cards.
+
+Suggested prompt:
+
+\`\`\`text
+Read this candidate list and recommend 3 cards to activate next. Explain tradeoffs: urgency, importance, dependency state, cognitive load, and research value. Ask questions if the best choice depends on missing context.
+\`\`\`
+
+| Candidate | Type | Project | Subproject | Status | Priority | Score | Why candidate | Next action | Dates |
+| --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
+${rows || '| No candidates |  |  |  |  |  |  |  |  |  |'}
+`;
+  }
+
+  private renderLLMProjectMap(cards: ProjectCard[]): string {
+    const today = todayIso();
+    const projects = cards.filter((card) => card.type === 'project').sort(compareCards);
+    const sections = projects.map((project) => {
+      const children = cards.filter((card) => card.type !== 'project' && card.projectTitles.includes(project.title)).sort(compareCards);
+      const subprojects = children.filter((card) => card.type === 'subproject');
+      const actions = children.filter((card) => card.type === 'big_action');
+      return `## [[${project.file.basename}]]
+
+- Status: ${this.statusLabel(project.status)}
+- State: ${project.projectState}
+- Active subprojects: ${subprojects.filter((card) => card.status === this.statusId('active')).length}/${subprojects.length}
+- Active big actions: ${actions.filter((card) => card.status === this.statusId('active')).length}/${actions.length}
+- Waiting/blocking: ${children.filter((card) => card.waitingFor || card.blocker || card.blockedBy.length).length}
+
+${children.length ? children.map((card) => `- [[${card.file.basename}]] (${this.cardTypeLogLabel(card.type)}, ${this.statusLabel(card.status)}, P${card.priority})${card.nextAction ? ` - ${card.nextAction}` : ''}`).join('\n') : '- No child cards.'}`;
+    });
+
+    return `# Project Map
+
+Generated: ${today}
+
+Compact hierarchy map for orientation. Use Project Briefs for richer PM context.
+
+${sections.join('\n\n') || '- No projects.'}
+`;
+  }
+
+  private renderLLMRecentChanges(changes: LLMRecentChange[]): string {
+    const rows = changes
+      .map((item) => `| ${item.date} | ${this.escapeTableCell(item.type)} | ${this.escapeTableCell(item.item)} | ${this.escapeTableCell(item.context)} | ${this.escapeTableCell(item.change)} | ${item.source} |`)
+      .join('\n');
+    return `# Recent Changes
+
+Generated: ${todayIso()}
+
+Recent completion/status/change log extracted from card Timeline Logs and daily timeline Completed Logs. Use this to avoid rereading every note.
+
+| Date | Type | Item | Context | Change | Source |
+| --- | --- | --- | --- | --- | --- |
+${rows || '| No recent changes found |  |  |  |  |  |'}
+`;
+  }
+
+  private renderLLMOpenLoops(cards: ProjectCard[]): string {
+    const today = todayIso();
+    const rows = cards
+      .filter((card) => !this.isCompletionStatus(card.status))
+      .filter((card) => card.waitingFor || card.blocker || card.blockedBy.length || !card.nextAction)
+      .sort((a, b) => this.llmOpenLoopRank(b) - this.llmOpenLoopRank(a) || compareCards(a, b))
+      .map((card) => `| [[${card.file.basename}]] | ${this.cardTypeLogLabel(card.type)} | ${this.statusLabel(card.status)} | P${card.priority} | ${this.escapeTableCell(card.waitingFor || '')} | ${this.escapeTableCell(card.blocker || card.blockedBy.join(', '))} | ${this.escapeTableCell(card.nextAction || '(missing)')} |`)
+      .join('\n');
+
+    return `# Open Loops
+
+Generated: ${today}
+
+Waiting, blocker, blocked-by, and missing-next-action items for PM review.
+
+| Card | Type | Status | Priority | Waiting | Blocker / blocked by | Next action |
+| --- | --- | --- | ---: | --- | --- | --- |
+${rows || '| No open loops found |  |  |  |  |  |  |'}
+`;
+  }
+
+  private renderLLMProjectBrief(project: ProjectCard, cards: ProjectCard[], changes: LLMRecentChange[]): string {
+    const today = todayIso();
+    const children = cards.filter((card) => card.type !== 'project' && card.projectTitles.includes(project.title)).sort(compareCards);
+    const active = children.filter((card) => card.status === this.statusId('active'));
+    const waiting = children.filter((card) => card.waitingFor || card.status === this.statusId('waiting'));
+    const blocked = children.filter((card) => card.blocker || card.blockedBy.length || card.status === this.statusId('blocked'));
+    const recent = changes.filter((item) => item.card && (item.card.path === project.path || item.card.projectTitles.includes(project.title))).slice(0, 20);
+    const recentCompleted = recent.filter((item) => /complete|done|small action|routine|big action|subproject/i.test(`${item.type} ${item.change}`)).slice(0, 10);
+    const staleWaiting = waiting.filter((card) => this.cardDormantDays(card, today) >= 14);
+    const unresolvedBlockers = blocked
+      .map((card) => ({ card, age: this.cardDormantDays(card, today) }))
+      .sort((a, b) => b.age - a.age || compareCards(a.card, b.card));
+    const attention = this.briefAttentionCards(children, today, addDays(today, 14)).slice(0, 8);
+    const highPriorityActions = children.flatMap((card) =>
+      card.smallActions
+        .filter((action) => !action.done && ['highest', 'high'].includes(action.priority))
+        .map((action) => `- [[${card.file.basename}]]: ${action.text}${action.dueDate || action.scheduledDate ? ` (${action.dueDate || action.scheduledDate})` : ''}`)
+    );
+
+    return `# ${project.title} Brief
+
+Generated: ${todayIso()}
+
+> [!kanban-rpm]
+> Generated PM brief. Use for briefing and PM discussion. For research/content planning, open [[${project.file.basename}]] and relevant source/wiki notes.
+
+## Identity
+
+- Project: [[${project.file.basename}]]
+- Status: ${this.statusLabel(project.status)}
+- Project state: ${project.projectState}
+- Current focus: ${project.nextAction || '(none)'}
+- Dates: ${this.cardDateSummary(project) || '(none)'}
+
+## Current Surface
+
+| Metric | Count |
+| --- | ---: |
+| Child cards | ${children.length} |
+| Active | ${active.length} |
+| Waiting | ${waiting.length} |
+| Blocked | ${blocked.length} |
+| Open small actions | ${children.reduce((sum, card) => sum + card.smallActions.filter((action) => !action.done).length, 0)} |
+| Active workload | ${active.length} |
+| Stale waiting | ${staleWaiting.length} |
+| Unresolved blockers | ${unresolvedBlockers.length} |
+
+## Active Work
+
+${active.length ? active.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No active child cards.'}
+
+## Recommended Attention
+
+${attention.length ? attention.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No immediate attention items.'}
+
+## Waiting / Blocked
+
+${[...waiting, ...blocked].length ? Array.from(new Map([...waiting, ...blocked].map((card) => [card.path, card])).values()).map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No waiting or blocked child cards.'}
+
+## Stale Waiting
+
+${staleWaiting.length ? staleWaiting.map((card) => `- [[${card.file.basename}]]: ${card.waitingFor || this.statusLabel(card.status)} (${this.cardDormantDays(card, today)}d since last modified)`).join('\n') : '- No stale waiting items.'}
+
+## Unresolved Blockers
+
+${unresolvedBlockers.length ? unresolvedBlockers.map(({ card, age }) => `- [[${card.file.basename}]]: ${card.blocker || card.blockedBy.join(', ')} (${age}d since last modified)`).join('\n') : '- No unresolved blockers.'}
+
+## High-Priority Small Actions
+
+${highPriorityActions.slice(0, 20).join('\n') || '- No high-priority small actions.'}
+
+## Recently Completed
+
+${recentCompleted.length ? recentCompleted.map((item) => `- ${item.date} ${item.item}: ${item.change}`).join('\n') : '- No recent completions found.'}
+
+## Recent Changes
+
+${recent.length ? recent.map((item) => `- ${item.date} ${item.item} (${item.type}): ${item.change}`).join('\n') : '- No recent changes found.'}
+
+## Original Notes For Deep Planning
+
+- Project living document: [[${project.file.basename}]]
+- For research/content planning, read the relevant Subproject/Big Action living document directly instead of relying only on this generated brief.
+`;
+  }
+
+  private llmCandidateScore(card: ProjectCard, cards: ProjectCard[], today: string, soon: string): number {
+    let score = 0;
+    score += Math.max(0, 6 - card.priority) * 10;
+    if (card.status === this.statusId('inbox')) score += 8;
+    if (card.status === this.statusId('waiting')) score += card.waitingFor ? 6 : 2;
+    if (card.status === this.statusId('blocked') || card.blocker || card.blockedBy.length) score -= 20;
+    if (card.scheduledDate && card.scheduledDate < today) score += 35;
+    else if (card.scheduledDate && card.scheduledDate <= soon) score += 22;
+    if (card.dueDate && card.dueDate < today) score += 30;
+    else if (card.dueDate && card.dueDate <= soon) score += 18;
+    if (card.nextReview && card.nextReview <= today) score += 16;
+    if (card.nextAction) score += 12;
+    if (!card.nextAction) score -= 8;
+    if (card.projectTitle) score += 4;
+    if (this.hasActiveParent(card, cards)) score += 10;
+    const activeSiblings = this.activeSiblingCount(card, cards);
+    if (activeSiblings === 0 && card.projectTitle) score += 8;
+    if (activeSiblings >= 3) score -= (activeSiblings - 2) * 8;
+    const dormantDays = this.cardDormantDays(card, today);
+    if (dormantDays >= 30) score += 12;
+    else if (dormantDays >= 14) score += 6;
+    if (['research', 'experiment', 'analysis', 'writing'].includes(card.workstreamType)) score += 4;
+    return score;
+  }
+
+  private llmCandidateReasons(card: ProjectCard, cards: ProjectCard[], today: string, soon: string): string[] {
+    const reasons: string[] = [];
+    if (card.priority <= 2) reasons.push('high priority');
+    if (card.scheduledDate && card.scheduledDate < today) reasons.push('scheduled overdue');
+    else if (card.scheduledDate && card.scheduledDate <= soon) reasons.push('scheduled soon');
+    if (card.dueDate && card.dueDate < today) reasons.push('due overdue');
+    else if (card.dueDate && card.dueDate <= soon) reasons.push('due soon');
+    if (card.nextReview && card.nextReview <= today) reasons.push('review due');
+    if (card.nextAction) reasons.push('clear next action');
+    else reasons.push('needs next action clarification');
+    if (card.waitingFor) reasons.push(`waiting: ${card.waitingFor}`);
+    if (card.blocker || card.blockedBy.length) reasons.push('blocked; discuss before activation');
+    if (this.hasActiveParent(card, cards)) reasons.push('parent is active');
+    const activeSiblings = this.activeSiblingCount(card, cards);
+    if (activeSiblings === 0 && card.projectTitle) reasons.push('no active sibling in project');
+    if (activeSiblings >= 3) reasons.push(`project already has ${activeSiblings} active siblings`);
+    const dormantDays = this.cardDormantDays(card, today);
+    if (dormantDays >= 14) reasons.push(`dormant ${dormantDays}d`);
+    if (['research', 'experiment', 'analysis', 'writing'].includes(card.workstreamType)) reasons.push(`research category: ${card.workstreamType}`);
+    return reasons;
+  }
+
+  private hasActiveParent(card: ProjectCard, cards: ProjectCard[]): boolean {
+    if (card.type === 'subproject') {
+      return this.parentActive(card.projectTitle, 'project', cards);
+    }
+    if (card.type === 'big_action') {
+      return this.parentActive(card.subprojectTitle, 'subproject', cards) || this.parentActive(card.projectTitle, 'project', cards);
+    }
+    return false;
+  }
+
+  private parentActive(title: string, type: ProjectCard['type'], cards: ProjectCard[]): boolean {
+    if (!title) return false;
+    const card = cards.find((item) => item.type === type && item.title === title);
+    return Boolean(card && card.status === this.statusId('active'));
+  }
+
+  private activeSiblingCount(card: ProjectCard, cards: ProjectCard[]): number {
+    return cards.filter((item) => {
+      if (item.path === card.path || item.type === 'project' || item.status !== this.statusId('active')) return false;
+      if (card.type === 'big_action' && card.subprojectTitle) return item.subprojectTitles.includes(card.subprojectTitle);
+      if (card.projectTitle) return item.projectTitles.includes(card.projectTitle);
+      return false;
+    }).length;
+  }
+
+  private cardDormantDays(card: ProjectCard, today: string): number {
+    const modified = formatDate(new Date(card.file.stat.mtime));
+    return Math.max(0, daysBetween(modified, today));
+  }
+
+  private llmOpenLoopRank(card: ProjectCard): number {
+    let rank = 0;
+    if (card.blocker || card.blockedBy.length) rank += 30;
+    if (card.waitingFor) rank += 20;
+    if (!card.nextAction) rank += 10;
+    rank += Math.max(0, 6 - card.priority);
+    return rank;
+  }
+
+  private cardDateSummary(card: ProjectCard): string {
+    return [
+      card.startDate ? `start ${card.startDate}` : '',
+      card.scheduledDate ? `scheduled ${card.scheduledDate}` : '',
+      card.dueDate ? `due ${card.dueDate}` : '',
+      card.nextReview ? `review ${card.nextReview}` : '',
+    ].filter(Boolean).join(', ');
+  }
+
+  private async collectRecentChanges(cards: ProjectCard[], days: number): Promise<LLMRecentChange[]> {
+    const minDate = addDays(todayIso(), -days);
+    const changes: LLMRecentChange[] = [];
+    for (const card of cards) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+      if (!(file instanceof TFile)) continue;
+      const content = await this.plugin.app.vault.read(file);
+      const section = findHeadingSection(content, 'Timeline Log');
+      if (!section) continue;
+      const body = content.slice(section.bodyStart, section.end);
+      for (const line of body.split(/\r?\n/)) {
+        const cells = parseMarkdownTableRow(line);
+        if (!cells || cells.length < 3 || cells[0].toLowerCase() === 'date' || cells[0].startsWith('---')) continue;
+        if (cells[0] < minDate) continue;
+        changes.push({
+          date: cells[0],
+          type: cells[1] ?? '',
+          card,
+          item: `[[${card.file.basename}]]`,
+          context: card.breadcrumb || card.title,
+          change: cells[2] ?? '',
+          source: 'card',
+        });
+      }
+    }
+    changes.push(...await this.collectDailyCompletedLogs(cards, minDate));
+    return changes.sort((a, b) => b.date.localeCompare(a.date) || a.item.localeCompare(b.item)).slice(0, 120);
+  }
+
+  private async collectDailyCompletedLogs(cards: ProjectCard[], minDate: string): Promise<LLMRecentChange[]> {
+    const folder = normalizePath(`${this.plugin.workspaceFolder}/timeline`);
+    const byTitle = new Map(cards.map((card) => [card.file.basename, card]));
+    const changes: LLMRecentChange[] = [];
+    for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+      if (!file.path.startsWith(`${folder}/`)) continue;
+      const date = file.basename;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < minDate) continue;
+      const content = await this.plugin.app.vault.read(file);
+      const section = findHeadingSection(content, 'Completed Log');
+      if (!section) continue;
+      const body = content.slice(section.bodyStart, section.end);
+      for (const line of body.split(/\r?\n/)) {
+        const cells = parseMarkdownTableRow(line);
+        if (!cells || cells.length < 4 || cells[0].toLowerCase() === 'time' || cells[0].startsWith('---')) continue;
+        const item = cells[2] ?? '';
+        const linkedTitle = getWikiLinkTarget(item);
+        const card = linkedTitle ? byTitle.get(linkedTitle) : undefined;
+        changes.push({
+          date: `${date} ${cells[0]}`,
+          type: cells[1] ?? '',
+          card,
+          item,
+          context: card?.breadcrumb || card?.title || '',
+          change: cells[3] ?? '',
+          source: 'daily',
+        });
+      }
+    }
+    return changes;
   }
 
   resolveLinkedFile(link: string, sourcePath: string): TFile | null {
@@ -1394,6 +1825,100 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     const section = `### Timeline Log\n\n${tableHeader}\n${row}\n`;
     if (timeline) return `${content.slice(0, timeline.end).trimEnd()}\n\n${section}${content.slice(timeline.end)}`;
     return `${content.trimEnd()}\n\n${section}`;
+  }
+
+  private async logCardCompletionSideEffects(card: ProjectCard, targetStatus: Status, completedTitle: string, cards?: ProjectCard[]): Promise<void> {
+    if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return;
+
+    const type = this.cardTypeLogLabel(card.type);
+    const change = `${this.statusLabel(card.status)} -> ${this.statusLabel(targetStatus)}`;
+    await this.appendDailyCompletedLog(type, `[[${completedTitle}]]`, change);
+    await this.appendParentCompletionLog(card, completedTitle, cards);
+  }
+
+  private async appendParentCompletionLog(card: ProjectCard, completedTitle: string, cards?: ProjectCard[]): Promise<void> {
+    const allCards = cards ?? (await this.loadCards());
+    const parent = this.findImmediateParentCard(card, allCards);
+    if (!parent) return;
+
+    const file = this.plugin.app.vault.getAbstractFileByPath(parent.path);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const type = this.cardTypeLogLabel(card.type);
+    const next = this.prependTimelineLog(content, type, `Completed [[${completedTitle}]]`);
+    if (next !== content) await this.plugin.app.vault.modify(file, next);
+  }
+
+  private findImmediateParentCard(card: ProjectCard, cards: ProjectCard[]): ProjectCard | undefined {
+    if (card.type === 'subproject') {
+      const projectTitle = card.projectTitle || card.primaryProject || card.project || card.projects[0] || '';
+      return cards.find((candidate) => candidate.type === 'project' && candidate.title === projectTitle);
+    }
+
+    if (card.type === 'big_action') {
+      const subprojectTitle = card.subprojectTitle || card.primarySubproject || card.subproject || card.subprojects[0] || '';
+      const projectTitle = card.projectTitle || card.primaryProject || card.project || card.projects[0] || '';
+      return cards.find((candidate) => {
+        if (candidate.type !== 'subproject' || candidate.title !== subprojectTitle) return false;
+        if (!projectTitle) return true;
+        return candidate.projectTitles.includes(projectTitle) || candidate.primaryProject === projectTitle || candidate.project === projectTitle;
+      }) ?? cards.find((candidate) => candidate.type === 'subproject' && candidate.title === subprojectTitle);
+    }
+
+    return undefined;
+  }
+
+  private cardTypeLogLabel(type: ProjectCard['type']): string {
+    if (type === 'big_action') return 'big action';
+    return type;
+  }
+
+  private async appendDailyCompletedLog(type: string, item: string, change: string, date = todayIso()): Promise<void> {
+    const file = await this.ensureDailyTimelineFile(date);
+    if (!file) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const next = this.prependDailyCompletedLog(content, type, item, change);
+    if (next !== content) await this.plugin.app.vault.modify(file, next);
+  }
+
+  private async ensureDailyTimelineFile(date: string): Promise<TFile | null> {
+    await this.plugin.ensureWorkspace();
+    const folder = normalizePath(`${this.plugin.workspaceFolder}/timeline`);
+    if (!this.plugin.app.vault.getAbstractFileByPath(folder)) await this.plugin.app.vault.createFolder(folder);
+
+    const path = normalizePath(`${folder}/${date}.md`);
+    const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) return existing;
+    return this.plugin.app.vault.create(path, `# ${date} Timeline Memo\n\n## Memo\n\n## Completed Log\n\n## Notes\n`);
+  }
+
+  private prependDailyCompletedLog(content: string, type: string, item: string, change: string): string {
+    const tableHeader = '| Time | Type | Item | Change |\n| --- | --- | --- | --- |';
+    const row = `| ${this.currentClockTime()} | ${this.escapeTableCell(type)} | ${this.escapeTableCell(item)} | ${this.escapeTableCell(change)} |`;
+    if (content.includes(row)) return content;
+
+    const existing = findHeadingSection(content, 'Completed Log');
+    if (existing) {
+      const body = content.slice(existing.bodyStart, existing.end).trim();
+      const normalized = body.includes('| Time | Type | Item | Change |') ? body : body ? `${tableHeader}\n${body}` : tableHeader;
+      const lines = normalized.split(/\r?\n/);
+      const insertIndex = lines.findIndex((line) => /^\|\s*---\s*\|\s*---\s*\|\s*---\s*\|\s*---\s*\|/.test(line));
+      if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+      else lines.unshift(row);
+      return replaceSection(content, 'Completed Log', lines.join('\n'));
+    }
+
+    const memo = findHeadingSection(content, 'Memo');
+    const section = `## Completed Log\n\n${tableHeader}\n${row}\n`;
+    if (memo) return `${content.slice(0, memo.end).trimEnd()}\n\n${section}${content.slice(memo.end)}`;
+    return `${content.trimEnd()}\n\n${section}`;
+  }
+
+  private currentClockTime(): string {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   }
 
   private prependRoutineLog(content: string, entry: string): string {

@@ -32,6 +32,7 @@ for (const rel of [
   'docs/Release Notes.md',
   'docs/Release QA.md',
   'docs/Attribution.md',
+  'docs/KanbanRPM LLM Skills.md',
   'docs/KanbanRPM Manual.md',
   'docs/KanbanRPM Manual ko.md',
   'docs/Roadmap.md',
@@ -39,12 +40,13 @@ for (const rel of [
   assertFileContains(rel, ['KanbanRPM']);
 }
 
-assertFileContains('README.md', ['npm run package', 'docs/Install.md', 'docs/Release Notes.md']);
+assertFileContains('README.md', ['npm run package', 'docs/Install.md', 'docs/Release Notes.md', 'docs/KanbanRPM%20LLM%20Skills.md']);
 assertFileContains('docs/Install.md', [manifest.id, manifest.version, 'main.js', 'manifest.json', 'styles.css']);
 assertFileContains('docs/Migration v0.1 to v0.2.md', ['v0.1', 'v0.2', 'living document', 'Timeline']);
 assertFileContains('docs/Release Notes.md', [`v${manifest.version}`, 'Timeline', 'Action index', 'Management Brief']);
 assertFileContains('docs/KanbanRPM Manual.md', ['Project', 'Subproject', 'Subproject filter', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
 assertFileContains('docs/KanbanRPM Manual ko.md', ['Project', 'Subproject', 'Subproject', 'primary_project', 'primary hierarchy', 'Table', 'Timeline', 'Gantt']);
+assertFileContains('docs/KanbanRPM LLM Skills.md', ['/kanbanrpm-next', '/kanbanrpm-brief', '/kanbanrpm-plan']);
 assertFileContains('docs/Attribution.md', ['obsidian-community/obsidian-kanban', 'kanban-rpm']);
 for (const file of ['main.js', 'manifest.json', 'styles.css']) {
   assert(fs.existsSync(path.join(root, file)), `root release file should exist: ${file}`);

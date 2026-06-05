@@ -38,6 +38,8 @@ Copy those files into:
 
 Then enable `KanbanRPM`.
 
+KanbanRPM uses the same plugin files on desktop and mobile. Phone layouts are optimized for review/check workflows, while tablet landscape keeps a desktop-like layout.
+
 ## Build From Source
 
 ```powershell
@@ -52,7 +54,7 @@ npm run smoke
 `npm run package` creates:
 
 ```text
-dist/kanban-rpm-0.3.4/
+dist/kanban-rpm-0.3.5/
   main.js
   manifest.json
   styles.css

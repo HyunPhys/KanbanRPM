@@ -1,7 +1,7 @@
 {
 	"id": "kanban-rpm",
 	"name": "KanbanRPM",
-	"version": "0.3.4",
+	"version": "0.3.5",
 	"minAppVersion": "1.0.0",
 	"description": "Kanban-based research project manager for Obsidian.",
 	"author": "Byunghyun Kim, based on obsidian-community/obsidian-kanban concepts",

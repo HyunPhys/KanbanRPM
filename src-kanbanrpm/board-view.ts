@@ -1,5 +1,6 @@
 ﻿import { ItemView, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 import { VIEW_TYPE } from './constants';
+import { Platform } from 'obsidian';
 import { addDays, daysBetween, dateRange, endOfMonth, formatDate, isIsoDate, monthRange, todayIso } from './date-utils';
 import { Menu } from 'obsidian';
 import { Notice } from 'obsidian';
@@ -33,6 +34,10 @@ export class KanbanRPMView extends ItemView {
   private subprojectFilter = '';
   private workstreamTypeFilter = '';
   private viewMode: ViewMode = 'board';
+  private viewportMode: 'phone' | 'tablet' | 'desktop' = 'desktop';
+  private viewportWidth = 0;
+  private didApplyPhoneDefaultView = false;
+  private phoneBoardStatus = '';
   private tableSortKey: TableSortKey = 'priority';
   private tableSortDirection: 'asc' | 'desc' = 'asc';
   private tableColumnWidths = new Map<TableSortKey, number>();
@@ -67,6 +72,8 @@ export class KanbanRPMView extends ItemView {
   private timelineZoom = 1;
   private ganttZoom = 1;
   private projectNotesCollapsed = false;
+  private phoneFiltersExpanded = false;
+  private phoneTimelineControlsExpanded = false;
   private expandedSmallActions = new Set<string>();
   private collapsedSmallActions = new Set<string>();
   private expandedSmallActionSections = new Set<string>();
@@ -102,6 +109,9 @@ export class KanbanRPMView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
+    this.registerDomEvent(window, 'resize', () => {
+      this.render();
+    });
     await this.refresh();
   }
 
@@ -120,6 +130,8 @@ export class KanbanRPMView extends ItemView {
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass('kanban-rpm-view');
+    this.updateViewportMode(container);
+    this.applyPhoneDefaultView();
 
     const visibleCards = this.filterCards(this.cards);
     const visibleArchivedCards = this.filterCards(this.archivedCards, { ignoreHierarchyFilters: true });
@@ -159,31 +171,58 @@ export class KanbanRPMView extends ItemView {
 
     this.renderViewSwitcher(actions);
 
-    actions.createEl('button', { text: 'New document' }).addEventListener('click', () => {
-      new NewProjectCardModal(this.app, this.plugin, this.newDocumentContext()).open();
-    });
-    if (this.viewMode === 'board') {
-      actions
-        .createEl('button', { text: this.groupByProject ? 'Flat board' : this.getGroupingLabel() })
+    if (this.isPhoneViewport()) {
+      const quick = actions.createDiv({ cls: 'kanban-rpm-phone-quick-actions' });
+      this.createIconButton(quick, 'plus', 'New document', 'kanban-rpm-phone-action').addEventListener('click', () => {
+        new NewProjectCardModal(this.app, this.plugin, this.newDocumentContext()).open();
+      });
+      if (this.viewMode === 'board') {
+        quick
+          .createEl('button', { cls: 'kanban-rpm-phone-action', text: this.groupByProject ? 'Flat' : 'Group' })
+          .addEventListener('click', () => {
+            this.groupByProject = !this.groupByProject;
+            this.render();
+          });
+      }
+      this.createIconButton(quick, 'refresh-cw', 'Refresh', 'kanban-rpm-phone-action').addEventListener('click', () => {
+        void this.refresh();
+      });
+      quick
+        .createEl('button', { cls: 'kanban-rpm-phone-action', text: this.toolbarExpanded ? 'Less' : 'More' })
         .addEventListener('click', () => {
-          this.groupByProject = !this.groupByProject;
+          this.toolbarExpanded = !this.toolbarExpanded;
+          this.render();
+        });
+    } else {
+      actions.createEl('button', { text: this.isCompactViewport() ? 'New' : 'New document' }).addEventListener('click', () => {
+        new NewProjectCardModal(this.app, this.plugin, this.newDocumentContext()).open();
+      });
+      if (this.viewMode === 'board') {
+        actions
+          .createEl('button', { text: this.groupByProject ? 'Flat board' : this.getGroupingLabel() })
+          .addEventListener('click', () => {
+            this.groupByProject = !this.groupByProject;
+            this.render();
+          });
+      }
+      actions.createEl('button', { text: this.isCompactViewport() ? 'Refr.' : 'Refresh' }).addEventListener('click', () => {
+        void this.refresh();
+      });
+      actions
+        .createEl('button', { text: this.toolbarExpanded ? 'Less' : 'More' })
+        .addEventListener('click', () => {
+          this.toolbarExpanded = !this.toolbarExpanded;
           this.render();
         });
     }
-    actions.createEl('button', { text: 'Refresh' }).addEventListener('click', () => {
-      void this.refresh();
-    });
-    actions
-      .createEl('button', { text: this.toolbarExpanded ? 'Less' : 'More' })
-      .addEventListener('click', () => {
-        this.toolbarExpanded = !this.toolbarExpanded;
-        this.render();
-      });
 
     if (this.toolbarExpanded) {
       const secondary = container.createDiv({ cls: 'kanban-rpm-toolbar-secondary' });
       secondary.createEl('button', { text: 'Management brief' }).addEventListener('click', () => {
         void this.plugin.writeManagementBrief(visibleCards);
+      });
+      secondary.createEl('button', { text: 'Generate LLM context' }).addEventListener('click', () => {
+        void this.plugin.writeLLMContext(visibleCards);
       });
       secondary.createEl('button', { text: 'Normalize order' }).addEventListener('click', () => {
         void this.plugin.normalizeCardOrder();
@@ -224,19 +263,63 @@ export class KanbanRPMView extends ItemView {
   private renderViewSwitcher(container: HTMLElement): void {
     const switcher = container.createDiv({ cls: 'kanban-rpm-view-switcher' });
     for (const mode of ['board', 'table', 'timeline', 'gantt', 'archive'] as ViewMode[]) {
-      const label = mode[0].toUpperCase() + mode.slice(1);
-      const button = switcher.createEl('button', {
+      const label = this.isCompactViewport() ? this.compactViewLabel(mode) : mode[0].toUpperCase() + mode.slice(1);
+      const button = switcher.createDiv({
         cls: this.viewMode === mode ? 'kanban-rpm-view-button is-active' : 'kanban-rpm-view-button',
         text: label,
         attr: { 'aria-pressed': String(this.viewMode === mode) },
       });
+      button.setAttr('role', 'button');
+      button.setAttr('tabindex', '0');
       button.addEventListener('click', () => {
         void this.saveViewFilters();
         this.viewMode = mode;
         this.loadViewFilters(mode);
         this.render();
       });
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        void this.saveViewFilters();
+        this.viewMode = mode;
+        this.loadViewFilters(mode);
+        this.render();
+      });
     }
+  }
+
+  private compactViewLabel(mode: ViewMode): string {
+    if (mode === 'timeline') return 'Time';
+    if (mode === 'archive') return 'Arch';
+    return mode[0].toUpperCase() + mode.slice(1);
+  }
+
+  private updateViewportMode(container: HTMLElement): void {
+    const width = container.clientWidth || this.containerEl.clientWidth || window.innerWidth;
+    this.viewportWidth = width;
+    const appMobile = Boolean((this.app as unknown as { isMobile?: boolean }).isMobile);
+    const nextMode = width <= 640 ? 'phone' : width <= 1024 || (Platform.isMobile && appMobile) ? 'tablet' : 'desktop';
+    this.viewportMode = nextMode;
+    container.removeClass('is-phone', 'is-tablet', 'is-desktop');
+    container.addClass(`is-${nextMode}`);
+  }
+
+  private isPhoneViewport(): boolean {
+    return this.viewportMode === 'phone';
+  }
+
+  private isCompactViewport(): boolean {
+    return this.viewportMode !== 'desktop' || this.viewportWidth <= 1450;
+  }
+
+  private applyPhoneDefaultView(): void {
+    if (!this.isPhoneViewport() || this.didApplyPhoneDefaultView) return;
+    this.didApplyPhoneDefaultView = true;
+    this.projectNotesCollapsed = true;
+    this.timelineSidebarCollapsed = true;
+    if (this.viewMode === 'archive') return;
+    this.viewMode = 'timeline';
+    this.loadViewFilters('timeline');
   }
 
   private getGroupingLabel(): string {
@@ -285,6 +368,11 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderFilters(container: HTMLElement, visibleCards: ProjectCard[], visibleBoardCards: ProjectCard[]): void {
+    if (this.isPhoneViewport()) {
+      this.renderPhoneFilters(container, visibleCards, visibleBoardCards);
+      return;
+    }
+
     const filters = container.createDiv({ cls: 'kanban-rpm-filters' });
     this.renderSelectFilter(filters, 'Project', this.projectFilter, this.uniqueValues('projectTitle'), (value) => {
       this.projectFilter = value;
@@ -305,7 +393,7 @@ export class KanbanRPMView extends ItemView {
     filters
       .createEl('button', {
         cls: this.showClosedProjects ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
-        text: this.showClosedProjects ? 'Showing closed' : 'Show closed projects',
+        text: this.isCompactViewport() ? `Closed ${this.showClosedProjects ? 'on' : 'off'}` : this.showClosedProjects ? 'Showing closed' : 'Show closed projects',
         attr: { 'aria-pressed': String(this.showClosedProjects) },
       })
       .addEventListener('click', () => {
@@ -456,13 +544,15 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderProjectNotes(container: HTMLElement): void {
+    if (this.isPhoneViewport() && this.projectNotesCollapsed) return;
+
     const projects = this.cards
       .filter((card) => card.type === 'project')
       .filter((card) => this.showClosedProjects || card.projectState !== 'closed')
       .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitles.includes(this.projectFilter))
       .sort((a, b) => a.title.localeCompare(b.title));
 
-    const panel = container.createDiv({ cls: 'kanban-rpm-project-strip' });
+    const panel = container.createDiv({ cls: this.projectNotesCollapsed ? 'kanban-rpm-project-strip is-collapsed' : 'kanban-rpm-project-strip' });
     const header = panel.createDiv({ cls: 'kanban-rpm-project-strip-header' });
     header.createEl('h3', { text: this.projectFilter ? 'Project note' : 'Project notes' });
     const actions = header.createDiv({ cls: 'kanban-rpm-project-strip-actions' });
@@ -729,6 +819,10 @@ export class KanbanRPMView extends ItemView {
         (this.showBoardBigActions || card.type !== 'big_action')
     );
     this.renderBoardStatusFilter(container);
+    if (this.isPhoneViewport()) {
+      this.renderPhoneBoardView(container, boardCards);
+      return;
+    }
     const wrap = container.createDiv({ cls: 'kanban-rpm-board-wrap' });
     const overlay = this.showBoardConnectors ? this.svgEl('svg') : undefined;
     if (overlay) {
@@ -745,34 +839,66 @@ export class KanbanRPMView extends ItemView {
     if (overlay) this.queueBoardFlowOverlay(wrap, overlay, boardCards);
   }
 
+  private renderPhoneBoardView(container: HTMLElement, boardCards: ProjectCard[]): void {
+    const visibleLanes = this.orderedBoardStatuses().filter((status) => this.boardStatusFilter.has(status.id));
+    if (!visibleLanes.length) {
+      container.createDiv({ cls: 'kanban-rpm-empty', text: 'No Board statuses selected.' });
+      return;
+    }
+
+    if (!visibleLanes.some((lane) => lane.id === this.phoneBoardStatus)) this.phoneBoardStatus = visibleLanes[0].id;
+    const tabs = container.createDiv({ cls: 'kanban-rpm-phone-lane-tabs' });
+    for (const lane of visibleLanes) {
+      const count = boardCards.filter((card) => card.status === lane.id).length;
+      const tab = tabs.createEl('button', {
+        cls: this.phoneBoardStatus === lane.id ? 'is-active' : '',
+        text: `${lane.label} ${count}`,
+        attr: { 'aria-pressed': String(this.phoneBoardStatus === lane.id) },
+      });
+      tab.addEventListener('click', () => {
+        this.phoneBoardStatus = lane.id;
+        this.render();
+      });
+    }
+
+    const activeLane = visibleLanes.find((lane) => lane.id === this.phoneBoardStatus) ?? visibleLanes[0];
+    const wrap = container.createDiv({ cls: 'kanban-rpm-board-wrap kanban-rpm-phone-board-wrap' });
+    const board = wrap.createDiv({ cls: 'kanban-rpm-board kanban-rpm-phone-board' });
+    this.renderLane(board, activeLane, boardCards.filter((card) => card.status === activeLane.id).sort(compareCards), [activeLane]);
+  }
+
   private renderBoardStatusFilter(container: HTMLElement): void {
     const controls = container.createDiv({ cls: 'kanban-rpm-board-status-row' });
-    this.renderBoardToggleButton(controls, `Arrows: ${this.showBoardConnectors ? 'On' : 'Off'}`, this.showBoardConnectors, async () => {
-      this.showBoardConnectors = !this.showBoardConnectors;
-      this.plugin.settings.showBoardConnectors = this.showBoardConnectors;
-      await this.plugin.saveSettings();
-      this.render();
-    });
-    this.renderBoardToggleButton(controls, `Subprojects: ${this.showBoardSubprojects ? 'Shown' : 'Hidden'}`, this.showBoardSubprojects, async () => {
+    if (!this.isPhoneViewport()) {
+      this.renderBoardToggleButton(controls, `Arrows: ${this.showBoardConnectors ? 'On' : 'Off'}`, this.showBoardConnectors, async () => {
+        this.showBoardConnectors = !this.showBoardConnectors;
+        this.plugin.settings.showBoardConnectors = this.showBoardConnectors;
+        await this.plugin.saveSettings();
+        this.render();
+      });
+    }
+    this.renderBoardToggleButton(controls, this.isPhoneViewport() ? `Sub ${this.showBoardSubprojects ? 'On' : 'Off'}` : `Subprojects: ${this.showBoardSubprojects ? 'Shown' : 'Hidden'}`, this.showBoardSubprojects, async () => {
       this.showBoardSubprojects = !this.showBoardSubprojects;
       this.plugin.settings.showBoardSubprojects = this.showBoardSubprojects;
       await this.plugin.saveSettings();
       this.render();
     });
-    this.renderBoardToggleButton(controls, `Big actions: ${this.showBoardBigActions ? 'Shown' : 'Hidden'}`, this.showBoardBigActions, async () => {
+    this.renderBoardToggleButton(controls, this.isPhoneViewport() ? `Act ${this.showBoardBigActions ? 'On' : 'Off'}` : `Big actions: ${this.showBoardBigActions ? 'Shown' : 'Hidden'}`, this.showBoardBigActions, async () => {
       this.showBoardBigActions = !this.showBoardBigActions;
       this.plugin.settings.showBoardBigActions = this.showBoardBigActions;
       await this.plugin.saveSettings();
       this.render();
     });
-    this.renderZoomControls(controls, this.boardZoom, async (zoom) => {
-      this.boardZoom = zoom;
-      this.plugin.settings.boardZoom = zoom;
-      await this.plugin.saveSettings();
-      this.render();
-    });
+    if (!this.isPhoneViewport()) {
+      this.renderZoomControls(controls, this.boardZoom, async (zoom) => {
+        this.boardZoom = zoom;
+        this.plugin.settings.boardZoom = zoom;
+        await this.plugin.saveSettings();
+        this.render();
+      });
+    }
     const statusWrap = controls.createEl('details', { cls: 'kanban-rpm-board-status-filter' });
-    statusWrap.createEl('summary', { text: `Statuses: ${this.boardStatusFilter.size}` });
+    statusWrap.createEl('summary', { text: this.isPhoneViewport() ? `St ${this.boardStatusFilter.size}` : `Statuses: ${this.boardStatusFilter.size}` });
     const statusList = statusWrap.createDiv({ cls: 'kanban-rpm-board-status-list' });
     for (const status of this.orderedBoardStatuses()) {
       const label = statusList.createEl('label');
@@ -908,6 +1034,10 @@ export class KanbanRPMView extends ItemView {
 
   private renderTableView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
     const sortedCards = this.sortTableCards(visibleBoardCards);
+    if (this.isPhoneViewport()) {
+      this.renderPhoneTableView(container, sortedCards);
+      return;
+    }
     const wrap = container.createDiv({ cls: 'kanban-rpm-table-wrap' });
     const table = wrap.createEl('table', { cls: 'kanban-rpm-table' });
     const colgroup = table.createEl('colgroup');
@@ -928,6 +1058,16 @@ export class KanbanRPMView extends ItemView {
     }
 
     for (const card of sortedCards) this.renderTableRow(tbody, card);
+  }
+
+  private renderPhoneTableView(container: HTMLElement, cards: ProjectCard[]): void {
+    const wrap = container.createDiv({ cls: 'kanban-rpm-phone-list kanban-rpm-phone-table-list' });
+    this.renderPhoneSortBar(wrap);
+    if (!cards.length) {
+      wrap.createDiv({ cls: 'kanban-rpm-empty', text: 'No cards match the current filters.' });
+      return;
+    }
+    for (const card of cards) this.renderPhonePlanningCard(wrap, card, 'table');
   }
 
   private renderArchiveView(container: HTMLElement, cards: ProjectCard[]): void {
@@ -970,6 +1110,10 @@ export class KanbanRPMView extends ItemView {
 
   private renderGanttView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
     const ganttCards = visibleBoardCards.filter((card) => card.type === 'subproject' || card.type === 'big_action');
+    if (this.isPhoneViewport()) {
+      this.renderPhoneGanttPlanningList(container, ganttCards);
+      return;
+    }
     const rows = this.buildGanttRows(ganttCards, this.showGanttSubprojects, this.showGanttBigActions);
     const autoRange = this.ganttAutoRange(rows, ganttCards);
     const range = this.ganttRange(autoRange);
@@ -1086,6 +1230,161 @@ export class KanbanRPMView extends ItemView {
 
     for (const row of rows) this.renderGanttSurfaceRow(body, row, range, dayWidth, timelineWidth);
     if (this.showGanttConnectors) this.renderGanttConnectors(body, rows, range, dayWidth, timelineWidth);
+  }
+
+  private renderPhoneGanttPlanningList(container: HTMLElement, cards: ProjectCard[]): void {
+    const planningCards = cards
+      .filter((card) => (this.showGanttSubprojects || card.type !== 'subproject') && (this.showGanttBigActions || card.type !== 'big_action'))
+      .filter((card) => card.startDate || card.scheduledDate || card.dueDate || card.nextReview)
+      .sort((a, b) => this.compareGanttCards(a, b));
+
+    const wrap = container.createDiv({ cls: 'kanban-rpm-phone-list kanban-rpm-phone-gantt-list' });
+    const controls = wrap.createDiv({ cls: 'kanban-rpm-phone-gantt-controls' });
+    this.renderBoardToggleButton(controls, `Sub ${this.showGanttSubprojects ? 'On' : 'Off'}`, this.showGanttSubprojects, async () => {
+      this.showGanttSubprojects = !this.showGanttSubprojects;
+      this.plugin.settings.showGanttSubprojects = this.showGanttSubprojects;
+      await this.plugin.saveSettings();
+      this.render();
+    });
+    this.renderBoardToggleButton(controls, `Act ${this.showGanttBigActions ? 'On' : 'Off'}`, this.showGanttBigActions, async () => {
+      this.showGanttBigActions = !this.showGanttBigActions;
+      this.plugin.settings.showGanttBigActions = this.showGanttBigActions;
+      await this.plugin.saveSettings();
+      this.render();
+    });
+
+    if (!planningCards.length) {
+      wrap.createDiv({ cls: 'kanban-rpm-empty', text: 'No planning dates match the current filters.' });
+      return;
+    }
+
+    for (const group of this.groupCardsForCurrentFilter(planningCards)) {
+      const groupEl = wrap.createDiv({ cls: 'kanban-rpm-phone-planning-group' });
+      const header = groupEl.createDiv({ cls: 'kanban-rpm-phone-planning-group-header' });
+      this.addProjectToken(header, group.project);
+      header.createSpan({ text: group.project });
+      header.createSpan({ cls: 'kanban-rpm-project-group-count', text: String(group.cards.length) });
+      for (const card of group.cards) this.renderPhonePlanningCard(groupEl, card, 'gantt');
+    }
+  }
+
+  private renderPhoneFilters(container: HTMLElement, visibleCards: ProjectCard[], visibleBoardCards: ProjectCard[]): void {
+    const filters = container.createDiv({ cls: 'kanban-rpm-filters kanban-rpm-phone-filters' });
+    const activeFilters = [this.projectFilter, this.subprojectFilter, this.workstreamTypeFilter].filter(Boolean).length;
+    const visiblePaths = new Set(visibleCards.map((card) => card.path));
+    const visibleBoardPaths = new Set(visibleBoardCards.map((card) => card.path));
+    const warningCount = this.issues.filter((issue) => visiblePaths.has(issue.cardPath)).length;
+    const actionCount = this.actions.filter((action) => visibleBoardPaths.has(action.cardPath)).length;
+    const researchCount = this.researchLogs.length;
+    const activePanelCount = [this.showDataWarnings, this.showCommandCenter, this.showActionIndex, this.showResearchIndex].filter(Boolean).length;
+    const projectCount = this.cards
+      .filter((card) => card.type === 'project')
+      .filter((card) => this.showClosedProjects || card.projectState !== 'closed')
+      .filter((card) => !this.projectFilter || card.title === this.projectFilter || card.projectTitles.includes(this.projectFilter)).length;
+
+    const top = filters.createDiv({ cls: 'kanban-rpm-phone-filter-summary' });
+    top
+      .createEl('button', {
+        cls: this.phoneFiltersExpanded || activeFilters ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+        text: activeFilters ? `Filters (${activeFilters})` : 'Filters',
+        attr: { 'aria-expanded': String(this.phoneFiltersExpanded) },
+      })
+      .addEventListener('click', () => {
+        this.phoneFiltersExpanded = !this.phoneFiltersExpanded;
+        this.render();
+      });
+
+    if (activeFilters) {
+      const chips = top.createDiv({ cls: 'kanban-rpm-phone-filter-chips' });
+      if (this.projectFilter) chips.createSpan({ text: this.projectFilter });
+      if (this.subprojectFilter) chips.createSpan({ text: this.subprojectFilter });
+      if (this.workstreamTypeFilter) chips.createSpan({ text: this.categoryLabel(this.workstreamTypeFilter) });
+      top.createEl('button', { cls: 'kanban-rpm-panel-toggle', text: 'Clear' }).addEventListener('click', () => {
+        this.projectFilter = '';
+        this.subprojectFilter = '';
+        this.workstreamTypeFilter = '';
+        void this.saveViewFilters();
+        this.render();
+      });
+    }
+
+    top
+      .createEl('button', {
+        cls: !this.projectNotesCollapsed ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+        text: !this.projectNotesCollapsed ? `Projects ${projectCount}` : 'Projects',
+        attr: { 'aria-expanded': String(!this.projectNotesCollapsed) },
+      })
+      .addEventListener('click', () => {
+        this.projectNotesCollapsed = !this.projectNotesCollapsed;
+        this.render();
+      });
+
+    const panelWrap = top.createDiv({ cls: 'kanban-rpm-panel-menu' });
+    panelWrap
+      .createEl('button', {
+        cls: this.panelsExpanded || activePanelCount ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+        text: activePanelCount ? `Panels ${activePanelCount}` : 'Panels',
+        attr: { 'aria-expanded': String(this.panelsExpanded) },
+      })
+      .addEventListener('click', () => {
+        this.panelsExpanded = !this.panelsExpanded;
+        this.render();
+      });
+
+    if (this.panelsExpanded) {
+      const toggles = panelWrap.createDiv({ cls: 'kanban-rpm-panel-toggles' });
+      this.renderPanelToggle(toggles, 'Data warnings', this.showDataWarnings, warningCount, () => {
+        this.showDataWarnings = !this.showDataWarnings;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, 'Command center', this.showCommandCenter, undefined, () => {
+        this.showCommandCenter = !this.showCommandCenter;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, 'Action index', this.showActionIndex, actionCount, () => {
+        this.showActionIndex = !this.showActionIndex;
+        this.render();
+      });
+      this.renderPanelToggle(toggles, 'Research index', this.showResearchIndex, researchCount, () => {
+        this.showResearchIndex = !this.showResearchIndex;
+        this.render();
+      });
+    }
+
+    if (!this.phoneFiltersExpanded) return;
+
+    const body = filters.createDiv({ cls: 'kanban-rpm-phone-filter-body' });
+    this.renderSelectFilter(body, 'Project', this.projectFilter, this.uniqueValues('projectTitle'), (value) => {
+      this.projectFilter = value;
+      this.subprojectFilter = '';
+      void this.saveViewFilters();
+      this.render();
+    });
+    this.renderSelectFilter(body, 'Subproject', this.subprojectFilter, this.subprojectFilterValues(), (value) => {
+      this.subprojectFilter = value;
+      void this.saveViewFilters();
+      this.render();
+    });
+    this.renderSelectFilter(body, 'Category', this.workstreamTypeFilter, this.uniqueCategoryValues(), (value) => {
+      this.workstreamTypeFilter = value;
+      void this.saveViewFilters();
+      this.render();
+    });
+    body
+      .createEl('button', {
+        cls: this.showClosedProjects ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+        text: this.showClosedProjects ? 'Closed on' : 'Closed off',
+        attr: { 'aria-pressed': String(this.showClosedProjects) },
+      })
+      .addEventListener('click', () => {
+        this.showClosedProjects = !this.showClosedProjects;
+        if (!this.showClosedProjects && this.projectFilter && this.isProjectTitleClosed(this.projectFilter)) {
+          this.projectFilter = '';
+          this.subprojectFilter = '';
+          void this.saveViewFilters();
+        }
+        this.render();
+      });
   }
 
   private buildGanttRows(cards: ProjectCard[], includeSubprojects = true, includeBigActions = true): GanttRow[] {
@@ -1902,6 +2201,11 @@ export class KanbanRPMView extends ItemView {
   }
 
   private renderTimelineControls(container: HTMLElement): void {
+    if (this.isPhoneViewport()) {
+      this.renderPhoneTimelineControls(container);
+      return;
+    }
+
     const controls = container.createDiv({ cls: 'kanban-rpm-timeline-controls' });
     controls.createEl('button', { text: 'Today' }).addEventListener('click', () => {
       this.timelineBaseDate = todayIso();
@@ -2005,6 +2309,150 @@ export class KanbanRPMView extends ItemView {
 
     const statusWrap = controls.createEl('details', { cls: 'kanban-rpm-timeline-status-filter' });
     statusWrap.createEl('summary', { text: `Statuses: ${this.timelineStatusFilter.size}` });
+    const statusList = statusWrap.createDiv({ cls: 'kanban-rpm-timeline-status-list' });
+    for (const status of this.plugin.settings.statuses) {
+      const label = statusList.createEl('label');
+      const checkbox = label.createEl('input', { attr: { type: 'checkbox' } });
+      checkbox.checked = this.timelineStatusFilter.has(status.id);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) this.timelineStatusFilter.add(status.id);
+        else this.timelineStatusFilter.delete(status.id);
+        this.plugin.settings.timelineStatusFilter = Array.from(this.timelineStatusFilter);
+        void this.plugin.saveSettings();
+        this.render();
+      });
+      label.createSpan({ text: status.label });
+    }
+  }
+
+  private renderPhoneTimelineControls(container: HTMLElement): void {
+    const controls = container.createDiv({ cls: 'kanban-rpm-timeline-controls kanban-rpm-phone-timeline-controls' });
+    const primary = controls.createDiv({ cls: 'kanban-rpm-phone-timeline-primary' });
+    primary
+      .createEl('button', {
+        cls: 'kanban-rpm-phone-routine-toggle',
+        text: this.timelineSidebarCollapsed ? 'Routine >' : 'Routine <',
+        attr: { 'aria-expanded': String(!this.timelineSidebarCollapsed) },
+      })
+      .addEventListener('click', () => {
+        this.timelineSidebarCollapsed = !this.timelineSidebarCollapsed;
+        this.render();
+      });
+    primary.createEl('button', { text: 'Today' }).addEventListener('click', () => {
+      this.timelineBaseDate = todayIso();
+      this.timelineRangeStart = '';
+      this.timelineRangeEnd = '';
+      this.render();
+    });
+    primary.createEl('button', { text: '-7' }).addEventListener('click', () => {
+      this.shiftTimelineBase(-7);
+      this.render();
+    });
+    primary.createEl('button', { text: '+7' }).addEventListener('click', () => {
+      this.shiftTimelineBase(7);
+      this.render();
+    });
+    primary
+      .createEl('button', { text: this.timelineMemoVisible ? 'Memo on' : 'Memo off' })
+      .addEventListener('click', () => {
+        this.timelineMemoVisible = !this.timelineMemoVisible;
+        this.render();
+      });
+    primary
+      .createEl('button', {
+        cls: this.phoneTimelineControlsExpanded ? 'kanban-rpm-panel-toggle is-active' : 'kanban-rpm-panel-toggle',
+        text: this.phoneTimelineControlsExpanded ? 'Less' : 'More',
+        attr: { 'aria-expanded': String(this.phoneTimelineControlsExpanded) },
+      })
+      .addEventListener('click', () => {
+        this.phoneTimelineControlsExpanded = !this.phoneTimelineControlsExpanded;
+        this.render();
+      });
+
+    if (!this.phoneTimelineControlsExpanded) return;
+
+    const secondary = controls.createDiv({ cls: 'kanban-rpm-phone-timeline-secondary' });
+    const baseDate = secondary.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'date',
+        value: this.timelineBaseDate,
+        'aria-label': 'Timeline base date',
+      },
+    });
+    baseDate.addEventListener('change', () => {
+      const normalized = this.normalizeTimelineDate(baseDate.value);
+      if (normalized) {
+        this.timelineBaseDate = normalized;
+        this.timelineRangeStart = '';
+        this.timelineRangeEnd = '';
+        this.render();
+      }
+    });
+    const rangeStart = secondary.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'date',
+        value: this.timelineRangeStart,
+        'aria-label': 'Timeline range start',
+      },
+    });
+    const rangeEnd = secondary.createEl('input', {
+      cls: 'kanban-rpm-timeline-date-input',
+      attr: {
+        type: 'date',
+        value: this.timelineRangeEnd,
+        'aria-label': 'Timeline range end',
+      },
+    });
+    secondary.createEl('button', { text: 'Apply' }).addEventListener('click', () => {
+      const start = this.normalizeTimelineDate(rangeStart.value);
+      const end = this.normalizeTimelineDate(rangeEnd.value);
+      if (start && end && start <= end) {
+        this.timelineRangeStart = start;
+        this.timelineRangeEnd = end;
+        this.timelineBaseDate = start;
+        this.render();
+      }
+    });
+
+    const search = secondary.createEl('input', {
+      cls: 'kanban-rpm-timeline-search',
+      attr: {
+        type: 'search',
+        placeholder: 'Search',
+        value: this.timelineSearchQuery,
+      },
+    });
+    search.addEventListener('input', () => {
+      this.timelineSearchQuery = search.value;
+      this.render();
+    });
+
+    const scope = secondary.createEl('select', { cls: 'kanban-rpm-timeline-scope' });
+    for (const [value, label] of [
+      ['all', 'All'],
+      ['review', 'Review'],
+      ['scheduled', 'Scheduled'],
+      ['tasks', 'Tasks'],
+      ['recurring', 'Recurring'],
+    ] as Array<[TimelineScope, string]>) {
+      scope.createEl('option', { text: label, attr: { value } });
+    }
+    scope.value = this.timelineScope;
+    scope.addEventListener('change', () => {
+      this.timelineScope = scope.value as TimelineScope;
+      this.render();
+    });
+    this.renderZoomControls(secondary, this.timelineZoom, async (zoom) => {
+      this.timelineZoom = zoom;
+      this.plugin.settings.timelineZoom = zoom;
+      await this.plugin.saveSettings();
+      this.render();
+    });
+
+    const statusWrap = secondary.createEl('details', { cls: 'kanban-rpm-timeline-status-filter' });
+    statusWrap.createEl('summary', { text: `Statuses ${this.timelineStatusFilter.size}` });
     const statusList = statusWrap.createDiv({ cls: 'kanban-rpm-timeline-status-list' });
     for (const status of this.plugin.settings.statuses) {
       const label = statusList.createEl('label');
@@ -2679,6 +3127,66 @@ export class KanbanRPMView extends ItemView {
     });
     if (this.tableSortDirection === 'desc') sorted.reverse();
     return sorted;
+  }
+
+  private renderPhoneSortBar(container: HTMLElement): void {
+    const bar = container.createDiv({ cls: 'kanban-rpm-phone-sortbar' });
+    const sort = bar.createEl('select', { attr: { 'aria-label': 'Sort cards' } });
+    for (const column of TABLE_COLUMNS) {
+      sort.createEl('option', { value: column.key, text: column.label });
+    }
+    sort.value = this.tableSortKey;
+    sort.addEventListener('change', () => {
+      this.tableSortKey = sort.value as TableSortKey;
+      this.render();
+    });
+    const direction = bar.createEl('button', { text: this.tableSortDirection === 'asc' ? '▲' : '▼', attr: { 'aria-label': 'Toggle sort direction' } });
+    direction.addEventListener('click', () => {
+      this.tableSortDirection = this.tableSortDirection === 'asc' ? 'desc' : 'asc';
+      this.render();
+    });
+  }
+
+  private renderPhonePlanningCard(container: HTMLElement, card: ProjectCard, context: 'table' | 'gantt'): void {
+    const item = container.createDiv({ cls: `kanban-rpm-phone-planning-card kanban-rpm-type-${card.type.replace('_', '-')}` });
+    item.style.setProperty('--rpm-project-color', this.projectColor(card.colorKey));
+    const head = item.createDiv({ cls: 'kanban-rpm-phone-planning-head' });
+    const title = head.createEl('button', { cls: 'kanban-rpm-phone-planning-title', text: card.title });
+    title.addEventListener('click', () => {
+      void this.plugin.openCard(card);
+    });
+    const actions = head.createDiv({ cls: 'kanban-rpm-card-title-actions' });
+    this.renderPriorityBadge(actions, card);
+    this.createIconButton(actions, 'pencil', `Edit ${card.title}`).addEventListener('click', () => {
+      new EditProjectCardModal(this.app, this.plugin, card).open();
+    });
+    this.renderCardMoreMenu(actions, card);
+
+    const meta = item.createDiv({ cls: 'kanban-rpm-phone-planning-meta' });
+    this.renderStatusBadge(meta, card.status, undefined, 'button').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openStatusMenu(event, card);
+    });
+    meta.createSpan({ text: this.cardTypeLabel(card.type) });
+    if (card.breadcrumb) meta.createSpan({ text: card.breadcrumb });
+    if (card.workstreamType) meta.createSpan({ text: this.categoryLabel(card.workstreamType) });
+
+    const dates = item.createDiv({ cls: 'kanban-rpm-phone-planning-dates' });
+    if (context === 'gantt') {
+      const range = [card.startDate || 'No start', card.dueDate || 'No due'].join(' -> ');
+      dates.createSpan({ text: range });
+    }
+    if (card.scheduledDate) dates.createSpan({ text: `scheduled ${card.scheduledDate}` });
+    if (card.nextReview) dates.createSpan({ text: `review ${card.nextReview}` });
+    if (!dates.childElementCount) dates.remove();
+
+    const flow = card.blockedBy.length + card.precededBy.length + card.followedBy.length;
+    if (flow || card.actionCount) {
+      const footer = item.createDiv({ cls: 'kanban-rpm-phone-planning-footer' });
+      if (flow) footer.createSpan({ text: `Flow ${flow}` });
+      footer.createSpan({ text: `${card.actionCount} tasks` });
+    }
   }
 
   private tableSortValue(card: ProjectCard, key: TableSortKey): string {

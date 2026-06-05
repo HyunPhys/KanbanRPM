@@ -125,6 +125,11 @@ The live plugin folder may also contain Obsidian-generated `data.json`.
 - [ ] Promote a non-recurring action to a Big Action.
 - [ ] Run `Management brief`.
 - [ ] Confirm `KanbanRPM Workspace/KanbanRPM Management Brief.md` opens and includes Snapshot, Executive Attention, Project Health, Projects, Upcoming Dates, Next Actions, Open Small Actions, Waiting, Blocked, Flow Risks, Routines, Recent Research Logs, and Data Warnings.
+- [ ] Run `Generate LLM context`.
+- [ ] Confirm `KanbanRPM Workspace/LLM/00 LLM Entry.md` opens.
+- [ ] Confirm `01 Next Work Candidates.md` lists non-active, non-complete candidates with score and reason columns.
+- [ ] Confirm `03 Recent Changes.md` includes card `Timeline Log` rows and daily timeline `Completed Log` rows when they exist.
+- [ ] Confirm `Project Briefs/*.md` includes Recommended Attention, Stale Waiting, Unresolved Blockers, Recently Completed, and original-note guidance.
 
 ## Documentation
 

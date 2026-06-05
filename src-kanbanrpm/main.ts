@@ -59,6 +59,12 @@ export default class KanbanRPMPlugin extends Plugin {
       callback: () => void this.writeManagementBrief(),
     });
 
+    this.addCommand({
+      id: 'generate-llm-context',
+      name: 'Generate LLM context',
+      callback: () => void this.writeLLMContext(),
+    });
+
     this.addSettingTab(new KanbanRPMSettingTab(this.app, this));
   }
 
@@ -189,6 +195,14 @@ export default class KanbanRPMPlugin extends Plugin {
 
   get managementBriefPath(): string {
     return normalizePath(`${this.workspaceFolder}/KanbanRPM Management Brief.md`);
+  }
+
+  get llmFolder(): string {
+    return normalizePath(`${this.workspaceFolder}/LLM`);
+  }
+
+  get llmProjectBriefsFolder(): string {
+    return normalizePath(`${this.llmFolder}/Project Briefs`);
   }
 
   get researchLogsPath(): string {
@@ -336,6 +350,10 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async writeManagementBrief(cards?: ProjectCard[]): Promise<void> {
     await this.repository.writeManagementBrief(cards);
+  }
+
+  async writeLLMContext(cards?: ProjectCard[]): Promise<void> {
+    await this.repository.writeLLMContext(cards);
   }
 
   async addResearchLogRow(card: ProjectCard, values: ResearchLogValues): Promise<void> {

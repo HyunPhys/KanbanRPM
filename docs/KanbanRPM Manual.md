@@ -172,6 +172,19 @@ The filter row supports:
 - `Action index`
 - `Research index`
 
+## Mobile
+
+KanbanRPM uses the same plugin and the same `KanbanRPM Workspace/` on desktop and mobile.
+
+- Phone layout is optimized for review/check workflows and opens on `Timeline` by default.
+- Phone `Board` uses lane tabs and shows one status lane at a time.
+- Phone `Timeline` becomes a vertical agenda with `Routine`, `Memo`, scheduled/review cards, small actions, and recurring items.
+- Phone `Gantt` becomes a compact planning list instead of the full bar/connector surface.
+- Phone `Table` becomes a compact card-like list; column resize is desktop/tablet only.
+- Tablet landscape keeps the desktop-like Board/Gantt/Timeline with larger touch targets and safer overflow.
+
+For desktop testing, run `this.app.emulateMobile(true)` in the Obsidian developer console and narrow the pane to phone width. Run `this.app.emulateMobile(false)` to return to desktop behavior.
+
 ## Board
 
 `Board` is the main execution surface. It shows status lanes such as:
@@ -534,6 +547,48 @@ Important settings:
 ## LLM-Based Management
 
 KanbanRPM is designed so an LLM can read the project system as Markdown instead of reverse-engineering a UI.
+
+### Generate Layered LLM Context
+
+Use:
+
+```text
+More -> Generate LLM context
+```
+
+or the command:
+
+```text
+KanbanRPM: Generate LLM context
+```
+
+KanbanRPM writes generated read-model files under:
+
+```text
+KanbanRPM Workspace/LLM/
+```
+
+The generated context includes:
+
+- `00 LLM Entry.md`: read order and rules for LLM use.
+- `01 Next Work Candidates.md`: non-active cards that may be good candidates to activate next.
+- `02 Project Map.md`: compact hierarchy map.
+- `03 Recent Changes.md`: recent card `Timeline Log` changes.
+- `04 Open Loops.md`: waiting, blocked, blocked-by, and missing-next-action items.
+- `Project Briefs/*.md`: per-Project briefing files.
+
+Use the layered context for two workflows:
+
+1. Next work recommendation: ask the LLM which non-active card should become active next.
+2. PM briefing: ask the LLM to summarize a Project's current state, risks, and open loops.
+
+For research/content planning, do not rely only on generated briefs. Read the user-specified living document and relevant references/wiki pages. Generated context is only orientation.
+
+Prompt templates are documented in `docs/KanbanRPM LLM Skills.md`:
+
+- `/kanbanrpm-next`: choose which non-active card to activate next.
+- `/kanbanrpm-brief`: brief a Project/Subproject/Big Action.
+- `/kanbanrpm-plan`: discuss research/content direction from original living documents.
 
 ### Generate A Management Brief
 

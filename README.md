@@ -4,6 +4,8 @@ KanbanRPM is a Kanban-based research project manager for Obsidian. It is built f
 
 KanbanRPM treats every managed item as a living Markdown document. The board is a view over your project documents, not a place where disposable cards replace your notes.
 
+KanbanRPM supports Obsidian desktop and mobile from the same plugin bundle. Phone layouts are optimized for review/check workflows, while tablet landscape keeps a desktop-like planning surface.
+
 ## Install
 
 ### Option 1. Manual Install From GitHub Release
@@ -56,7 +58,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.4/
+dist/kanban-rpm-0.3.5/
   main.js
   manifest.json
   styles.css
@@ -163,13 +165,46 @@ Additional docs:
 - [Card Schema](docs/Card%20Schema.md)
 - [Release Notes](docs/Release%20Notes.md)
 - [Release QA](docs/Release%20QA.md)
+- [LLM Skills](docs/KanbanRPM%20LLM%20Skills.md)
 - [Attribution](docs/Attribution.md)
 
 Path reference: `docs/Release Notes.md`
 
 ## LLM-Assisted Management
 
-KanbanRPM can generate an LLM-readable project brief:
+KanbanRPM can generate a layered LLM context so an LLM does not need to read every living document first:
+
+```text
+More -> Generate LLM context
+```
+
+This writes:
+
+```text
+KanbanRPM Workspace/LLM/
+  00 LLM Entry.md
+  01 Next Work Candidates.md
+  02 Project Map.md
+  03 Recent Changes.md
+  04 Open Loops.md
+  Project Briefs/
+```
+
+Use this for:
+
+- choosing which non-active work to activate next
+- getting a compact Project briefing
+- orienting before opening original living documents for research/content planning
+
+For research planning, read the original Project/Subproject/Big Action notes and relevant references. The generated LLM files are orientation, not a substitute for source context.
+
+Prompt templates are in [KanbanRPM LLM Skills](docs/KanbanRPM%20LLM%20Skills.md):
+
+- `/kanbanrpm-next`
+- `/kanbanrpm-brief`
+- `/kanbanrpm-plan`
+
+KanbanRPM can also generate the older single-file management brief:
 
 ```text
 More -> Management brief
@@ -218,7 +253,7 @@ Release checklist:
    - `main.js`
    - `manifest.json`
    - `styles.css`
-6. Tag the release, for example `v0.3.4`.
+6. Tag the release, for example `v0.3.5`.
 7. Push the tag to create the GitHub Release.
 
 ## Repository Layout

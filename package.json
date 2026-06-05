@@ -1,6 +1,6 @@
 {
   "name": "kanban-rpm",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Kanban-based research project manager for Obsidian.",
   "main": "main.js",
   "scripts": {
