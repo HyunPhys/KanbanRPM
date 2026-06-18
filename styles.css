@@ -443,6 +443,27 @@
   text-align: left;
 }
 
+.kanban-rpm-panel-toggles-inline {
+  position: static;
+  z-index: auto;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  margin: 4px 10px 0;
+  padding: 6px;
+  box-shadow: none;
+}
+
+.kanban-rpm-panel-toggles-inline .kanban-rpm-panel-toggle {
+  width: auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .kanban-rpm-panel-toggle.is-active {
   border-color: var(--interactive-accent);
   background: var(--interactive-accent);
@@ -2495,6 +2516,7 @@ button.kanban-rpm-status-closed,
 }
 
 .kanban-rpm-timeline-task-chip input {
+  align-self: start;
   margin: 2px 0 0;
 }
 
@@ -2529,6 +2551,43 @@ button.kanban-rpm-status-closed,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.kanban-rpm-timeline-task-source-row {
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 15px;
+  padding-right: 19px;
+}
+
+.kanban-rpm-timeline-task-edit {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  width: 16px;
+  min-width: 16px;
+  height: 13px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.kanban-rpm-timeline-task-edit svg {
+  width: 8px;
+  height: 8px;
+}
+
+.kanban-rpm-timeline-task-due {
+  justify-self: start;
+  color: var(--rpm-muted);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.kanban-rpm-timeline-task-due.is-overdue {
+  color: var(--text-error);
 }
 
 .kanban-rpm-small-action-section {
@@ -3801,6 +3860,15 @@ button.kanban-rpm-status-closed,
   right: auto;
   left: 0;
   min-width: 150px;
+}
+
+.kanban-rpm-view.is-phone .kanban-rpm-panel-toggles-inline {
+  position: static;
+  left: auto;
+  right: auto;
+  flex: 1 0 100%;
+  min-width: 0;
+  margin: 2px 0 0;
 }
 
 .kanban-rpm-view.is-phone .kanban-rpm-board-status-filter summary,

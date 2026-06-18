@@ -39,8 +39,9 @@ function extractTaskDate(textValue: string, marker: string, asciiKey: 'scheduled
 }
 
 function extractTaskPriority(textValue: string): SmallActionPriority {
-  const ascii = textValue.match(/@priority\s+(highest|high|normal|low|lowest)\b/i)?.[1]?.toLowerCase();
+  const ascii = textValue.match(/@priority\s+(highest|high|medium|normal|low|lowest)\b/i)?.[1]?.toLowerCase();
   if (ascii === 'highest' || ascii === 'high' || ascii === 'low' || ascii === 'lowest') return ascii;
+  if (ascii === 'medium') return 'medium';
   if (/\u{23EB}/u.test(textValue)) return 'highest';
   if (/\u{1F53C}/u.test(textValue)) return 'high';
   if (/\u{1F53D}/u.test(textValue)) return 'low';
@@ -52,7 +53,7 @@ function stripTaskMetadata(textValue: string): string {
   return textValue
     .replace(/[\u{1F4C5}\u{23F3}\u{2705}]\s*\d{4}-\d{2}-\d{2}/gu, '')
     .replace(/@(scheduled|due|done)\s+\d{4}-\d{2}-\d{2}/gi, '')
-    .replace(/@priority\s+(highest|high|normal|low|lowest)\b/gi, '')
+    .replace(/@priority\s+(highest|high|medium|normal|low|lowest)\b/gi, '')
     .replace(/[\u{23EB}\u{1F53C}\u{1F53D}\u{23EC}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();

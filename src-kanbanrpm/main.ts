@@ -312,6 +312,10 @@ export default class KanbanRPMPlugin extends Plugin {
     await this.repository.toggleSmallAction(action);
   }
 
+  async updateSmallActionMetadata(action: SmallAction, values: { scheduledDate: string; dueDate: string; priority: SmallAction['priority'] }): Promise<void> {
+    await this.repository.updateSmallActionMetadata(action, values);
+  }
+
   async completeRoutine(cardPath: string, routineText: string, date: string): Promise<void> {
     await this.repository.completeRoutine(cardPath, routineText, date);
   }

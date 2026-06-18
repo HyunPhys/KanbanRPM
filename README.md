@@ -58,7 +58,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.5/
+dist/kanban-rpm-0.3.6/
   main.js
   manifest.json
   styles.css
@@ -111,7 +111,7 @@ KanbanRPM is inspired by Laminar's file-based card philosophy, flow arrows, recu
 
 - `Board` view with customizable, reorderable status lanes and remembered filters.
 - `Table` view with sortable and resizable columns.
-- `Timeline` view with horizontal date columns, `Memo`, and `Routine`.
+- `Timeline` view with horizontal date columns, `Memo`, `Routine`, and inline small-action schedule editing.
 - `Gantt` view with Project/Subproject/Big Action hierarchy and date-proportional bars.
 - `Archive` view with per-Project archive folders and `Unarchive`.
 - `Project notes` strip for top-level Project documents.

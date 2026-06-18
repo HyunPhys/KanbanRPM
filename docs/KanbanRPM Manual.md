@@ -238,6 +238,7 @@ It shows:
 
 Card markers use compact icons instead of text prefixes. Small-action and recurring markers render as lightweight chips, while scheduled/review card markers keep richer card context. Timeline card markers omit the card breadcrumb so date columns stay easier to scan. Click a status badge on a Timeline marker to change status.
 If a small action has the same date as its parent card's `Scheduled date`, Timeline shows the card marker only to avoid duplicate information.
+Click the pencil icon on a standalone small-action chip to edit that small action's `@scheduled YYYY-MM-DD`, `@due YYYY-MM-DD`, and `@priority ...` values without opening the source document.
 Inside card markers, small actions are split into `Open` and `Done` sections. `Open` starts expanded, while `Done` starts collapsed.
 
 The default range is from 7 days before today through 7 days after today. You can change the base date or apply a custom date range.
@@ -358,17 +359,17 @@ Small actions are not automatically converted into cards. You can:
 Tasks-style metadata supported in checkbox text:
 
 ```markdown
-- [ ] Process data @scheduled 2026-05-18 @due 2026-05-20 @priority high
+- [ ] Process data ⏳ 2026-05-18 📅 2026-05-20 🔼
 ```
 
 KanbanRPM reads:
 
-- due date: `@due YYYY-MM-DD`
-- scheduled date: `@scheduled YYYY-MM-DD`
+- due date: `📅 YYYY-MM-DD` or `@due YYYY-MM-DD`
+- scheduled date: `⏳ YYYY-MM-DD` or `@scheduled YYYY-MM-DD`
 - done date: `✅ YYYY-MM-DD` or `@done YYYY-MM-DD`
-- priority: `@priority highest|high|normal|low|lowest`
+- priority: `⏫`, `🔼`, `🔽`, `⏬` or `@priority highest|high|normal|low|lowest`
 
-When you check a small action inside a KanbanRPM card, KanbanRPM appends today's done date as `✅ YYYY-MM-DD`. The ASCII `@done YYYY-MM-DD` form is still readable for compatibility.
+When you edit a small action from the Timeline, KanbanRPM writes emoji metadata. When you check a small action inside a KanbanRPM card, KanbanRPM appends today's done date as `✅ YYYY-MM-DD`. ASCII forms remain readable for compatibility.
 
 ## Flow
 

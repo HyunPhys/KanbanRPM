@@ -1,6 +1,6 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import type KanbanRPMPlugin from './main';
-import type { CategoryDefinition, GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, Status } from './types';
+import type { CategoryDefinition, GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, SmallAction, SmallActionMetadataValues, SmallActionPriority, Status } from './types';
 import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
@@ -117,6 +117,94 @@ export class GanttDateModal extends Modal {
 
   private async save(): Promise<void> {
     const invalid = Object.values(this.values).find((value) => value && !/^\d{4}-\d{2}-\d{2}$/.test(value));
+    if (invalid) {
+      new Notice('Dates must use YYYY-MM-DD.');
+      return;
+    }
+    await this.onSave(this.values);
+    this.close();
+  }
+}
+
+export class SmallActionMetadataModal extends Modal {
+  private values: SmallActionMetadataValues;
+  private onSave: (values: SmallActionMetadataValues) => Promise<void>;
+
+  constructor(app: App, private action: SmallAction, onSave: (values: SmallActionMetadataValues) => Promise<void>) {
+    super(app);
+    this.values = {
+      scheduledDate: action.scheduledDate,
+      dueDate: action.dueDate,
+      priority: action.priority === 'medium' ? 'normal' : action.priority,
+    };
+    this.onSave = onSave;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Edit small action' });
+    contentEl.createDiv({ cls: 'kanban-rpm-modal-help', text: this.action.text });
+
+    new Setting(contentEl)
+      .setName('Scheduled date')
+      .setDesc('Leave empty to remove the scheduled date.')
+      .addText((input) => {
+        input.inputEl.type = 'date';
+        input.setPlaceholder('YYYY-MM-DD');
+        input.setValue(this.values.scheduledDate);
+        input.onChange((value) => {
+          this.values.scheduledDate = value.trim();
+        });
+      });
+
+    new Setting(contentEl)
+      .setName('Due date')
+      .setDesc('Leave empty to remove the due date.')
+      .addText((input) => {
+        input.inputEl.type = 'date';
+        input.setPlaceholder('YYYY-MM-DD');
+        input.setValue(this.values.dueDate);
+        input.onChange((value) => {
+          this.values.dueDate = value.trim();
+        });
+      });
+
+    new Setting(contentEl)
+      .setName('Priority')
+      .setDesc('Normal priority is stored by removing the @priority token.')
+      .addDropdown((dropdown) => {
+        for (const [value, label] of [
+          ['highest', 'Highest'],
+          ['high', 'High'],
+          ['normal', 'Normal'],
+          ['low', 'Low'],
+          ['lowest', 'Lowest'],
+        ] as Array<[SmallActionPriority, string]>) {
+          dropdown.addOption(value, label);
+        }
+        dropdown.setValue(this.values.priority);
+        dropdown.onChange((value) => {
+          this.values.priority = value as SmallActionPriority;
+        });
+      });
+
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
+      .addButton((button) => {
+        button
+          .setButtonText('Save small action')
+          .setCta()
+          .onClick(() => {
+            void this.save();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText('Cancel').onClick(() => this.close());
+      });
+  }
+
+  private async save(): Promise<void> {
+    const invalid = [this.values.scheduledDate, this.values.dueDate].find((value) => value && !/^\d{4}-\d{2}-\d{2}$/.test(value));
     if (invalid) {
       new Notice('Dates must use YYYY-MM-DD.');
       return;

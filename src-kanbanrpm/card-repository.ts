@@ -403,6 +403,48 @@ export class CardRepository {
     new Notice('KanbanRPM Current Focus updated from Action index.');
   }
 
+  async updateSmallActionMetadata(action: SmallAction, values: { scheduledDate: string; dueDate: string; priority: SmallAction['priority'] }): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(action.cardPath);
+    if (!(file instanceof TFile)) return;
+
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split(/\r?\n/);
+    const index = action.lineNumber - 1;
+    const line = lines[index];
+    if (!line || line !== action.lineText) {
+      new Notice('KanbanRPM could not safely update this small action. Refresh and try again.');
+      return;
+    }
+
+    const scheduledDate = values.scheduledDate.trim();
+    const dueDate = values.dueDate.trim();
+    const priority = values.priority === 'medium' ? 'normal' : values.priority;
+    const cleaned = line
+      .replace(/\s*(?:\u{23F3}|@scheduled)\s*\d{4}-\d{2}-\d{2}/gu, '')
+      .replace(/\s*(?:\u{1F4C5}|@due)\s*\d{4}-\d{2}-\d{2}/gu, '')
+      .replace(/\s*@priority\s+(highest|high|medium|normal|low|lowest)\b/gi, '')
+      .replace(/\s*[\u{23EB}\u{1F53C}\u{1F53D}\u{23EC}]/gu, '')
+      .trimEnd();
+    const priorityToken = this.smallActionPriorityToken(priority);
+    const tokens = [
+      scheduledDate ? `\u{23F3} ${scheduledDate}` : '',
+      dueDate ? `\u{1F4C5} ${dueDate}` : '',
+      priorityToken,
+    ].filter(Boolean);
+    lines[index] = tokens.length ? `${cleaned} ${tokens.join(' ')}` : cleaned;
+    await this.plugin.app.vault.modify(file, lines.join('\n'));
+    await this.plugin.refreshViews();
+    new Notice('Small action metadata updated.');
+  }
+
+  private smallActionPriorityToken(priority: SmallAction['priority']): string {
+    if (priority === 'highest') return '\u{23EB}';
+    if (priority === 'high') return '\u{1F53C}';
+    if (priority === 'low') return '\u{1F53D}';
+    if (priority === 'lowest') return '\u{23EC}';
+    return '';
+  }
+
   async toggleSmallAction(action: SmallAction): Promise<void> {
     const file = this.plugin.app.vault.getAbstractFileByPath(action.cardPath);
     if (!(file instanceof TFile)) return;

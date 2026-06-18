@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.3.6
+
+KanbanRPM v0.3.6 is a Timeline and panel polish release focused on daily planning reliability.
+
+- Timeline marker ordering now prioritizes each item first, then groups only items with the same priority by Project/Subproject.
+- Standalone Timeline small-action chips now have a compact edit button for `Scheduled date`, `Due date`, and `Priority`.
+- Small-action metadata edits now write Tasks-style emoji metadata (`⏳`, `📅`, `⏫`, `🔼`, `🔽`, `⏬`) while continuing to read ASCII `@scheduled`, `@due`, and `@priority`.
+- Standalone small-action chips show due dates below the source row when present.
+- Timeline horizontal scroll position is preserved across card refreshes after editing source documents.
+- The `Panels` toggle now expands into a visible inline row, fixing the hidden dropdown caused by filter-row overflow.
+
 ## v0.3.5
 
 KanbanRPM v0.3.5 adds the layered LLM context read model for project-management discussions.

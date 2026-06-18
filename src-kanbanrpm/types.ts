@@ -198,6 +198,12 @@ export interface SmallAction {
   raw: string;
 }
 
+export interface SmallActionMetadataValues {
+  scheduledDate: string;
+  dueDate: string;
+  priority: SmallActionPriority;
+}
+
 export interface CardDisplaySettings {
   breadcrumb: boolean;
   type: boolean;
