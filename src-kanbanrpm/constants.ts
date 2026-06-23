@@ -1,4 +1,4 @@
-import type { CategoryDefinition, KanbanRPMSettings, Lane, StatusDefinition } from './types';
+import type { CategoryDefinition, CommunicationType, KanbanRPMSettings, Lane, StatusDefinition } from './types';
 
 export const VIEW_TYPE = 'kanban-rpm-board';
 
@@ -27,6 +27,14 @@ export const HIERARCHY_LEVELS = [
   { id: 'subproject', label: 'Subproject', cardType: 'subproject' },
 ] as const;
 
+export const COMMUNICATION_TYPES: Array<{ id: CommunicationType; label: string; folder: string }> = [
+  { id: 'meeting_internal', label: 'Meeting (Internal)', folder: 'Meeting (Internal)' },
+  { id: 'meeting_external', label: 'Meeting (External)', folder: 'Meeting (External)' },
+  { id: 'call', label: 'Call', folder: 'Call' },
+  { id: 'chat', label: 'Chat', folder: 'Chat' },
+  { id: 'email', label: 'Email', folder: 'Email' },
+];
+
 export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   workspaceFolder: 'KanbanRPM Workspace',
   statuses: DEFAULT_STATUSES,
@@ -54,6 +62,8 @@ export const DEFAULT_SETTINGS: KanbanRPMSettings = {
   showGanttBigActions: true,
   boardZoom: 1,
   timelineZoom: 1,
+  timelineScrollLeft: null,
+  timelineScrollTop: null,
   ganttZoom: 1,
   newCardAdvancedOpen: false,
   timelineStatusFilter: ['active'],

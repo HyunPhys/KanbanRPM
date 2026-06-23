@@ -4,7 +4,7 @@ import { Platform } from 'obsidian';
 import { addDays, daysBetween, dateRange, endOfMonth, formatDate, isIsoDate, monthRange, todayIso } from './date-utils';
 import { Menu } from 'obsidian';
 import { Notice } from 'obsidian';
-import { ConfirmCardActionModal, EditProjectCardModal, GanttDateModal, NewProjectCardModal, SmallActionMetadataModal, TimelineMemoModal } from './modals';
+import { ConfirmCardActionModal, EditProjectCardModal, GanttDateModal, NewCommunicationSourceModal, NewProjectCardModal, SmallActionMetadataModal, TimelineMemoModal } from './modals';
 import type KanbanRPMPlugin from './main';
 import type { ActionItem, CardIssue, Lane, ProjectCard, RecurringItem, ResearchLogEntry, SmallAction, Status, TimelineScope, ViewMode } from './types';
 import { categoryLabel, compareCards, isDueSoon, isPastDate, toDateSortValue } from './utils';
@@ -72,6 +72,8 @@ export class KanbanRPMView extends ItemView {
   private timelineZoom = 1;
   private ganttZoom = 1;
   private timelineScrollLeft: number | null = null;
+  private timelineScrollTop: number | null = null;
+  private timelineScrollSaveTimer?: number;
   private projectNotesCollapsed = false;
   private phoneFiltersExpanded = false;
   private phoneTimelineControlsExpanded = false;
@@ -94,6 +96,8 @@ export class KanbanRPMView extends ItemView {
     this.showGanttBigActions = plugin.settings.showGanttBigActions;
     this.boardZoom = plugin.settings.boardZoom;
     this.timelineZoom = plugin.settings.timelineZoom;
+    this.timelineScrollLeft = plugin.settings.timelineScrollLeft;
+    this.timelineScrollTop = plugin.settings.timelineScrollTop;
     this.ganttZoom = plugin.settings.ganttZoom;
   }
 
@@ -219,6 +223,9 @@ export class KanbanRPMView extends ItemView {
 
     if (this.toolbarExpanded) {
       const secondary = container.createDiv({ cls: 'kanban-rpm-toolbar-secondary' });
+      secondary.createEl('button', { text: 'New communication note' }).addEventListener('click', () => {
+        new NewCommunicationSourceModal(this.app, this.plugin).open();
+      });
       secondary.createEl('button', { text: 'Management brief' }).addEventListener('click', () => {
         void this.plugin.writeManagementBrief(visibleCards);
       });
@@ -2068,7 +2075,7 @@ export class KanbanRPMView extends ItemView {
 
     const viewport = main.createDiv({ cls: 'kanban-rpm-timeline-viewport' });
     viewport.addEventListener('scroll', () => {
-      this.timelineScrollLeft = viewport.scrollLeft;
+      this.rememberTimelineScroll(viewport.scrollLeft, viewport.scrollTop);
     });
     const board = viewport.createDiv({ cls: 'kanban-rpm-timeline-board' });
     this.applySurfaceZoom(board, this.timelineZoom);
@@ -2105,11 +2112,15 @@ export class KanbanRPMView extends ItemView {
     if (this.timelineScrollLeft !== null) {
       setTimeout(() => {
         viewport.scrollLeft = Math.min(this.timelineScrollLeft ?? 0, Math.max(0, viewport.scrollWidth - viewport.clientWidth));
+        viewport.scrollTop = Math.min(this.timelineScrollTop ?? 0, Math.max(0, viewport.scrollHeight - viewport.clientHeight));
       }, 0);
     } else if (days.includes(this.timelineBaseDate)) {
       setTimeout(() => {
         const todayColumn = board.querySelector<HTMLElement>(`[data-day="${this.timelineBaseDate}"]`);
         todayColumn?.scrollIntoView({ block: 'nearest', inline: 'start' });
+        if (this.timelineScrollTop !== null) {
+          viewport.scrollTop = Math.min(this.timelineScrollTop, Math.max(0, viewport.scrollHeight - viewport.clientHeight));
+        }
       }, 0);
     }
   }
@@ -2150,7 +2161,7 @@ export class KanbanRPMView extends ItemView {
         open.createSpan({ cls: 'kanban-rpm-timeline-routine-text', text: item.text });
         open.createSpan({ cls: 'kanban-rpm-timeline-routine-meta', text: `${card.title} - next ${nextDate.slice(5)}` });
         open.addEventListener('click', () => {
-          void this.plugin.openCard(card);
+          this.openCardPreservingTimelineScroll(card);
         });
         row.createEl('button', { cls: 'kanban-rpm-timeline-routine-done', text: 'Done' }).addEventListener('click', () => {
           void this.plugin.completeRoutine(card.path, item.text, todayIso());
@@ -2592,8 +2603,11 @@ export class KanbanRPMView extends ItemView {
     titleRow.createSpan({ cls: 'kanban-rpm-timeline-marker-icon', text: this.timelineMarkerIcon(marker.kind) });
     const label = titleRow.createEl('button', { cls: 'kanban-rpm-timeline-marker-title', text: marker.label });
     label.addEventListener('click', () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
+    if (marker.card.nextAction) {
+      item.createDiv({ cls: 'kanban-rpm-timeline-marker-focus', text: marker.card.nextAction });
+    }
     const meta = item.createDiv({ cls: 'kanban-rpm-timeline-marker-meta' });
     const badges = meta.createDiv({ cls: 'kanban-rpm-timeline-marker-badges' });
     this.renderStatusBadge(badges, marker.card.status, undefined, 'button').addEventListener('click', (event) => {
@@ -2639,7 +2653,7 @@ export class KanbanRPMView extends ItemView {
     }
     const text = chip.createDiv({ cls: 'kanban-rpm-timeline-task-text' });
     text.createEl('button', { cls: 'kanban-rpm-timeline-task-title', text: marker.label }).addEventListener('click', () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
     const sourceRow = text.createDiv({ cls: 'kanban-rpm-timeline-task-source-row' });
     sourceRow.createSpan({ cls: 'kanban-rpm-timeline-task-source', text: marker.card.title });
@@ -2663,7 +2677,7 @@ export class KanbanRPMView extends ItemView {
     chip.createSpan({ cls: 'kanban-rpm-timeline-recurring-icon', text: '?' });
     chip.createSpan({ cls: 'kanban-rpm-timeline-recurring-text', text: marker.label.replace(/^(daily|weekly|monthly|custom):\s*/, '') });
     chip.addEventListener('click', () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
   }
 
@@ -2890,6 +2904,40 @@ export class KanbanRPMView extends ItemView {
 
   private resetTimelineScroll(): void {
     this.timelineScrollLeft = null;
+    this.timelineScrollTop = null;
+    this.plugin.settings.timelineScrollLeft = null;
+    this.plugin.settings.timelineScrollTop = null;
+    void this.plugin.saveSettings();
+  }
+
+  private rememberTimelineScroll(scrollLeft: number, scrollTop: number): void {
+    const nextLeft = Math.max(0, Math.round(scrollLeft));
+    const nextTop = Math.max(0, Math.round(scrollTop));
+    this.timelineScrollLeft = nextLeft;
+    this.timelineScrollTop = nextTop;
+    this.plugin.settings.timelineScrollLeft = nextLeft;
+    this.plugin.settings.timelineScrollTop = nextTop;
+    this.scheduleTimelineScrollSave();
+  }
+
+  private preserveTimelineScrollFromDom(): void {
+    const viewport = this.containerEl.querySelector<HTMLElement>('.kanban-rpm-timeline-viewport');
+    if (!viewport) return;
+    this.rememberTimelineScroll(viewport.scrollLeft, viewport.scrollTop);
+    void this.plugin.saveSettings();
+  }
+
+  private openCardPreservingTimelineScroll(card: ProjectCard): void {
+    if (this.viewMode === 'timeline') this.preserveTimelineScrollFromDom();
+    void this.plugin.openCard(card);
+  }
+
+  private scheduleTimelineScrollSave(): void {
+    if (this.timelineScrollSaveTimer !== undefined) window.clearTimeout(this.timelineScrollSaveTimer);
+    this.timelineScrollSaveTimer = window.setTimeout(() => {
+      this.timelineScrollSaveTimer = undefined;
+      void this.plugin.saveSettings();
+    }, 400);
   }
 
   private ganttMonthSegments(start: string, end: string): GanttSegment[] {

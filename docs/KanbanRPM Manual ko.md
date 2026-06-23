@@ -86,6 +86,7 @@ KanbanRPM은 필요할 때 다음 workspace를 만듭니다.
 ```text
 KanbanRPM Workspace/
   cards/
+  communications/
   routines/
   timeline/
   attachments/
@@ -403,6 +404,46 @@ Flow는 다음 위치에 표시됩니다.
 - `Preceded`, `Followed`, `Blocked` badge
 - broken/circular flow에 대한 `Data warnings`
 
+## Communication Source Notes
+
+미팅, 전화, chat, email source note는 `KanbanRPM: New communication source note` 또는 `More -> New communication note`로 만들 수 있습니다.
+
+modal에서 입력하는 항목:
+
+- `Title`
+- `Type`: `Meeting (Internal)`, `Meeting (External)`, `Call`, `Chat`, `Email`
+- `Date`
+- `Participants`
+- `Note`
+
+`Participants`는 comma/newline으로 직접 입력할 수 있습니다. KanbanRPM은 이전 communication source note에 나온 participant를 빈도순으로 추천합니다. 추천 participant를 클릭하면 `Participants` field에 추가되고, 이미 들어간 이름은 중복 추가하지 않습니다.
+
+source note는 연도와 type별 폴더에 저장됩니다.
+
+```text
+KanbanRPM Workspace/communications/YYYY/Meeting (Internal)/
+KanbanRPM Workspace/communications/YYYY/Meeting (External)/
+KanbanRPM Workspace/communications/YYYY/Call/
+KanbanRPM Workspace/communications/YYYY/Chat/
+KanbanRPM Workspace/communications/YYYY/Email/
+```
+
+KanbanRPM은 연도별 log도 갱신합니다.
+
+```text
+KanbanRPM Workspace/communications/Communication Log (YYYY).md
+```
+
+log는 communication type별 heading과 Markdown table로 구성됩니다.
+
+```markdown
+| Date | Source Note | Participants | Note |
+| --- | --- | --- | --- |
+| 2026-06-23 | [[Weekly lab meeting]] | Prof. Kim, collaborator | Discussed next experiment |
+```
+
+Communication source note는 Project/Subproject/Big Action 문서를 자동 수정하지 않습니다. 필요한 프로젝트 문서에는 사용자가 직접 링크하거나 요약하면 됩니다.
+
 ## Research Logs
 
 KanbanRPM은 별도의 `record` card type을 만들지 않고 Experiment/Analysis log를 지원합니다.
@@ -577,7 +618,7 @@ KanbanRPM Workspace/LLM/
 - `01 Next Work Candidates.md`: active가 아닌 card 중 다음에 activate할 후보.
 - `02 Project Map.md`: compact hierarchy map.
 - `03 Recent Changes.md`: 최근 card `Timeline Log` 변경.
-- `04 Open Loops.md`: waiting, blocked, blocked-by, next action 누락 항목.
+- `04 Open Loops.md`: waiting, blocked, blocked-by, Current Focus 누락 항목.
 - `Project Briefs/*.md`: Project별 briefing 문서.
 
 Layered context는 두 가지 workflow에 사용합니다.
@@ -620,7 +661,7 @@ brief에 포함되는 내용:
 - project health
 - project sections
 - upcoming dates
-- next actions
+- Current Focus items
 - open small actions
 - waiting/blocking state
 - flow risks
@@ -636,7 +677,7 @@ Give me:
 1. What needs attention this week.
 2. Which Projects are blocked or stale.
 3. Which Big Actions should be converted, split, archived, or closed.
-4. Which next actions should be pulled into today.
+4. Which Current Focus items should be pulled into today.
 5. Any missing metadata or unclear hierarchy.
 Do not rewrite my notes unless I explicitly ask.
 ```

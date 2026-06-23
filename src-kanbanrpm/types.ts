@@ -21,6 +21,8 @@ export interface KanbanRPMSettings {
   showGanttBigActions: boolean;
   boardZoom: number;
   timelineZoom: number;
+  timelineScrollLeft: number | null;
+  timelineScrollTop: number | null;
   ganttZoom: number;
   newCardAdvancedOpen: boolean;
   timelineStatusFilter: string[];
@@ -170,6 +172,21 @@ export interface ResearchLogValues {
   conditionsOrMethod: string;
   result: string;
   link: string;
+}
+
+export type CommunicationType = 'meeting_internal' | 'meeting_external' | 'call' | 'chat' | 'email';
+
+export interface CommunicationSourceValues {
+  title: string;
+  type: CommunicationType;
+  date: string;
+  participants: string;
+  note: string;
+}
+
+export interface ParticipantSuggestion {
+  name: string;
+  count: number;
 }
 
 export interface GanttDateValues {

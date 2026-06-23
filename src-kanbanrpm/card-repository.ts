@@ -1,6 +1,7 @@
 ﻿import { Notice, TFile, normalizePath, parseYaml, stringifyYaml } from 'obsidian';
 import type KanbanRPMPlugin from './main';
 import { TFolder } from 'obsidian';
+import { COMMUNICATION_TYPES } from './constants';
 import { addDays, daysBetween, formatDate, todayIso } from './date-utils';
 import {
   findHeadingSection,
@@ -15,8 +16,10 @@ import type {
   ActionItem,
   CardIssue,
   CardIssueLevel,
+  CommunicationSourceValues,
   GanttDateValues,
   NewCardValues,
+  ParticipantSuggestion,
   ProjectCard,
   ResearchLogEntry,
   ResearchLogValues,
@@ -181,6 +184,42 @@ export class CardRepository {
     new Notice(`KanbanRPM card created: ${title}`);
     await this.plugin.refreshViews();
     return file;
+  }
+
+  async createCommunicationSourceNote(values: CommunicationSourceValues): Promise<TFile> {
+    await this.plugin.ensureWorkspace();
+
+    const title = values.title.trim();
+    const baseName = sanitizeFileName(title);
+    const year = this.communicationYear(values.date);
+    const type = this.communicationTypeDefinition(values.type);
+    const folder = normalizePath(`${this.plugin.communicationsFolder}/${year}/${type.folder}`);
+    await this.ensureFolder(folder);
+
+    const path = this.getAvailablePath(folder, baseName, 'md');
+    const participants = textareaToList(values.participants);
+    const file = await this.plugin.app.vault.create(path, this.getCommunicationSourceTemplate(values, participants));
+    await this.prependCommunicationLogRow(file, values, participants);
+    new Notice(`KanbanRPM communication note created: ${title}`);
+    await this.plugin.app.workspace.getLeaf(false).openFile(file);
+    return file;
+  }
+
+  async loadParticipantSuggestions(): Promise<ParticipantSuggestion[]> {
+    const root = `${this.plugin.communicationsFolder}/`;
+    const counts = new Map<string, number>();
+    for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+      if (!normalizePath(file.path).startsWith(root)) continue;
+      const content = await this.plugin.app.vault.cachedRead(file);
+      const frontmatter = this.parseFirstFrontmatter(content);
+      if (text(frontmatter.type) !== 'communication') continue;
+      for (const participant of toStringList(frontmatter.participants)) {
+        counts.set(participant, (counts.get(participant) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }
 
   async updateCardFrontmatter(file: TFile, updates: Record<string, unknown>, refresh = true): Promise<void> {
@@ -908,7 +947,7 @@ Suggested prompt:
 Read this candidate list and recommend 3 cards to activate next. Explain tradeoffs: urgency, importance, dependency state, cognitive load, and research value. Ask questions if the best choice depends on missing context.
 \`\`\`
 
-| Candidate | Type | Project | Subproject | Status | Priority | Score | Why candidate | Next action | Dates |
+| Candidate | Type | Project | Subproject | Status | Priority | Score | Why candidate | Current focus | Dates |
 | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
 ${rows || '| No candidates |  |  |  |  |  |  |  |  |  |'}
 `;
@@ -971,9 +1010,9 @@ ${rows || '| No recent changes found |  |  |  |  |  |'}
 
 Generated: ${today}
 
-Waiting, blocker, blocked-by, and missing-next-action items for PM review.
+Waiting, blocker, blocked-by, and missing-current-focus items for PM review.
 
-| Card | Type | Status | Priority | Waiting | Blocker / blocked by | Next action |
+| Card | Type | Status | Priority | Waiting | Blocker / blocked by | Current focus |
 | --- | --- | --- | ---: | --- | --- | --- |
 ${rows || '| No open loops found |  |  |  |  |  |  |'}
 `;
@@ -1098,8 +1137,8 @@ ${recent.length ? recent.map((item) => `- ${item.date} ${item.item} (${item.type
     if (card.dueDate && card.dueDate < today) reasons.push('due overdue');
     else if (card.dueDate && card.dueDate <= soon) reasons.push('due soon');
     if (card.nextReview && card.nextReview <= today) reasons.push('review due');
-    if (card.nextAction) reasons.push('clear next action');
-    else reasons.push('needs next action clarification');
+    if (card.nextAction) reasons.push('clear current focus');
+    else reasons.push('needs current focus clarification');
     if (card.waitingFor) reasons.push(`waiting: ${card.waitingFor}`);
     if (card.blocker || card.blockedBy.length) reasons.push('blocked; discuss before activation');
     if (this.hasActiveParent(card, cards)) reasons.push('parent is active');
@@ -1314,9 +1353,9 @@ ${this.renderBriefProjectSections(sorted)}
 
 ${dueSoon.length ? dueSoon.map((card) => this.renderBriefCardLine(card, true)).join('\n') : '- No due/review dates in the next 14 days.'}
 
-## Next Actions
+## Current Focus
 
-${nextActionRows || '- No explicit next actions.'}
+${nextActionRows || '- No explicit current focus items.'}
 
 ## Open Small Actions
 
@@ -1573,6 +1612,56 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     }
 
     return { frontmatters, bodyStart: cursor };
+  }
+
+  private getCommunicationSourceTemplate(values: CommunicationSourceValues, participants: string[]): string {
+    return `---\nkanban_rpm: true\ntype: communication\ncommunication_type: ${yamlScalar(values.type)}\ndate: ${yamlScalar(values.date)}\nparticipants: ${yamlArray(participants)}\nnote: ${yamlScalar(values.note.trim())}\n---\n\n# Summary\n%% What was discussed in 3-5 bullets. %%\n\n# Decisions\n%% Record concrete decisions and why they were made. %%\n\n# Follow-up Actions\n%% Keep action items as checkboxes. Link or copy important ones into KanbanRPM cards manually. %%\n\n- [ ] \n\n# Context\n%% Add background, links, email/thread references, or meeting context. %%\n\n# Raw Notes\n%% Paste or write raw notes here. %%\n`;
+  }
+
+  private async prependCommunicationLogRow(file: TFile, values: CommunicationSourceValues, participants: string[]): Promise<void> {
+    const logFile = await this.getCommunicationLogFile(this.communicationYear(values.date));
+    const content = await this.plugin.app.vault.read(logFile);
+    const type = this.communicationTypeDefinition(values.type);
+    const row = `| ${this.escapeTableCell(values.date)} | [[${this.escapeTableCell(file.basename)}]] | ${this.escapeTableCell(participants.join(', '))} | ${this.escapeTableCell(values.note)} |`;
+    const next = this.prependCommunicationRow(content, type.label, row);
+    await this.plugin.app.vault.modify(logFile, next);
+  }
+
+  private async getCommunicationLogFile(year: string): Promise<TFile> {
+    const path = normalizePath(`${this.plugin.communicationsFolder}/Communication Log (${year}).md`);
+    const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) return existing;
+    await this.ensureFolder(this.plugin.communicationsFolder);
+    return this.plugin.app.vault.create(path, this.getCommunicationLogTemplate(year));
+  }
+
+  private getCommunicationLogTemplate(year: string): string {
+    const sections = COMMUNICATION_TYPES
+      .map((type) => `## ${type.label}\n\n| Date | Source Note | Participants | Note |\n| --- | --- | --- | --- |`)
+      .join('\n\n');
+    return `# Communication Log (${year})\n\n${sections}\n`;
+  }
+
+  private prependCommunicationRow(content: string, sectionTitle: string, row: string): string {
+    const tableHeader = '| Date | Source Note | Participants | Note |\n| --- | --- | --- | --- |';
+    const existing = findHeadingSection(content, sectionTitle);
+    if (!existing) return replaceSection(content, sectionTitle, `${tableHeader}\n${row}`);
+
+    const body = content.slice(existing.bodyStart, existing.end).trim();
+    const normalized = body.includes('| Date | Source Note | Participants | Note |') ? body : `${tableHeader}\n${body}`;
+    const lines = normalized.split(/\r?\n/);
+    const insertIndex = lines.findIndex((line) => /^\|\s*---/.test(line));
+    if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+    else lines.unshift(row);
+    return `${content.slice(0, existing.bodyStart)}\n\n${lines.join('\n')}\n${content.slice(existing.end)}`;
+  }
+
+  private communicationYear(date: string): string {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(0, 4) : todayIso().slice(0, 4);
+  }
+
+  private communicationTypeDefinition(id: CommunicationSourceValues['type']): typeof COMMUNICATION_TYPES[number] {
+    return COMMUNICATION_TYPES.find((type) => type.id === id) ?? COMMUNICATION_TYPES[0];
   }
 
   private async getCreationFolder(values: NewCardValues): Promise<string> {

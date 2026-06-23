@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.3.7
+
+KanbanRPM v0.3.7 adds communication source notes and small terminology/UI refinements.
+
+- Removed the experimental `Capture communication` command and More-menu action. Meeting notes can be linked and summarized manually inside the relevant living documents.
+- Added `New communication source note` for `Meeting (Internal)`, `Meeting (External)`, `Call`, `Chat`, and `Email` notes under `KanbanRPM Workspace/communications/`.
+- Added yearly `Communication Log (YYYY).md` files and participant suggestions sorted by prior usage frequency.
+- Standardized user-facing `Next action` wording to `Current focus`.
+- Timeline card markers now show each card's `Current focus`.
+- Timeline view now preserves both horizontal and vertical scroll positions.
+
 ## v0.3.6
 
 KanbanRPM v0.3.6 is a Timeline and panel polish release focused on daily planning reliability.

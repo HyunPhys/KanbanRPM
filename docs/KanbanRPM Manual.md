@@ -84,6 +84,7 @@ KanbanRPM creates this workspace when needed:
 ```text
 KanbanRPM Workspace/
   cards/
+  communications/
   routines/
   timeline/
   attachments/
@@ -401,6 +402,46 @@ Flow appears as:
 - badges such as `Preceded`, `Followed`, and `Blocked`
 - `Data warnings` for broken or circular flow
 
+## Communication Source Notes
+
+Use `KanbanRPM: New communication source note` or `More -> New communication note` to create meeting, call, chat, and email source notes.
+
+The modal asks for:
+
+- `Title`
+- `Type`: `Meeting (Internal)`, `Meeting (External)`, `Call`, `Chat`, or `Email`
+- `Date`
+- `Participants`
+- `Note`
+
+Participants can be typed manually with comma/newline separation. KanbanRPM also suggests previously used participants, sorted by frequency. Clicking a suggestion adds it to the Participants field without duplicating an existing name.
+
+Source notes are stored by year and type:
+
+```text
+KanbanRPM Workspace/communications/YYYY/Meeting (Internal)/
+KanbanRPM Workspace/communications/YYYY/Meeting (External)/
+KanbanRPM Workspace/communications/YYYY/Call/
+KanbanRPM Workspace/communications/YYYY/Chat/
+KanbanRPM Workspace/communications/YYYY/Email/
+```
+
+KanbanRPM also updates a yearly log:
+
+```text
+KanbanRPM Workspace/communications/Communication Log (YYYY).md
+```
+
+The log groups entries by communication type and keeps a Markdown table:
+
+```markdown
+| Date | Source Note | Participants | Note |
+| --- | --- | --- | --- |
+| 2026-06-23 | [[Weekly lab meeting]] | Prof. Kim, collaborator | Discussed next experiment |
+```
+
+Communication source notes do not automatically modify Project/Subproject/Big Action documents. Link or summarize them manually where they matter.
+
 ## Research Logs
 
 KanbanRPM supports assisted Experiment/Analysis logging without creating a separate `record` card type.
@@ -575,7 +616,7 @@ The generated context includes:
 - `01 Next Work Candidates.md`: non-active cards that may be good candidates to activate next.
 - `02 Project Map.md`: compact hierarchy map.
 - `03 Recent Changes.md`: recent card `Timeline Log` changes.
-- `04 Open Loops.md`: waiting, blocked, blocked-by, and missing-next-action items.
+- `04 Open Loops.md`: waiting, blocked, blocked-by, and missing-current-focus items.
 - `Project Briefs/*.md`: per-Project briefing files.
 
 Use the layered context for two workflows:
@@ -618,7 +659,7 @@ The brief summarizes:
 - project health
 - project sections
 - upcoming dates
-- next actions
+- current focus items
 - open small actions
 - waiting/blocking state
 - flow risks
@@ -636,7 +677,7 @@ Give me:
 1. What needs attention this week.
 2. Which Projects are blocked or stale.
 3. Which Big Actions should be converted, split, archived, or closed.
-4. Which next actions should be pulled into today.
+4. Which Current Focus items should be pulled into today.
 5. Any missing metadata or unclear hierarchy.
 Do not rewrite my notes unless I explicitly ask.
 ```

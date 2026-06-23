@@ -8,10 +8,10 @@ import {
 import { KanbanRPMView } from './board-view';
 import { CardRepository } from './card-repository';
 import { DEFAULT_SETTINGS, VIEW_TYPE } from './constants';
-import { NewProjectCardModal, ResearchLogModal } from './modals';
+import { NewCommunicationSourceModal, NewProjectCardModal, ResearchLogModal } from './modals';
 import { getSchemaReferenceContent } from './schema';
 import { KanbanRPMSettingTab } from './settings-tab';
-import type { ActionItem, CardIssue, GanttDateValues, KanbanRPMSettings, NewCardValues, ProjectCard, ResearchLogEntry, ResearchLogKind, ResearchLogValues, SmallAction, Status } from './types';
+import type { ActionItem, CardIssue, CommunicationSourceValues, GanttDateValues, KanbanRPMSettings, NewCardValues, ParticipantSuggestion, ProjectCard, ResearchLogEntry, ResearchLogKind, ResearchLogValues, SmallAction, Status } from './types';
 import { normalizeCategoryDefinitions } from './utils';
 
 export default class KanbanRPMPlugin extends Plugin {
@@ -39,6 +39,12 @@ export default class KanbanRPMPlugin extends Plugin {
       id: 'new-project-card',
       name: 'New document',
       callback: () => new NewProjectCardModal(this.app, this).open(),
+    });
+
+    this.addCommand({
+      id: 'new-communication-source-note',
+      name: 'New communication source note',
+      callback: () => new NewCommunicationSourceModal(this.app, this).open(),
     });
 
     this.addCommand({
@@ -96,6 +102,8 @@ export default class KanbanRPMPlugin extends Plugin {
       showGanttBigActions: saved.showGanttBigActions ?? DEFAULT_SETTINGS.showGanttBigActions,
       boardZoom: this.normalizeZoom(saved.boardZoom, DEFAULT_SETTINGS.boardZoom),
       timelineZoom: this.normalizeZoom(saved.timelineZoom, DEFAULT_SETTINGS.timelineZoom),
+      timelineScrollLeft: this.normalizeScrollPosition(saved.timelineScrollLeft),
+      timelineScrollTop: this.normalizeScrollPosition(saved.timelineScrollTop),
       ganttZoom: this.normalizeZoom(saved.ganttZoom, DEFAULT_SETTINGS.ganttZoom),
       newCardAdvancedOpen: saved.newCardAdvancedOpen ?? DEFAULT_SETTINGS.newCardAdvancedOpen,
       timelineStatusFilter: saved.timelineStatusFilter?.length ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
@@ -112,6 +120,10 @@ export default class KanbanRPMPlugin extends Plugin {
 
   private normalizeZoom(value: unknown, fallback: number): number {
     return typeof value === 'number' && Number.isFinite(value) ? Math.min(1.4, Math.max(0.7, value)) : fallback;
+  }
+
+  private normalizeScrollPosition(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : null;
   }
 
   private normalizeViewFilters(saved: Partial<KanbanRPMSettings>): KanbanRPMSettings['viewFilters'] {
@@ -209,6 +221,10 @@ export default class KanbanRPMPlugin extends Plugin {
     return normalizePath(`${this.workspaceFolder}/Research Logs.md`);
   }
 
+  get communicationsFolder(): string {
+    return normalizePath(`${this.workspaceFolder}/communications`);
+  }
+
   isCardPath(path: string): boolean {
     return normalizePath(path).startsWith(`${this.cardsFolder}/`);
   }
@@ -257,6 +273,14 @@ export default class KanbanRPMPlugin extends Plugin {
     return this.repository.createCard(values);
   }
 
+  async createCommunicationSourceNote(values: CommunicationSourceValues): Promise<TFile> {
+    return this.repository.createCommunicationSourceNote(values);
+  }
+
+  async loadParticipantSuggestions(): Promise<ParticipantSuggestion[]> {
+    return this.repository.loadParticipantSuggestions();
+  }
+
   async updateCardFrontmatter(file: TFile, updates: Record<string, unknown>): Promise<void> {
     await this.repository.updateCardFrontmatter(file, updates);
   }
@@ -302,6 +326,11 @@ export default class KanbanRPMPlugin extends Plugin {
 
   async setNextAction(cardPath: string, nextAction: string): Promise<void> {
     await this.repository.setNextAction(cardPath, nextAction);
+  }
+
+  private activeSourceNoteLink(): string {
+    const file = this.app.workspace.getActiveFile();
+    return file instanceof TFile ? `[[${file.basename}]]` : '';
   }
 
   async promoteActionToBigAction(action: ActionItem): Promise<TFile> {

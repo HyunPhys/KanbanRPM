@@ -1,6 +1,20 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
+import { COMMUNICATION_TYPES } from './constants';
 import type KanbanRPMPlugin from './main';
-import type { CategoryDefinition, GanttDateValues, NewCardValues, ProjectCard, ResearchLogKind, ResearchLogValues, SmallAction, SmallActionMetadataValues, SmallActionPriority, Status } from './types';
+import type {
+  CategoryDefinition,
+  CommunicationSourceValues,
+  GanttDateValues,
+  NewCardValues,
+  ParticipantSuggestion,
+  ProjectCard,
+  ResearchLogKind,
+  ResearchLogValues,
+  SmallAction,
+  SmallActionMetadataValues,
+  SmallActionPriority,
+  Status,
+} from './types';
 import { isStatus } from './utils';
 
 type ListFieldKey = keyof Pick<NewCardValues, 'dependsOn' | 'blocks' | 'sourceNotes' | 'projects' | 'subprojects'>;
@@ -211,6 +225,143 @@ export class SmallActionMetadataModal extends Modal {
     }
     await this.onSave(this.values);
     this.close();
+  }
+}
+
+export class NewCommunicationSourceModal extends Modal {
+  private values: CommunicationSourceValues = {
+    title: '',
+    type: 'meeting_internal',
+    date: this.today(),
+    participants: '',
+    note: '',
+  };
+  private suggestions: ParticipantSuggestion[] = [];
+  private participantsInput?: HTMLTextAreaElement;
+
+  constructor(app: App, private plugin: KanbanRPMPlugin) {
+    super(app);
+  }
+
+  async onOpen(): Promise<void> {
+    this.suggestions = await this.plugin.loadParticipantSuggestions();
+    this.renderForm();
+  }
+
+  private renderForm(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('kanban-rpm-card-modal');
+    contentEl.createEl('h2', { text: 'New communication source note' });
+    contentEl.createDiv({
+      cls: 'kanban-rpm-modal-help',
+      text: 'Create a source note and add it to the yearly Communication Log. Project documents are not modified.',
+    });
+
+    this.markRequired(new Setting(contentEl).setName('Title')).addText((input) => {
+      input.setPlaceholder('Weekly lab meeting');
+      input.setValue(this.values.title);
+      input.onChange((value) => {
+        this.values.title = value;
+      });
+    });
+
+    const grid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
+    this.markRequired(new Setting(grid).setName('Type')).addDropdown((dropdown) => {
+      for (const type of COMMUNICATION_TYPES) dropdown.addOption(type.id, type.label);
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (COMMUNICATION_TYPES.some((type) => type.id === value)) this.values.type = value as CommunicationSourceValues['type'];
+      });
+    });
+
+    this.markRequired(new Setting(grid).setName('Date')).addText((input) => {
+      input.inputEl.type = 'date';
+      input.setValue(this.values.date);
+      input.onChange((value) => {
+        this.values.date = value.trim();
+      });
+    });
+
+    new Setting(contentEl).setName('Participants').setDesc('Comma or newline separated. You can also add frequent participants below.').addTextArea((input) => {
+      input.setPlaceholder('Prof. Kim, vendor, collaborator');
+      input.setValue(this.values.participants);
+      this.participantsInput = input.inputEl;
+      input.onChange((value) => {
+        this.values.participants = value;
+      });
+    });
+
+    this.renderParticipantSuggestions(contentEl);
+
+    new Setting(contentEl).setName('Note').addTextArea((input) => {
+      input.setPlaceholder('Short note for the Communication Log');
+      input.setValue(this.values.note);
+      input.onChange((value) => {
+        this.values.note = value;
+      });
+    });
+
+    new Setting(contentEl.createDiv({ cls: 'kanban-rpm-modal-footer' }))
+      .addButton((button) => {
+        button
+          .setButtonText('Create source note')
+          .setCta()
+          .onClick(() => {
+            void this.createSourceNote();
+          });
+      })
+      .addButton((button) => {
+        button.setButtonText('Cancel').onClick(() => this.close());
+      });
+  }
+
+  private renderParticipantSuggestions(container: HTMLElement): void {
+    const box = container.createDiv({ cls: 'kanban-rpm-participant-suggestions' });
+    box.createDiv({ cls: 'kanban-rpm-modal-help', text: this.suggestions.length ? 'Frequent participants' : 'No participant suggestions yet.' });
+    const list = box.createDiv({ cls: 'kanban-rpm-participant-suggestion-list' });
+    for (const suggestion of this.suggestions.slice(0, 24)) {
+      const button = list.createEl('button', {
+        cls: 'kanban-rpm-participant-suggestion',
+        text: `${suggestion.name} (${suggestion.count})`,
+      });
+      button.addEventListener('click', () => this.addParticipant(suggestion.name));
+    }
+  }
+
+  private addParticipant(name: string): void {
+    const parts = this.parseParticipants(this.values.participants);
+    if (!parts.some((part) => part === name)) parts.push(name);
+    this.values.participants = parts.join(', ');
+    if (this.participantsInput) this.participantsInput.value = this.values.participants;
+  }
+
+  private parseParticipants(value: string): string[] {
+    return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  private async createSourceNote(): Promise<void> {
+    if (!this.values.title.trim()) {
+      new Notice('Title is required.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.values.date)) {
+      new Notice('Date must use YYYY-MM-DD.');
+      return;
+    }
+    await this.plugin.createCommunicationSourceNote(this.values);
+    this.close();
+  }
+
+  private markRequired(setting: Setting, desc?: string): Setting {
+    setting.nameEl.createSpan({ cls: 'kanban-rpm-required', text: ' *' });
+    if (desc) setting.setDesc(desc);
+    return setting;
+  }
+
+  private today(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
 }
 
@@ -595,7 +746,7 @@ export class EditProjectCardModal extends Modal {
     const grid = contentEl.createDiv({ cls: 'kanban-rpm-modal-grid' });
     this.addCoreFields(grid);
 
-    new Setting(contentEl).setName('Next action').addTextArea((input) => {
+    new Setting(contentEl).setName('Current focus').addTextArea((input) => {
       input.setValue(this.values.nextAction);
       input.onChange((value) => {
         this.values.nextAction = value;

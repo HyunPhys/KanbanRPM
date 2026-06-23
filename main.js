@@ -47,6 +47,13 @@ var DEFAULT_CATEGORIES = [
   { id: "admin", label: "Admin" },
   { id: "communication", label: "Communication" }
 ];
+var COMMUNICATION_TYPES = [
+  { id: "meeting_internal", label: "Meeting (Internal)", folder: "Meeting (Internal)" },
+  { id: "meeting_external", label: "Meeting (External)", folder: "Meeting (External)" },
+  { id: "call", label: "Call", folder: "Call" },
+  { id: "chat", label: "Chat", folder: "Chat" },
+  { id: "email", label: "Email", folder: "Email" }
+];
 var DEFAULT_SETTINGS = {
   workspaceFolder: "KanbanRPM Workspace",
   statuses: DEFAULT_STATUSES,
@@ -74,6 +81,8 @@ var DEFAULT_SETTINGS = {
   showGanttBigActions: true,
   boardZoom: 1,
   timelineZoom: 1,
+  timelineScrollLeft: null,
+  timelineScrollTop: null,
   ganttZoom: 1,
   newCardAdvancedOpen: false,
   timelineStatusFilter: ["active"],
@@ -478,6 +487,121 @@ var SmallActionMetadataModal = class extends import_obsidian.Modal {
     this.close();
   }
 };
+var NewCommunicationSourceModal = class extends import_obsidian.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+    this.values = {
+      title: "",
+      type: "meeting_internal",
+      date: this.today(),
+      participants: "",
+      note: ""
+    };
+    this.suggestions = [];
+  }
+  async onOpen() {
+    this.suggestions = await this.plugin.loadParticipantSuggestions();
+    this.renderForm();
+  }
+  renderForm() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kanban-rpm-card-modal");
+    contentEl.createEl("h2", { text: "New communication source note" });
+    contentEl.createDiv({
+      cls: "kanban-rpm-modal-help",
+      text: "Create a source note and add it to the yearly Communication Log. Project documents are not modified."
+    });
+    this.markRequired(new import_obsidian.Setting(contentEl).setName("Title")).addText((input) => {
+      input.setPlaceholder("Weekly lab meeting");
+      input.setValue(this.values.title);
+      input.onChange((value) => {
+        this.values.title = value;
+      });
+    });
+    const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
+    this.markRequired(new import_obsidian.Setting(grid).setName("Type")).addDropdown((dropdown) => {
+      for (const type of COMMUNICATION_TYPES) dropdown.addOption(type.id, type.label);
+      dropdown.setValue(this.values.type);
+      dropdown.onChange((value) => {
+        if (COMMUNICATION_TYPES.some((type) => type.id === value)) this.values.type = value;
+      });
+    });
+    this.markRequired(new import_obsidian.Setting(grid).setName("Date")).addText((input) => {
+      input.inputEl.type = "date";
+      input.setValue(this.values.date);
+      input.onChange((value) => {
+        this.values.date = value.trim();
+      });
+    });
+    new import_obsidian.Setting(contentEl).setName("Participants").setDesc("Comma or newline separated. You can also add frequent participants below.").addTextArea((input) => {
+      input.setPlaceholder("Prof. Kim, vendor, collaborator");
+      input.setValue(this.values.participants);
+      this.participantsInput = input.inputEl;
+      input.onChange((value) => {
+        this.values.participants = value;
+      });
+    });
+    this.renderParticipantSuggestions(contentEl);
+    new import_obsidian.Setting(contentEl).setName("Note").addTextArea((input) => {
+      input.setPlaceholder("Short note for the Communication Log");
+      input.setValue(this.values.note);
+      input.onChange((value) => {
+        this.values.note = value;
+      });
+    });
+    new import_obsidian.Setting(contentEl.createDiv({ cls: "kanban-rpm-modal-footer" })).addButton((button) => {
+      button.setButtonText("Create source note").setCta().onClick(() => {
+        void this.createSourceNote();
+      });
+    }).addButton((button) => {
+      button.setButtonText("Cancel").onClick(() => this.close());
+    });
+  }
+  renderParticipantSuggestions(container) {
+    const box = container.createDiv({ cls: "kanban-rpm-participant-suggestions" });
+    box.createDiv({ cls: "kanban-rpm-modal-help", text: this.suggestions.length ? "Frequent participants" : "No participant suggestions yet." });
+    const list = box.createDiv({ cls: "kanban-rpm-participant-suggestion-list" });
+    for (const suggestion of this.suggestions.slice(0, 24)) {
+      const button = list.createEl("button", {
+        cls: "kanban-rpm-participant-suggestion",
+        text: `${suggestion.name} (${suggestion.count})`
+      });
+      button.addEventListener("click", () => this.addParticipant(suggestion.name));
+    }
+  }
+  addParticipant(name) {
+    const parts = this.parseParticipants(this.values.participants);
+    if (!parts.some((part) => part === name)) parts.push(name);
+    this.values.participants = parts.join(", ");
+    if (this.participantsInput) this.participantsInput.value = this.values.participants;
+  }
+  parseParticipants(value) {
+    return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+  }
+  async createSourceNote() {
+    if (!this.values.title.trim()) {
+      new import_obsidian.Notice("Title is required.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.values.date)) {
+      new import_obsidian.Notice("Date must use YYYY-MM-DD.");
+      return;
+    }
+    await this.plugin.createCommunicationSourceNote(this.values);
+    this.close();
+  }
+  markRequired(setting, desc) {
+    setting.nameEl.createSpan({ cls: "kanban-rpm-required", text: " *" });
+    if (desc) setting.setDesc(desc);
+    return setting;
+  }
+  today() {
+    const now = /* @__PURE__ */ new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+};
 var NewProjectCardModal = class extends import_obsidian.Modal {
   constructor(app, plugin, context = "inbox") {
     var _a;
@@ -790,7 +914,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
     });
     const grid = contentEl.createDiv({ cls: "kanban-rpm-modal-grid" });
     this.addCoreFields(grid);
-    new import_obsidian.Setting(contentEl).setName("Next action").addTextArea((input) => {
+    new import_obsidian.Setting(contentEl).setName("Current focus").addTextArea((input) => {
       input.setValue(this.values.nextAction);
       input.onChange((value) => {
         this.values.nextAction = value;
@@ -1123,6 +1247,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.timelineZoom = 1;
     this.ganttZoom = 1;
     this.timelineScrollLeft = null;
+    this.timelineScrollTop = null;
     this.projectNotesCollapsed = false;
     this.phoneFiltersExpanded = false;
     this.phoneTimelineControlsExpanded = false;
@@ -1140,6 +1265,8 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.showGanttBigActions = plugin.settings.showGanttBigActions;
     this.boardZoom = plugin.settings.boardZoom;
     this.timelineZoom = plugin.settings.timelineZoom;
+    this.timelineScrollLeft = plugin.settings.timelineScrollLeft;
+    this.timelineScrollTop = plugin.settings.timelineScrollTop;
     this.ganttZoom = plugin.settings.ganttZoom;
   }
   getViewType() {
@@ -1242,6 +1369,9 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     }
     if (this.toolbarExpanded) {
       const secondary = container.createDiv({ cls: "kanban-rpm-toolbar-secondary" });
+      secondary.createEl("button", { text: "New communication note" }).addEventListener("click", () => {
+        new NewCommunicationSourceModal(this.app, this.plugin).open();
+      });
       secondary.createEl("button", { text: "Management brief" }).addEventListener("click", () => {
         void this.plugin.writeManagementBrief(visibleCards);
       });
@@ -2840,7 +2970,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     this.renderTimelineControls(main);
     const viewport = main.createDiv({ cls: "kanban-rpm-timeline-viewport" });
     viewport.addEventListener("scroll", () => {
-      this.timelineScrollLeft = viewport.scrollLeft;
+      this.rememberTimelineScroll(viewport.scrollLeft, viewport.scrollTop);
     });
     const board = viewport.createDiv({ cls: "kanban-rpm-timeline-board" });
     this.applySurfaceZoom(board, this.timelineZoom);
@@ -2869,13 +2999,17 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     }
     if (this.timelineScrollLeft !== null) {
       setTimeout(() => {
-        var _a;
+        var _a, _b;
         viewport.scrollLeft = Math.min((_a = this.timelineScrollLeft) != null ? _a : 0, Math.max(0, viewport.scrollWidth - viewport.clientWidth));
+        viewport.scrollTop = Math.min((_b = this.timelineScrollTop) != null ? _b : 0, Math.max(0, viewport.scrollHeight - viewport.clientHeight));
       }, 0);
     } else if (days.includes(this.timelineBaseDate)) {
       setTimeout(() => {
         const todayColumn = board.querySelector(`[data-day="${this.timelineBaseDate}"]`);
         todayColumn == null ? void 0 : todayColumn.scrollIntoView({ block: "nearest", inline: "start" });
+        if (this.timelineScrollTop !== null) {
+          viewport.scrollTop = Math.min(this.timelineScrollTop, Math.max(0, viewport.scrollHeight - viewport.clientHeight));
+        }
       }, 0);
     }
   }
@@ -2914,7 +3048,7 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
         open.createSpan({ cls: "kanban-rpm-timeline-routine-text", text: item.text });
         open.createSpan({ cls: "kanban-rpm-timeline-routine-meta", text: `${card.title} - next ${nextDate.slice(5)}` });
         open.addEventListener("click", () => {
-          void this.plugin.openCard(card);
+          this.openCardPreservingTimelineScroll(card);
         });
         row.createEl("button", { cls: "kanban-rpm-timeline-routine-done", text: "Done" }).addEventListener("click", () => {
           void this.plugin.completeRoutine(card.path, item.text, todayIso());
@@ -3321,8 +3455,11 @@ ${addition}`;
     titleRow.createSpan({ cls: "kanban-rpm-timeline-marker-icon", text: this.timelineMarkerIcon(marker.kind) });
     const label = titleRow.createEl("button", { cls: "kanban-rpm-timeline-marker-title", text: marker.label });
     label.addEventListener("click", () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
+    if (marker.card.nextAction) {
+      item.createDiv({ cls: "kanban-rpm-timeline-marker-focus", text: marker.card.nextAction });
+    }
     const meta = item.createDiv({ cls: "kanban-rpm-timeline-marker-meta" });
     const badges = meta.createDiv({ cls: "kanban-rpm-timeline-marker-badges" });
     this.renderStatusBadge(badges, marker.card.status, void 0, "button").addEventListener("click", (event) => {
@@ -3367,7 +3504,7 @@ ${addition}`;
     }
     const text2 = chip.createDiv({ cls: "kanban-rpm-timeline-task-text" });
     text2.createEl("button", { cls: "kanban-rpm-timeline-task-title", text: marker.label }).addEventListener("click", () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
     const sourceRow = text2.createDiv({ cls: "kanban-rpm-timeline-task-source-row" });
     sourceRow.createSpan({ cls: "kanban-rpm-timeline-task-source", text: marker.card.title });
@@ -3390,7 +3527,7 @@ ${addition}`;
     chip.createSpan({ cls: "kanban-rpm-timeline-recurring-icon", text: "?" });
     chip.createSpan({ cls: "kanban-rpm-timeline-recurring-text", text: marker.label.replace(/^(daily|weekly|monthly|custom):\s*/, "") });
     chip.addEventListener("click", () => {
-      void this.plugin.openCard(marker.card);
+      this.openCardPreservingTimelineScroll(marker.card);
     });
   }
   collectTimelineMarkers(cards, daySet) {
@@ -3591,6 +3728,36 @@ ${addition}`;
   }
   resetTimelineScroll() {
     this.timelineScrollLeft = null;
+    this.timelineScrollTop = null;
+    this.plugin.settings.timelineScrollLeft = null;
+    this.plugin.settings.timelineScrollTop = null;
+    void this.plugin.saveSettings();
+  }
+  rememberTimelineScroll(scrollLeft, scrollTop) {
+    const nextLeft = Math.max(0, Math.round(scrollLeft));
+    const nextTop = Math.max(0, Math.round(scrollTop));
+    this.timelineScrollLeft = nextLeft;
+    this.timelineScrollTop = nextTop;
+    this.plugin.settings.timelineScrollLeft = nextLeft;
+    this.plugin.settings.timelineScrollTop = nextTop;
+    this.scheduleTimelineScrollSave();
+  }
+  preserveTimelineScrollFromDom() {
+    const viewport = this.containerEl.querySelector(".kanban-rpm-timeline-viewport");
+    if (!viewport) return;
+    this.rememberTimelineScroll(viewport.scrollLeft, viewport.scrollTop);
+    void this.plugin.saveSettings();
+  }
+  openCardPreservingTimelineScroll(card) {
+    if (this.viewMode === "timeline") this.preserveTimelineScrollFromDom();
+    void this.plugin.openCard(card);
+  }
+  scheduleTimelineScrollSave() {
+    if (this.timelineScrollSaveTimer !== void 0) window.clearTimeout(this.timelineScrollSaveTimer);
+    this.timelineScrollSaveTimer = window.setTimeout(() => {
+      this.timelineScrollSaveTimer = void 0;
+      void this.plugin.saveSettings();
+    }, 400);
   }
   ganttMonthSegments(start, end) {
     return monthRange(start, end).map((month) => ({
@@ -4880,6 +5047,37 @@ var CardRepository = class {
     await this.plugin.refreshViews();
     return file;
   }
+  async createCommunicationSourceNote(values) {
+    await this.plugin.ensureWorkspace();
+    const title = values.title.trim();
+    const baseName = sanitizeFileName(title);
+    const year = this.communicationYear(values.date);
+    const type = this.communicationTypeDefinition(values.type);
+    const folder = (0, import_obsidian6.normalizePath)(`${this.plugin.communicationsFolder}/${year}/${type.folder}`);
+    await this.ensureFolder(folder);
+    const path = this.getAvailablePath(folder, baseName, "md");
+    const participants = textareaToList(values.participants);
+    const file = await this.plugin.app.vault.create(path, this.getCommunicationSourceTemplate(values, participants));
+    await this.prependCommunicationLogRow(file, values, participants);
+    new import_obsidian6.Notice(`KanbanRPM communication note created: ${title}`);
+    await this.plugin.app.workspace.getLeaf(false).openFile(file);
+    return file;
+  }
+  async loadParticipantSuggestions() {
+    var _a;
+    const root = `${this.plugin.communicationsFolder}/`;
+    const counts = /* @__PURE__ */ new Map();
+    for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+      if (!(0, import_obsidian6.normalizePath)(file.path).startsWith(root)) continue;
+      const content = await this.plugin.app.vault.cachedRead(file);
+      const frontmatter = this.parseFirstFrontmatter(content);
+      if (text(frontmatter.type) !== "communication") continue;
+      for (const participant of toStringList(frontmatter.participants)) {
+        counts.set(participant, ((_a = counts.get(participant)) != null ? _a : 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }
   async updateCardFrontmatter(file, updates, refresh = true) {
     await this.rewriteCardFrontmatter(file, (frontmatter) => {
       for (const [key, value] of Object.entries(updates)) {
@@ -5497,7 +5695,7 @@ Suggested prompt:
 Read this candidate list and recommend 3 cards to activate next. Explain tradeoffs: urgency, importance, dependency state, cognitive load, and research value. Ask questions if the best choice depends on missing context.
 \`\`\`
 
-| Candidate | Type | Project | Subproject | Status | Priority | Score | Why candidate | Next action | Dates |
+| Candidate | Type | Project | Subproject | Status | Priority | Score | Why candidate | Current focus | Dates |
 | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
 ${rows || "| No candidates |  |  |  |  |  |  |  |  |  |"}
 `;
@@ -5548,9 +5746,9 @@ ${rows || "| No recent changes found |  |  |  |  |  |"}
 
 Generated: ${today}
 
-Waiting, blocker, blocked-by, and missing-next-action items for PM review.
+Waiting, blocker, blocked-by, and missing-current-focus items for PM review.
 
-| Card | Type | Status | Priority | Waiting | Blocker / blocked by | Next action |
+| Card | Type | Status | Priority | Waiting | Blocker / blocked by | Current focus |
 | --- | --- | --- | ---: | --- | --- | --- |
 ${rows || "| No open loops found |  |  |  |  |  |  |"}
 `;
@@ -5667,8 +5865,8 @@ ${recent.length ? recent.map((item) => `- ${item.date} ${item.item} (${item.type
     if (card.dueDate && card.dueDate < today) reasons.push("due overdue");
     else if (card.dueDate && card.dueDate <= soon) reasons.push("due soon");
     if (card.nextReview && card.nextReview <= today) reasons.push("review due");
-    if (card.nextAction) reasons.push("clear next action");
-    else reasons.push("needs next action clarification");
+    if (card.nextAction) reasons.push("clear current focus");
+    else reasons.push("needs current focus clarification");
     if (card.waitingFor) reasons.push(`waiting: ${card.waitingFor}`);
     if (card.blocker || card.blockedBy.length) reasons.push("blocked; discuss before activation");
     if (this.hasActiveParent(card, cards)) reasons.push("parent is active");
@@ -5865,9 +6063,9 @@ ${this.renderBriefProjectSections(sorted)}
 
 ${dueSoon.length ? dueSoon.map((card) => this.renderBriefCardLine(card, true)).join("\n") : "- No due/review dates in the next 14 days."}
 
-## Next Actions
+## Current Focus
 
-${nextActionRows || "- No explicit next actions."}
+${nextActionRows || "- No explicit current focus items."}
 
 ## Open Small Actions
 
@@ -6076,6 +6274,83 @@ ${body}`);
       cursor += skipped + match[0].length;
     }
     return { frontmatters, bodyStart: cursor };
+  }
+  getCommunicationSourceTemplate(values, participants) {
+    return `---
+kanban_rpm: true
+type: communication
+communication_type: ${yamlScalar(values.type)}
+date: ${yamlScalar(values.date)}
+participants: ${yamlArray(participants)}
+note: ${yamlScalar(values.note.trim())}
+---
+
+# Summary
+%% What was discussed in 3-5 bullets. %%
+
+# Decisions
+%% Record concrete decisions and why they were made. %%
+
+# Follow-up Actions
+%% Keep action items as checkboxes. Link or copy important ones into KanbanRPM cards manually. %%
+
+- [ ] 
+
+# Context
+%% Add background, links, email/thread references, or meeting context. %%
+
+# Raw Notes
+%% Paste or write raw notes here. %%
+`;
+  }
+  async prependCommunicationLogRow(file, values, participants) {
+    const logFile = await this.getCommunicationLogFile(this.communicationYear(values.date));
+    const content = await this.plugin.app.vault.read(logFile);
+    const type = this.communicationTypeDefinition(values.type);
+    const row = `| ${this.escapeTableCell(values.date)} | [[${this.escapeTableCell(file.basename)}]] | ${this.escapeTableCell(participants.join(", "))} | ${this.escapeTableCell(values.note)} |`;
+    const next = this.prependCommunicationRow(content, type.label, row);
+    await this.plugin.app.vault.modify(logFile, next);
+  }
+  async getCommunicationLogFile(year) {
+    const path = (0, import_obsidian6.normalizePath)(`${this.plugin.communicationsFolder}/Communication Log (${year}).md`);
+    const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof import_obsidian6.TFile) return existing;
+    await this.ensureFolder(this.plugin.communicationsFolder);
+    return this.plugin.app.vault.create(path, this.getCommunicationLogTemplate(year));
+  }
+  getCommunicationLogTemplate(year) {
+    const sections = COMMUNICATION_TYPES.map((type) => `## ${type.label}
+
+| Date | Source Note | Participants | Note |
+| --- | --- | --- | --- |`).join("\n\n");
+    return `# Communication Log (${year})
+
+${sections}
+`;
+  }
+  prependCommunicationRow(content, sectionTitle, row) {
+    const tableHeader = "| Date | Source Note | Participants | Note |\n| --- | --- | --- | --- |";
+    const existing = findHeadingSection(content, sectionTitle);
+    if (!existing) return replaceSection(content, sectionTitle, `${tableHeader}
+${row}`);
+    const body = content.slice(existing.bodyStart, existing.end).trim();
+    const normalized = body.includes("| Date | Source Note | Participants | Note |") ? body : `${tableHeader}
+${body}`;
+    const lines = normalized.split(/\r?\n/);
+    const insertIndex = lines.findIndex((line) => /^\|\s*---/.test(line));
+    if (insertIndex >= 0) lines.splice(insertIndex + 1, 0, row);
+    else lines.unshift(row);
+    return `${content.slice(0, existing.bodyStart)}
+
+${lines.join("\n")}
+${content.slice(existing.end)}`;
+  }
+  communicationYear(date) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(0, 4) : todayIso().slice(0, 4);
+  }
+  communicationTypeDefinition(id) {
+    var _a;
+    return (_a = COMMUNICATION_TYPES.find((type) => type.id === id)) != null ? _a : COMMUNICATION_TYPES[0];
   }
   async getCreationFolder(values) {
     const parts = [this.plugin.cardsFolder];
@@ -7013,6 +7288,11 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
       callback: () => new NewProjectCardModal(this.app, this).open()
     });
     this.addCommand({
+      id: "new-communication-source-note",
+      name: "New communication source note",
+      callback: () => new NewCommunicationSourceModal(this.app, this).open()
+    });
+    this.addCommand({
       id: "normalize-rpm-order",
       name: "Normalize card order",
       callback: () => void this.normalizeCardOrder()
@@ -7062,6 +7342,8 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
       showGanttBigActions: (_n = saved.showGanttBigActions) != null ? _n : DEFAULT_SETTINGS.showGanttBigActions,
       boardZoom: this.normalizeZoom(saved.boardZoom, DEFAULT_SETTINGS.boardZoom),
       timelineZoom: this.normalizeZoom(saved.timelineZoom, DEFAULT_SETTINGS.timelineZoom),
+      timelineScrollLeft: this.normalizeScrollPosition(saved.timelineScrollLeft),
+      timelineScrollTop: this.normalizeScrollPosition(saved.timelineScrollTop),
       ganttZoom: this.normalizeZoom(saved.ganttZoom, DEFAULT_SETTINGS.ganttZoom),
       newCardAdvancedOpen: (_o = saved.newCardAdvancedOpen) != null ? _o : DEFAULT_SETTINGS.newCardAdvancedOpen,
       timelineStatusFilter: ((_p = saved.timelineStatusFilter) == null ? void 0 : _p.length) ? saved.timelineStatusFilter : DEFAULT_SETTINGS.timelineStatusFilter,
@@ -7077,6 +7359,9 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   }
   normalizeZoom(value, fallback) {
     return typeof value === "number" && Number.isFinite(value) ? Math.min(1.4, Math.max(0.7, value)) : fallback;
+  }
+  normalizeScrollPosition(value) {
+    return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : null;
   }
   normalizeViewFilters(saved) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
@@ -7160,6 +7445,9 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   get researchLogsPath() {
     return (0, import_obsidian9.normalizePath)(`${this.workspaceFolder}/Research Logs.md`);
   }
+  get communicationsFolder() {
+    return (0, import_obsidian9.normalizePath)(`${this.workspaceFolder}/communications`);
+  }
   isCardPath(path) {
     return (0, import_obsidian9.normalizePath)(path).startsWith(`${this.cardsFolder}/`);
   }
@@ -7199,6 +7487,12 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   async createCard(values) {
     return this.repository.createCard(values);
   }
+  async createCommunicationSourceNote(values) {
+    return this.repository.createCommunicationSourceNote(values);
+  }
+  async loadParticipantSuggestions() {
+    return this.repository.loadParticipantSuggestions();
+  }
   async updateCardFrontmatter(file, updates) {
     await this.repository.updateCardFrontmatter(file, updates);
   }
@@ -7234,6 +7528,10 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   }
   async setNextAction(cardPath, nextAction) {
     await this.repository.setNextAction(cardPath, nextAction);
+  }
+  activeSourceNoteLink() {
+    const file = this.app.workspace.getActiveFile();
+    return file instanceof import_obsidian9.TFile ? `[[${file.basename}]]` : "";
   }
   async promoteActionToBigAction(action) {
     return this.repository.promoteActionToBigAction(action);

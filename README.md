@@ -58,7 +58,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.6/
+dist/kanban-rpm-0.3.7/
   main.js
   manifest.json
   styles.css
@@ -224,7 +224,7 @@ Tell me:
 1. What needs attention this week.
 2. Which Projects are blocked or stale.
 3. Which Big Actions should be split, archived, closed, or promoted.
-4. Which next actions should be pulled into today.
+4. Which Current Focus items should be pulled into today.
 5. Which metadata or hierarchy links look unclear.
 Do not rewrite my notes unless I explicitly ask.
 ```
