@@ -2062,6 +2062,21 @@ export class KanbanRPMView extends ItemView {
     menu.showAtMouseEvent(event);
   }
 
+  private openPriorityMenu(event: MouseEvent, card: ProjectCard): void {
+    const menu = new Menu();
+    for (const priority of [1, 2, 3, 4, 5]) {
+      menu.addItem((item) => {
+        item
+          .setTitle(`P${priority}`)
+          .setChecked(priority === card.priority)
+          .onClick(() => {
+            void this.plugin.setCardPriority(card, priority);
+          });
+      });
+    }
+    menu.showAtMouseEvent(event);
+  }
+
   private renderTimelineView(container: HTMLElement, visibleBoardCards: ProjectCard[]): void {
     this.ensureTimelineStatusFilter();
     const days = this.timelineDays();
@@ -2085,6 +2100,9 @@ export class KanbanRPMView extends ItemView {
       });
       column.dataset.day = day;
       const header = column.createDiv({ cls: 'kanban-rpm-timeline-day-header' });
+      header.addEventListener('click', () => {
+        void this.openTimelineMemoFile(day);
+      });
       header.createDiv({ cls: 'kanban-rpm-timeline-day-name', text: this.timelineDayLabel(day) });
       header.createDiv({ cls: 'kanban-rpm-timeline-day-date', text: day.slice(5) });
 
@@ -2199,6 +2217,11 @@ export class KanbanRPMView extends ItemView {
     if (typeof item !== 'string' && item.cadence === 'daily') {
       const today = todayIso();
       return days.includes(today) && this.isRecurringItemVisibleOnDay(today, item) && !this.isRecurringItemCompletedForOccurrence(today, item) ? today : '';
+    }
+    if (typeof item !== 'string') {
+      const currentOccurrence = this.currentOccurrenceOnOrBefore(todayIso(), item);
+      if (currentOccurrence && this.isRecurringItemCompletedForOccurrence(currentOccurrence, item)) return '';
+      if (currentOccurrence && days.includes(currentOccurrence)) return currentOccurrence;
     }
     return days.find((day) => (typeof item === 'string' ? this.isRecurringVisibleOnDay(day, item) : this.isRecurringItemVisibleOnDay(day, item) && !this.isRecurringItemCompletedForOccurrence(day, item))) ?? '';
   }
@@ -2615,7 +2638,11 @@ export class KanbanRPMView extends ItemView {
       event.stopPropagation();
       this.openStatusMenu(event, marker.card);
     });
-    this.renderPriorityBadge(badges, marker.card);
+    this.renderPriorityBadge(badges, marker.card, 'button').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openPriorityMenu(event, marker.card);
+    });
     const actions = meta.createDiv({ cls: 'kanban-rpm-timeline-marker-actions-menu' });
     this.createIconButton(actions, 'pencil', `Edit ${marker.card.title}`, 'kanban-rpm-timeline-marker-edit').addEventListener('click', (event) => {
       event.stopPropagation();
@@ -3060,6 +3087,16 @@ export class KanbanRPMView extends ItemView {
     return item.completedDates.some((completed) => completed >= day && (!next || completed < next));
   }
 
+  private currentOccurrenceOnOrBefore(day: string, item: RecurringItem): string {
+    if (item.startDate && item.startDate > day) return '';
+    for (let offset = 0; offset <= 370; offset += 1) {
+      const candidate = addDays(day, -offset);
+      if (item.startDate && candidate < item.startDate) return '';
+      if (this.isRecurringItemVisibleOnDay(candidate, item)) return candidate;
+    }
+    return '';
+  }
+
   private nextOccurrenceAfter(day: string, item: RecurringItem): string {
     for (let offset = 1; offset <= 370; offset += 1) {
       const candidate = addDays(day, offset);
@@ -3103,6 +3140,12 @@ export class KanbanRPMView extends ItemView {
     const content = await this.app.vault.read(file);
     const next = this.replaceMemoBody(content, memo);
     if (next !== content) await this.app.vault.modify(file, next);
+  }
+
+  private async openTimelineMemoFile(day: string): Promise<void> {
+    this.preserveTimelineScrollFromDom();
+    const file = await this.ensureTimelineMemoFile(day, true);
+    if (file) await this.app.workspace.getLeaf(false).openFile(file);
   }
 
   private async ensureTimelineMemoFile(day: string, create = false): Promise<TFile | null> {
@@ -3700,11 +3743,13 @@ export class KanbanRPMView extends ItemView {
       : container.createSpan({ cls, text: label });
   }
 
-  private renderPriorityBadge(container: HTMLElement, card: ProjectCard): HTMLElement {
-    return container.createSpan({
+  private renderPriorityBadge(container: HTMLElement, card: ProjectCard, tag: 'span' | 'button' = 'span'): HTMLElement {
+    const options = {
       cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
       text: `P${card.priority}`,
-    });
+      attr: tag === 'button' ? { title: `Edit priority: P${card.priority}` } : undefined,
+    };
+    return tag === 'button' ? container.createEl('button', options) : container.createSpan(options);
   }
 
   private addCountMeta(container: HTMLElement, count: number, label: string, cls?: string): void {

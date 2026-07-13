@@ -21,6 +21,7 @@ import type {
   NewCardValues,
   ParticipantSuggestion,
   ProjectCard,
+  ResearchLogKind,
   ResearchLogEntry,
   ResearchLogValues,
   SmallAction,
@@ -78,6 +79,13 @@ export class CardRepository {
       cardPath: file.path,
       cardTitle: file.basename,
     }));
+  }
+
+  async loadResearchLogModules(kind: ResearchLogKind): Promise<string[]> {
+    await this.plugin.ensureWorkspace();
+    const file = await this.getResearchLogFile();
+    const content = await this.plugin.app.vault.read(file);
+    return this.parseResearchLogModules(content, kind);
   }
 
   private async loadCardsInternal(archived: boolean): Promise<ProjectCard[]> {
@@ -181,6 +189,9 @@ export class CardRepository {
     const content = this.getLivingDocTemplate(values, title, baseName);
 
     const file = await this.plugin.app.vault.create(path, content);
+    if (values.type === 'project') {
+      await this.ensureFolder(normalizePath(`${this.plugin.cardsFolder}/${baseName}`));
+    }
     new Notice(`KanbanRPM card created: ${title}`);
     await this.plugin.refreshViews();
     return file;
@@ -240,6 +251,13 @@ export class CardRepository {
     if (!(file instanceof TFile)) return;
 
     const statusChanged = card.status !== values.status;
+    const originalPath = file.path;
+    const originalBaseName = file.basename;
+    const title = values.title.trim() || file.basename;
+    const targetFolder = await this.getCreationFolder(values);
+    const targetPath = this.getAvailablePathForExistingFile(file.path, targetFolder, sanitizeFileName(title), file.extension);
+    const cardsBeforeUpdate = values.type === 'subproject' ? await this.loadCards() : [];
+
     await this.updateCardFrontmatter(file, {
       type: values.type,
       primary_project: values.project.trim() || undefined,
@@ -251,17 +269,17 @@ export class CardRepository {
       workstream_type: values.workstreamType.trim(),
     }, false);
 
-    const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
     let nextContent = this.updateLivingDocBody(content, title, values);
     if (statusChanged) nextContent = this.prependTimelineLog(nextContent, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(values.status)}`);
+    nextContent = this.applyCompletionDueDateUpdate(nextContent, card, values.status);
     await this.plugin.app.vault.modify(file, nextContent);
     if (statusChanged) await this.logCardCompletionSideEffects(card, values.status, title);
 
-    if (title && sanitizeFileName(title) !== file.basename) {
-      const targetPath = this.getAvailablePath(file.parent?.path ?? this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
+    if (normalizePath(file.path) !== normalizePath(targetPath)) {
       await this.plugin.app.fileManager.renameFile(file, targetPath);
     }
+    await this.syncHierarchyAfterCardUpdate(card, values, cardsBeforeUpdate, originalPath, file.path, originalBaseName, file.basename);
 
     new Notice(`KanbanRPM card updated: ${title}`);
     await this.plugin.refreshViews();
@@ -323,7 +341,8 @@ export class CardRepository {
     }, false);
     if (movedCard && movedCard.status !== targetStatus) {
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      let next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      next = this.applyCompletionDueDateUpdate(next, movedCard, targetStatus);
       await this.plugin.app.vault.modify(file, next);
       await this.logCardCompletionSideEffects(movedCard, targetStatus, file.basename, cards);
     }
@@ -337,12 +356,28 @@ export class CardRepository {
     await this.updateCardFrontmatter(file, { status }, false);
     if (card.status !== status) {
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      let next = this.prependTimelineLog(content, 'Status', `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      next = this.applyCompletionDueDateUpdate(next, card, status);
       await this.plugin.app.vault.modify(file, next);
       await this.logCardCompletionSideEffects(card, status, file.basename);
     }
     await this.plugin.refreshViews();
     new Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
+  }
+
+  async setCardPriority(card: ProjectCard, priority: number): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof TFile)) return;
+    const normalized = Math.min(5, Math.max(1, Math.round(priority)));
+
+    await this.updateCardFrontmatter(file, { priority: normalized }, false);
+    if (card.priority !== normalized) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, 'Priority', `P${card.priority} -> P${normalized}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
+    new Notice(`KanbanRPM priority updated to P${normalized}: ${card.title}`);
   }
 
   async updateProjectState(card: ProjectCard, projectState: 'active' | 'closed'): Promise<void> {
@@ -1578,6 +1613,138 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return path;
   }
 
+  private getAvailablePathForExistingFile(currentPath: string, folder: string, baseName: string, extension: string): string {
+    let index = 1;
+    let path = normalizePath(`${folder}/${baseName}.${extension}`);
+    const normalizedCurrent = normalizePath(currentPath);
+
+    while (true) {
+      const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+      if (!existing || normalizePath(existing.path) === normalizedCurrent) return path;
+      index += 1;
+      path = normalizePath(`${folder}/${baseName} ${index}.${extension}`);
+    }
+  }
+
+  private async syncHierarchyAfterCardUpdate(
+    card: ProjectCard,
+    values: NewCardValues,
+    cardsBeforeUpdate: ProjectCard[],
+    oldPath: string,
+    newPath: string,
+    oldBaseName: string,
+    newBaseName: string,
+  ): Promise<void> {
+    if (this.pathParts(oldPath).includes('archive') || this.pathParts(newPath).includes('archive')) return;
+    if (values.type !== 'project' && values.type !== 'subproject') return;
+
+    const oldFolder = card.type === 'project'
+      ? normalizePath(`${this.plugin.cardsFolder}/${sanitizeFileName(oldBaseName)}`)
+      : normalizePath(`${this.folderPathFromFilePath(oldPath)}/${sanitizeFileName(oldBaseName)}`);
+    const newFolder = values.type === 'project'
+      ? normalizePath(`${this.plugin.cardsFolder}/${sanitizeFileName(newBaseName)}`)
+      : normalizePath(`${this.folderPathFromFilePath(newPath)}/${sanitizeFileName(newBaseName)}`);
+
+    await this.moveHierarchyFolderIfNeeded(oldFolder, newFolder);
+
+    if (values.type === 'subproject') {
+      await this.updateSubprojectChildrenHierarchy(card, values, cardsBeforeUpdate, oldPath, oldFolder, newFolder, newBaseName);
+    }
+  }
+
+  private async moveHierarchyFolderIfNeeded(oldFolder: string, newFolder: string): Promise<void> {
+    if (oldFolder === newFolder) {
+      await this.ensureFolder(newFolder);
+      return;
+    }
+
+    const folder = this.plugin.app.vault.getAbstractFileByPath(oldFolder);
+    if (!(folder instanceof TFolder)) {
+      await this.ensureFolder(newFolder);
+      return;
+    }
+
+    const existing = this.plugin.app.vault.getAbstractFileByPath(newFolder);
+    if (existing) {
+      new Notice(`KanbanRPM skipped folder move because target already exists: ${newFolder}`);
+      return;
+    }
+
+    await this.ensureFolder(this.folderPathFromFilePath(newFolder));
+    await this.plugin.app.fileManager.renameFile(folder, newFolder);
+  }
+
+  private async updateSubprojectChildrenHierarchy(
+    card: ProjectCard,
+    values: NewCardValues,
+    cardsBeforeUpdate: ProjectCard[],
+    oldPath: string,
+    oldFolder: string,
+    newFolder: string,
+    newBaseName: string,
+  ): Promise<void> {
+    const newProject = values.project.trim();
+    if (!newProject) return;
+
+    const oldProjectCandidates = this.linkMatchCandidates([card.primaryProject, card.project, ...card.projects]);
+    const oldSubprojectCandidates = this.linkMatchCandidates([
+      `[[${this.fileBaseNameFromPath(oldPath)}]]`,
+      `[[${card.title}]]`,
+      oldPath,
+      card.title,
+    ]);
+    const newSubproject = `[[${newBaseName}]]`;
+    const oldFolderPrefix = `${normalizePath(oldFolder)}/`;
+    const newFolderPrefix = `${normalizePath(newFolder)}/`;
+
+    const children = cardsBeforeUpdate.filter((item) => {
+      if (item.type !== 'big_action') return false;
+      if (normalizePath(item.path).startsWith(oldFolderPrefix)) return true;
+      return [item.primarySubproject, item.subproject, ...item.subprojects].some((link) => this.linkMatchesAny(link, oldSubprojectCandidates));
+    });
+
+    for (const child of children) {
+      const normalizedPath = normalizePath(child.path);
+      const expectedPath = normalizedPath.startsWith(oldFolderPrefix)
+        ? normalizePath(`${newFolderPrefix}${normalizedPath.slice(oldFolderPrefix.length)}`)
+        : normalizedPath;
+      const target = this.plugin.app.vault.getAbstractFileByPath(expectedPath)
+        ?? this.plugin.app.vault.getAbstractFileByPath(normalizedPath);
+      if (!(target instanceof TFile)) continue;
+
+      await this.updateCardFrontmatter(target, {
+        primary_project: newProject,
+        primary_subproject: newSubproject,
+        projects: this.replaceHierarchyLink(child.projects, oldProjectCandidates, newProject),
+        subprojects: this.replaceHierarchyLink(child.subprojects, oldSubprojectCandidates, newSubproject),
+      }, false);
+    }
+  }
+
+  private replaceHierarchyLink(links: string[], oldCandidates: Set<string>, replacement: string): string[] {
+    return this.uniqueLinks([replacement, ...links.filter((link) => !this.linkMatchesAny(link, oldCandidates))]);
+  }
+
+  private linkMatchesAny(link: string, candidates: Set<string>): boolean {
+    if (!link) return false;
+    return Array.from(this.linkMatchCandidates([link])).some((candidate) => candidates.has(candidate));
+  }
+
+  private linkMatchCandidates(links: string[]): Set<string> {
+    const candidates = new Set<string>();
+    for (const link of links.map((item) => item.trim()).filter(Boolean)) {
+      const target = getWikiLinkTarget(link) || link;
+      const normalizedTarget = normalizePath(target).replace(/\.md$/i, '');
+      const base = normalizedTarget.split('/').pop() || normalizedTarget;
+      candidates.add(link);
+      candidates.add(target);
+      candidates.add(normalizedTarget);
+      candidates.add(base);
+      candidates.add(sanitizeFileName(base));
+    }
+    return candidates;
+  }
+
   private getEffectiveFrontmatter(content: string): Record<string, unknown> {
     const parsed = this.collectLeadingFrontmatter(content);
     return parsed.frontmatters.reduce<Record<string, unknown>>((merged, frontmatter) => ({ ...merged, ...frontmatter }), {});
@@ -1907,6 +2074,27 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
     return next;
   }
 
+  private applyCompletionDueDateUpdate(content: string, card: ProjectCard, targetStatus: Status): string {
+    if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return content;
+    const doneDate = todayIso();
+    const currentDueDate = this.parseTimelineDate(getSection(content, 'Timeline'), 'Due date');
+    if (currentDueDate === doneDate) return content;
+    let next = this.upsertTimelineDate(content, 'Due date', doneDate);
+    next = this.prependTimelineLog(next, 'Due date', `${currentDueDate || '(none)'} -> ${doneDate}`, doneDate);
+    return next;
+  }
+
+  private upsertTimelineDate(content: string, label: string, value: string): string {
+    const timeline = getSection(content, 'Timeline');
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^\\s*[-*]\\s+${escaped}:\\s*\\d{4}-\\d{2}-\\d{2}\\s*$`, 'im');
+    if (pattern.test(timeline)) {
+      return replaceSection(content, 'Timeline', timeline.replace(pattern, `- ${label}: ${value}`));
+    }
+    const body = [timeline.trimEnd(), `- ${label}: ${value}`].filter(Boolean).join('\n');
+    return replaceSection(content, 'Timeline', body);
+  }
+
   private removeLegacyTitleHeading(content: string, title: string): string {
     const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return content.replace(new RegExp(`^#\\s+${escaped}\\s*\\r?\\n{1,2}`, 'm'), '');
@@ -2151,6 +2339,19 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join('\n')}`);
       });
     });
     return entries;
+  }
+
+  private parseResearchLogModules(content: string, kind: ResearchLogKind): string[] {
+    const sectionTitle = kind === 'experiment' ? 'Experiment Log' : 'Analysis Log';
+    const section = findHeadingSection(content, sectionTitle);
+    if (!section) return [];
+    const body = content.slice(section.bodyStart, section.end);
+    const modules: string[] = [];
+    for (const line of body.split(/\r?\n/)) {
+      const heading = line.match(/^#{4,6}\s+(.+)$/);
+      if (heading?.[1]) modules.push(heading[1].trim());
+    }
+    return this.uniqueLinks(modules).sort((a, b) => a.localeCompare(b));
   }
 
   private normalizeCardType(value: string): ProjectCard['type'] {

@@ -489,7 +489,34 @@ export class NewProjectCardModal extends Modal {
     });
 
     this.addHierarchyDropdowns(grid);
+    this.addPlanningFields(grid);
 
+  }
+
+  private addPlanningFields(grid: HTMLElement): void {
+    new Setting(grid).setName('Priority').addDropdown((dropdown) => {
+      for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+
+    for (const [key, label] of [
+      ['startDate', 'Start date'],
+      ['scheduledDate', 'Scheduled date'],
+      ['nextReview', 'Next review'],
+      ['dueDate', 'Due date'],
+    ] as Array<[keyof Pick<NewCardValues, 'startDate' | 'scheduledDate' | 'nextReview' | 'dueDate'>, string]>) {
+      new Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = 'date';
+        input.setPlaceholder('YYYY-MM-DD');
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value;
+        });
+      });
+    }
   }
 
   private addAdvancedFields(container: HTMLElement): void {
@@ -501,14 +528,6 @@ export class NewProjectCardModal extends Modal {
       text: 'Optional structured hints. Prefer writing rich context in the document body.',
     });
     const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
-
-    new Setting(grid).setName('Priority').addDropdown((dropdown) => {
-      for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
-      dropdown.setValue(this.values.priority);
-      dropdown.onChange((value) => {
-        this.values.priority = value;
-      });
-    });
 
     this.addVocabularyDropdown(grid, 'Category', 'workstreamType', this.plugin.settings.categories);
 
@@ -523,43 +542,6 @@ export class NewProjectCardModal extends Modal {
       input.setValue(this.values.blocker);
       input.onChange((value) => {
         this.values.blocker = value;
-      });
-    });
-
-    const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
-    new Setting(dateGrid).setName('Start date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.startDate);
-      input.onChange((value) => {
-        this.values.startDate = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Scheduled date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.scheduledDate);
-      input.onChange((value) => {
-        this.values.scheduledDate = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Next review').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.nextReview);
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Due date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.dueDate);
-      input.onChange((value) => {
-        this.values.dueDate = value;
       });
     });
 
@@ -588,15 +570,16 @@ export class NewProjectCardModal extends Modal {
   }
 
   private addHierarchyDropdowns(grid: HTMLElement): void {
+    const hierarchy = grid.createDiv({ cls: 'kanban-rpm-hierarchy-stack' });
     if (this.values.type === 'project') {
-      new Setting(grid).setName('Project scope').addDropdown((dropdown) => {
+      new Setting(hierarchy).setName('Project scope').addDropdown((dropdown) => {
         dropdown.addOption('', 'Top-level Project');
         dropdown.setDisabled(true);
       });
       return;
     }
 
-    this.markRequired(new Setting(grid).setName('Project'), 'Required for Subproject and Big Action').addDropdown((dropdown) => {
+    this.markRequired(new Setting(hierarchy).setName('Project')).addDropdown((dropdown) => {
       dropdown.addOption('', 'Choose project');
       for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
       dropdown.setValue(this.values.project);
@@ -608,7 +591,7 @@ export class NewProjectCardModal extends Modal {
     });
 
     if (this.values.type === 'big_action') {
-      this.markRequired(new Setting(grid).setName('Subproject'), 'Required for Big Action').addDropdown((dropdown) => {
+      this.markRequired(new Setting(hierarchy).setName('Subproject')).addDropdown((dropdown) => {
         dropdown.addOption('', this.values.project ? 'Choose subproject' : 'Choose project first');
         for (const subproject of this.getSubprojectOptions()) {
           dropdown.addOption(this.parentValue(subproject), subproject.title);
@@ -794,7 +777,34 @@ export class EditProjectCardModal extends Modal {
     });
 
     this.addHierarchyDropdowns(grid);
+    this.addPlanningFields(grid);
 
+  }
+
+  private addPlanningFields(grid: HTMLElement): void {
+    new Setting(grid).setName('Priority').addDropdown((dropdown) => {
+      for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+
+    for (const [key, label] of [
+      ['startDate', 'Start date'],
+      ['scheduledDate', 'Scheduled date'],
+      ['nextReview', 'Next review'],
+      ['dueDate', 'Due date'],
+    ] as Array<[keyof Pick<NewCardValues, 'startDate' | 'scheduledDate' | 'nextReview' | 'dueDate'>, string]>) {
+      new Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = 'date';
+        input.setPlaceholder('YYYY-MM-DD');
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value;
+        });
+      });
+    }
   }
 
   private addAdvancedFields(container: HTMLElement): void {
@@ -805,14 +815,6 @@ export class EditProjectCardModal extends Modal {
       text: 'Optional structured hints. Prefer writing rich context in the document body.',
     });
     const grid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
-
-    new Setting(grid).setName('Priority').addDropdown((dropdown) => {
-      for (const value of ['1', '2', '3', '4', '5']) dropdown.addOption(value, `P${value}`);
-      dropdown.setValue(this.values.priority);
-      dropdown.onChange((value) => {
-        this.values.priority = value;
-      });
-    });
 
     this.addVocabularyDropdown(grid, 'Category', 'workstreamType', this.plugin.settings.categories);
 
@@ -827,43 +829,6 @@ export class EditProjectCardModal extends Modal {
       input.setValue(this.values.blocker);
       input.onChange((value) => {
         this.values.blocker = value;
-      });
-    });
-
-    const dateGrid = details.createDiv({ cls: 'kanban-rpm-modal-grid' });
-    new Setting(dateGrid).setName('Start date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.startDate);
-      input.onChange((value) => {
-        this.values.startDate = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Scheduled date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.scheduledDate);
-      input.onChange((value) => {
-        this.values.scheduledDate = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Next review').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.nextReview);
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-
-    new Setting(dateGrid).setName('Due date').addText((input) => {
-      input.inputEl.type = 'date';
-      input.setPlaceholder('YYYY-MM-DD');
-      input.setValue(this.values.dueDate);
-      input.onChange((value) => {
-        this.values.dueDate = value;
       });
     });
 
@@ -892,15 +857,16 @@ export class EditProjectCardModal extends Modal {
   }
 
   private addHierarchyDropdowns(grid: HTMLElement): void {
+    const hierarchy = grid.createDiv({ cls: 'kanban-rpm-hierarchy-stack' });
     if (this.values.type === 'project') {
-      new Setting(grid).setName('Project scope').addDropdown((dropdown) => {
+      new Setting(hierarchy).setName('Project scope').addDropdown((dropdown) => {
         dropdown.addOption('', 'Top-level Project');
         dropdown.setDisabled(true);
       });
       return;
     }
 
-    this.markRequired(new Setting(grid).setName('Project'), 'Required for Subproject and Big Action').addDropdown((dropdown) => {
+    this.markRequired(new Setting(hierarchy).setName('Project')).addDropdown((dropdown) => {
       dropdown.addOption('', 'Choose project');
       for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
       if (this.values.project && !this.getProjectOptions().some((card) => this.parentValue(card) === this.values.project)) {
@@ -915,7 +881,7 @@ export class EditProjectCardModal extends Modal {
     });
 
     if (this.values.type === 'big_action') {
-      this.markRequired(new Setting(grid).setName('Subproject'), 'Required for Big Action').addDropdown((dropdown) => {
+      this.markRequired(new Setting(hierarchy).setName('Subproject')).addDropdown((dropdown) => {
         dropdown.addOption('', this.values.project ? 'Choose subproject' : 'Choose project first');
         for (const subproject of this.getSubprojectOptions()) dropdown.addOption(this.parentValue(subproject), subproject.title);
         if (this.values.subproject && !this.getSubprojectOptions().some((card) => this.parentValue(card) === this.values.subproject)) {
@@ -1002,11 +968,19 @@ export interface ConfirmCardActionOptions {
 
 export class ResearchLogModal extends Modal {
   private values: ResearchLogValues;
+  private moduleOptions: string[];
   private onSave: (values: ResearchLogValues) => Promise<void>;
 
-  constructor(app: App, kind: ResearchLogKind, initial: Omit<ResearchLogValues, 'kind'>, onSave: (values: ResearchLogValues) => Promise<void>) {
+  constructor(
+    app: App,
+    kind: ResearchLogKind,
+    initial: Omit<ResearchLogValues, 'kind'>,
+    moduleOptions: string[],
+    onSave: (values: ResearchLogValues) => Promise<void>
+  ) {
     super(app);
     this.values = { kind, ...initial };
+    this.moduleOptions = moduleOptions;
     this.onSave = onSave;
   }
 
@@ -1020,7 +994,7 @@ export class ResearchLogModal extends Modal {
     });
 
     this.addText('Date', 'YYYY-MM-DD', 'date');
-    this.addText('Module heading', this.values.kind === 'experiment' ? 'Stacking' : 'DF analysis', 'module');
+    this.addModuleField();
     this.addText(this.values.kind === 'experiment' ? 'Sample' : 'Dataset / Sample', '[[Sample]]', 'subject');
     this.addText(this.values.kind === 'experiment' ? 'Conditions' : 'Method', '', 'conditionsOrMethod');
     this.addText('Result', '', 'result');
@@ -1048,6 +1022,29 @@ export class ResearchLogModal extends Modal {
         this.values[key] = value;
       });
     });
+  }
+
+  private addModuleField(): void {
+    if (this.moduleOptions.length) {
+      new Setting(this.contentEl)
+        .setName('Existing module')
+        .setDesc('Choose an existing experiment/analysis type, or type a new one below.')
+        .addDropdown((dropdown) => {
+          dropdown.addOption('', 'New / custom');
+          for (const module of this.moduleOptions) dropdown.addOption(module, module);
+          dropdown.setValue(this.moduleOptions.includes(this.values.module) ? this.values.module : '');
+          dropdown.onChange((value) => {
+            if (value) this.values.module = value;
+            this.renderForm();
+          });
+        });
+    }
+
+    this.addText('Module heading', this.values.kind === 'experiment' ? 'Stacking' : 'DF analysis', 'module');
+  }
+
+  private renderForm(): void {
+    this.onOpen();
   }
 
   private async save(): Promise<void> {

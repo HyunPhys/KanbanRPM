@@ -58,7 +58,7 @@ npm run package
 `npm run package` updates the root release files and prepares:
 
 ```text
-dist/kanban-rpm-0.3.7/
+dist/kanban-rpm-0.3.8/
   main.js
   manifest.json
   styles.css
@@ -131,6 +131,7 @@ KanbanRPM creates this folder in your vault:
 ```text
 KanbanRPM Workspace/
   cards/
+  communications/
   routines/
   timeline/
   attachments/
@@ -151,6 +152,22 @@ Archived cards are stored under the owning Project:
 ```text
 cards/Project/archive/Archived Big Action.md
 ```
+
+## Sample Workspace
+
+A general sample workspace is included for first-time users:
+
+```text
+examples/sample-workspace/
+```
+
+To try it:
+
+1. Install KanbanRPM in an Obsidian vault.
+2. Copy `examples/sample-workspace/KanbanRPM Workspace/` into that vault root.
+3. Run `KanbanRPM: Open board`.
+
+The sample uses fictional research, lab setup, teaching, and admin projects to demonstrate Board, Timeline, Gantt, Flow, Routine, Communication source notes, Research Logs, and small actions.
 
 ## Documentation
 

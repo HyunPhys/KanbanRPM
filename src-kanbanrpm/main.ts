@@ -269,6 +269,10 @@ export default class KanbanRPMPlugin extends Plugin {
     return this.repository.loadResearchLogs();
   }
 
+  async loadResearchLogModules(kind: ResearchLogKind): Promise<string[]> {
+    return this.repository.loadResearchLogModules(kind);
+  }
+
   async createCard(values: NewCardValues): Promise<TFile> {
     return this.repository.createCard(values);
   }
@@ -298,6 +302,10 @@ export default class KanbanRPMPlugin extends Plugin {
   async setCardStatus(card: ProjectCard, status: Status): Promise<void> {
     await this.repository.setCardStatus(card, status);
     this.maybePromptForResearchLog(card, status);
+  }
+
+  async setCardPriority(card: ProjectCard, priority: number): Promise<void> {
+    await this.repository.setCardPriority(card, priority);
   }
 
   async updateProjectState(card: ProjectCard, projectState: 'active' | 'closed'): Promise<void> {
@@ -440,6 +448,10 @@ export default class KanbanRPMPlugin extends Plugin {
     if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return;
     const kind = this.researchLogKindForCategory(card.workstreamType);
     if (!kind) return;
+    void this.openResearchLogPrompt(card, kind);
+  }
+
+  private async openResearchLogPrompt(card: ProjectCard, kind: ResearchLogKind): Promise<void> {
     const today = this.todayIso();
     const initial = {
       module: '',
@@ -449,7 +461,8 @@ export default class KanbanRPMPlugin extends Plugin {
       result: card.nextAction || '',
       link: `[[${card.file.basename}]]`,
     };
-    new ResearchLogModal(this.app, kind, initial, async (values) => {
+    const moduleOptions = await this.loadResearchLogModules(kind);
+    new ResearchLogModal(this.app, kind, initial, moduleOptions, async (values) => {
       await this.addResearchLogRow(card, values);
     }).open();
   }

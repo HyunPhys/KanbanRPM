@@ -40,6 +40,16 @@ Then enable `KanbanRPM`.
 
 KanbanRPM uses the same plugin files on desktop and mobile. Phone layouts are optimized for review/check workflows, while tablet landscape keeps a desktop-like layout.
 
+## Try The Sample Workspace
+
+After installing KanbanRPM, you can copy the sample workspace into a test vault:
+
+```text
+examples/sample-workspace/KanbanRPM Workspace/
+```
+
+Place that folder at the vault root, then run `KanbanRPM: Open board`. The sample demonstrates Project/Subproject/Big Action hierarchy, Timeline, Gantt, Flow, Routine, Communication notes, Research Logs, and small actions.
+
 ## Build From Source
 
 ```powershell
@@ -54,7 +64,7 @@ npm run smoke
 `npm run package` creates:
 
 ```text
-dist/kanban-rpm-0.3.7/
+dist/kanban-rpm-0.3.8/
   main.js
   manifest.json
   styles.css

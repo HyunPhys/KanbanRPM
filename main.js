@@ -702,6 +702,31 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     this.addHierarchyDropdowns(grid);
+    this.addPlanningFields(grid);
+  }
+  addPlanningFields(grid) {
+    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
+      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+    for (const [key, label] of [
+      ["startDate", "Start date"],
+      ["scheduledDate", "Scheduled date"],
+      ["nextReview", "Next review"],
+      ["dueDate", "Due date"]
+    ]) {
+      new import_obsidian.Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = "date";
+        input.setPlaceholder("YYYY-MM-DD");
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value;
+        });
+      });
+    }
   }
   addAdvancedFields(container) {
     const details = container.createEl("details", { cls: "kanban-rpm-modal-advanced" });
@@ -712,13 +737,6 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       text: "Optional structured hints. Prefer writing rich context in the document body."
     });
     const grid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
-    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
-      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
-      dropdown.setValue(this.values.priority);
-      dropdown.onChange((value) => {
-        this.values.priority = value;
-      });
-    });
     this.addVocabularyDropdown(grid, "Category", "workstreamType", this.plugin.settings.categories);
     new import_obsidian.Setting(details).setName("Waiting for").addText((input) => {
       input.setValue(this.values.waitingFor);
@@ -730,39 +748,6 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       input.setValue(this.values.blocker);
       input.onChange((value) => {
         this.values.blocker = value;
-      });
-    });
-    const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
-    new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.startDate);
-      input.onChange((value) => {
-        this.values.startDate = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Scheduled date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.scheduledDate);
-      input.onChange((value) => {
-        this.values.scheduledDate = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.nextReview);
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.dueDate);
-      input.onChange((value) => {
-        this.values.dueDate = value;
       });
     });
     this.addListField(details, "Source notes", "[[250506 Lab setup meeting]]", "sourceNotes");
@@ -782,14 +767,15 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
     });
   }
   addHierarchyDropdowns(grid) {
+    const hierarchy = grid.createDiv({ cls: "kanban-rpm-hierarchy-stack" });
     if (this.values.type === "project") {
-      new import_obsidian.Setting(grid).setName("Project scope").addDropdown((dropdown) => {
+      new import_obsidian.Setting(hierarchy).setName("Project scope").addDropdown((dropdown) => {
         dropdown.addOption("", "Top-level Project");
         dropdown.setDisabled(true);
       });
       return;
     }
-    this.markRequired(new import_obsidian.Setting(grid).setName("Project"), "Required for Subproject and Big Action").addDropdown((dropdown) => {
+    this.markRequired(new import_obsidian.Setting(hierarchy).setName("Project")).addDropdown((dropdown) => {
       dropdown.addOption("", "Choose project");
       for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
       dropdown.setValue(this.values.project);
@@ -800,7 +786,7 @@ var NewProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     if (this.values.type === "big_action") {
-      this.markRequired(new import_obsidian.Setting(grid).setName("Subproject"), "Required for Big Action").addDropdown((dropdown) => {
+      this.markRequired(new import_obsidian.Setting(hierarchy).setName("Subproject")).addDropdown((dropdown) => {
         dropdown.addOption("", this.values.project ? "Choose subproject" : "Choose project first");
         for (const subproject of this.getSubprojectOptions()) {
           dropdown.addOption(this.parentValue(subproject), subproject.title);
@@ -952,6 +938,31 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     this.addHierarchyDropdowns(grid);
+    this.addPlanningFields(grid);
+  }
+  addPlanningFields(grid) {
+    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
+      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
+      dropdown.setValue(this.values.priority);
+      dropdown.onChange((value) => {
+        this.values.priority = value;
+      });
+    });
+    for (const [key, label] of [
+      ["startDate", "Start date"],
+      ["scheduledDate", "Scheduled date"],
+      ["nextReview", "Next review"],
+      ["dueDate", "Due date"]
+    ]) {
+      new import_obsidian.Setting(grid).setName(label).addText((input) => {
+        input.inputEl.type = "date";
+        input.setPlaceholder("YYYY-MM-DD");
+        input.setValue(this.values[key]);
+        input.onChange((value) => {
+          this.values[key] = value;
+        });
+      });
+    }
   }
   addAdvancedFields(container) {
     const details = container.createEl("details", { cls: "kanban-rpm-modal-advanced" });
@@ -961,13 +972,6 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       text: "Optional structured hints. Prefer writing rich context in the document body."
     });
     const grid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
-    new import_obsidian.Setting(grid).setName("Priority").addDropdown((dropdown) => {
-      for (const value of ["1", "2", "3", "4", "5"]) dropdown.addOption(value, `P${value}`);
-      dropdown.setValue(this.values.priority);
-      dropdown.onChange((value) => {
-        this.values.priority = value;
-      });
-    });
     this.addVocabularyDropdown(grid, "Category", "workstreamType", this.plugin.settings.categories);
     new import_obsidian.Setting(details).setName("Waiting for").addText((input) => {
       input.setValue(this.values.waitingFor);
@@ -979,39 +983,6 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       input.setValue(this.values.blocker);
       input.onChange((value) => {
         this.values.blocker = value;
-      });
-    });
-    const dateGrid = details.createDiv({ cls: "kanban-rpm-modal-grid" });
-    new import_obsidian.Setting(dateGrid).setName("Start date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.startDate);
-      input.onChange((value) => {
-        this.values.startDate = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Scheduled date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.scheduledDate);
-      input.onChange((value) => {
-        this.values.scheduledDate = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Next review").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.nextReview);
-      input.onChange((value) => {
-        this.values.nextReview = value;
-      });
-    });
-    new import_obsidian.Setting(dateGrid).setName("Due date").addText((input) => {
-      input.inputEl.type = "date";
-      input.setPlaceholder("YYYY-MM-DD");
-      input.setValue(this.values.dueDate);
-      input.onChange((value) => {
-        this.values.dueDate = value;
       });
     });
     this.addListField(details, "Source notes", "[[250506 Lab setup meeting]]", "sourceNotes");
@@ -1031,14 +1002,15 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
     });
   }
   addHierarchyDropdowns(grid) {
+    const hierarchy = grid.createDiv({ cls: "kanban-rpm-hierarchy-stack" });
     if (this.values.type === "project") {
-      new import_obsidian.Setting(grid).setName("Project scope").addDropdown((dropdown) => {
+      new import_obsidian.Setting(hierarchy).setName("Project scope").addDropdown((dropdown) => {
         dropdown.addOption("", "Top-level Project");
         dropdown.setDisabled(true);
       });
       return;
     }
-    this.markRequired(new import_obsidian.Setting(grid).setName("Project"), "Required for Subproject and Big Action").addDropdown((dropdown) => {
+    this.markRequired(new import_obsidian.Setting(hierarchy).setName("Project")).addDropdown((dropdown) => {
       dropdown.addOption("", "Choose project");
       for (const project of this.getProjectOptions()) dropdown.addOption(this.parentValue(project), project.title);
       if (this.values.project && !this.getProjectOptions().some((card) => this.parentValue(card) === this.values.project)) {
@@ -1052,7 +1024,7 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
       });
     });
     if (this.values.type === "big_action") {
-      this.markRequired(new import_obsidian.Setting(grid).setName("Subproject"), "Required for Big Action").addDropdown((dropdown) => {
+      this.markRequired(new import_obsidian.Setting(hierarchy).setName("Subproject")).addDropdown((dropdown) => {
         dropdown.addOption("", this.values.project ? "Choose subproject" : "Choose project first");
         for (const subproject of this.getSubprojectOptions()) dropdown.addOption(this.parentValue(subproject), subproject.title);
         if (this.values.subproject && !this.getSubprojectOptions().some((card) => this.parentValue(card) === this.values.subproject)) {
@@ -1117,9 +1089,10 @@ var EditProjectCardModal = class extends import_obsidian.Modal {
   }
 };
 var ResearchLogModal = class extends import_obsidian.Modal {
-  constructor(app, kind, initial, onSave) {
+  constructor(app, kind, initial, moduleOptions, onSave) {
     super(app);
     this.values = { kind, ...initial };
+    this.moduleOptions = moduleOptions;
     this.onSave = onSave;
   }
   onOpen() {
@@ -1131,7 +1104,7 @@ var ResearchLogModal = class extends import_obsidian.Modal {
       text: "Add a compact log row to this Big Action. You can refine the living document afterwards."
     });
     this.addText("Date", "YYYY-MM-DD", "date");
-    this.addText("Module heading", this.values.kind === "experiment" ? "Stacking" : "DF analysis", "module");
+    this.addModuleField();
     this.addText(this.values.kind === "experiment" ? "Sample" : "Dataset / Sample", "[[Sample]]", "subject");
     this.addText(this.values.kind === "experiment" ? "Conditions" : "Method", "", "conditionsOrMethod");
     this.addText("Result", "", "result");
@@ -1153,6 +1126,23 @@ var ResearchLogModal = class extends import_obsidian.Modal {
         this.values[key] = value;
       });
     });
+  }
+  addModuleField() {
+    if (this.moduleOptions.length) {
+      new import_obsidian.Setting(this.contentEl).setName("Existing module").setDesc("Choose an existing experiment/analysis type, or type a new one below.").addDropdown((dropdown) => {
+        dropdown.addOption("", "New / custom");
+        for (const module2 of this.moduleOptions) dropdown.addOption(module2, module2);
+        dropdown.setValue(this.moduleOptions.includes(this.values.module) ? this.values.module : "");
+        dropdown.onChange((value) => {
+          if (value) this.values.module = value;
+          this.renderForm();
+        });
+      });
+    }
+    this.addText("Module heading", this.values.kind === "experiment" ? "Stacking" : "DF analysis", "module");
+  }
+  renderForm() {
+    this.onOpen();
   }
   async save() {
     await this.onSave(this.values);
@@ -2958,6 +2948,17 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     }
     menu.showAtMouseEvent(event);
   }
+  openPriorityMenu(event, card) {
+    const menu = new import_obsidian4.Menu();
+    for (const priority of [1, 2, 3, 4, 5]) {
+      menu.addItem((item) => {
+        item.setTitle(`P${priority}`).setChecked(priority === card.priority).onClick(() => {
+          void this.plugin.setCardPriority(card, priority);
+        });
+      });
+    }
+    menu.showAtMouseEvent(event);
+  }
   renderTimelineView(container, visibleBoardCards) {
     this.ensureTimelineStatusFilter();
     const days = this.timelineDays();
@@ -2980,6 +2981,9 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
       });
       column.dataset.day = day;
       const header = column.createDiv({ cls: "kanban-rpm-timeline-day-header" });
+      header.addEventListener("click", () => {
+        void this.openTimelineMemoFile(day);
+      });
       header.createDiv({ cls: "kanban-rpm-timeline-day-name", text: this.timelineDayLabel(day) });
       header.createDiv({ cls: "kanban-rpm-timeline-day-date", text: day.slice(5) });
       if (this.timelineMemoVisible) this.renderTimelineMemoSection(column, day);
@@ -3082,6 +3086,11 @@ var KanbanRPMView = class extends import_obsidian2.ItemView {
     if (typeof item !== "string" && item.cadence === "daily") {
       const today = todayIso();
       return days.includes(today) && this.isRecurringItemVisibleOnDay(today, item) && !this.isRecurringItemCompletedForOccurrence(today, item) ? today : "";
+    }
+    if (typeof item !== "string") {
+      const currentOccurrence = this.currentOccurrenceOnOrBefore(todayIso(), item);
+      if (currentOccurrence && this.isRecurringItemCompletedForOccurrence(currentOccurrence, item)) return "";
+      if (currentOccurrence && days.includes(currentOccurrence)) return currentOccurrence;
     }
     return (_a = days.find((day) => typeof item === "string" ? this.isRecurringVisibleOnDay(day, item) : this.isRecurringItemVisibleOnDay(day, item) && !this.isRecurringItemCompletedForOccurrence(day, item))) != null ? _a : "";
   }
@@ -3467,7 +3476,11 @@ ${addition}`;
       event.stopPropagation();
       this.openStatusMenu(event, marker.card);
     });
-    this.renderPriorityBadge(badges, marker.card);
+    this.renderPriorityBadge(badges, marker.card, "button").addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openPriorityMenu(event, marker.card);
+    });
     const actions = meta.createDiv({ cls: "kanban-rpm-timeline-marker-actions-menu" });
     this.createIconButton(actions, "pencil", `Edit ${marker.card.title}`, "kanban-rpm-timeline-marker-edit").addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3868,6 +3881,15 @@ ${addition}`;
     const next = this.nextOccurrenceAfter(day, item);
     return item.completedDates.some((completed) => completed >= day && (!next || completed < next));
   }
+  currentOccurrenceOnOrBefore(day, item) {
+    if (item.startDate && item.startDate > day) return "";
+    for (let offset = 0; offset <= 370; offset += 1) {
+      const candidate = addDays(day, -offset);
+      if (item.startDate && candidate < item.startDate) return "";
+      if (this.isRecurringItemVisibleOnDay(candidate, item)) return candidate;
+    }
+    return "";
+  }
   nextOccurrenceAfter(day, item) {
     for (let offset = 1; offset <= 370; offset += 1) {
       const candidate = addDays(day, offset);
@@ -3906,6 +3928,11 @@ ${addition}`;
     const content = await this.app.vault.read(file);
     const next = this.replaceMemoBody(content, memo);
     if (next !== content) await this.app.vault.modify(file, next);
+  }
+  async openTimelineMemoFile(day) {
+    this.preserveTimelineScrollFromDom();
+    const file = await this.ensureTimelineMemoFile(day, true);
+    if (file) await this.app.workspace.getLeaf(false).openFile(file);
   }
   async ensureTimelineMemoFile(day, create = false) {
     await this.plugin.ensureWorkspace();
@@ -4435,11 +4462,13 @@ ${addition}`;
     const cls = `kanban-rpm-status-badge kanban-rpm-status-${statusId}`;
     return tag === "button" ? container.createEl("button", { cls, text: label, attr: { title: `Edit status: ${label}` } }) : container.createSpan({ cls, text: label });
   }
-  renderPriorityBadge(container, card) {
-    return container.createSpan({
+  renderPriorityBadge(container, card, tag = "span") {
+    const options = {
       cls: `kanban-rpm-pill kanban-rpm-priority kanban-rpm-priority-${card.priority}`,
-      text: `P${card.priority}`
-    });
+      text: `P${card.priority}`,
+      attr: tag === "button" ? { title: `Edit priority: P${card.priority}` } : void 0
+    };
+    return tag === "button" ? container.createEl("button", options) : container.createSpan(options);
   }
   addCountMeta(container, count, label, cls) {
     if (count > 0) container.createSpan({ cls, text: `${label}: ${count}` });
@@ -4950,6 +4979,12 @@ var CardRepository = class {
       cardTitle: file.basename
     }));
   }
+  async loadResearchLogModules(kind) {
+    await this.plugin.ensureWorkspace();
+    const file = await this.getResearchLogFile();
+    const content = await this.plugin.app.vault.read(file);
+    return this.parseResearchLogModules(content, kind);
+  }
   async loadCardsInternal(archived) {
     await this.plugin.ensureWorkspace();
     const cards = [];
@@ -5043,6 +5078,9 @@ var CardRepository = class {
     const path = this.getAvailablePath(folder, baseName, "md");
     const content = this.getLivingDocTemplate(values, title, baseName);
     const file = await this.plugin.app.vault.create(path, content);
+    if (values.type === "project") {
+      await this.ensureFolder((0, import_obsidian6.normalizePath)(`${this.plugin.cardsFolder}/${baseName}`));
+    }
     new import_obsidian6.Notice(`KanbanRPM card created: ${title}`);
     await this.plugin.refreshViews();
     return file;
@@ -5091,10 +5129,15 @@ var CardRepository = class {
     if (refresh) await this.plugin.refreshViews();
   }
   async updateCard(card, values) {
-    var _a, _b;
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
     if (!(file instanceof import_obsidian6.TFile)) return;
     const statusChanged = card.status !== values.status;
+    const originalPath = file.path;
+    const originalBaseName = file.basename;
+    const title = values.title.trim() || file.basename;
+    const targetFolder = await this.getCreationFolder(values);
+    const targetPath = this.getAvailablePathForExistingFile(file.path, targetFolder, sanitizeFileName(title), file.extension);
+    const cardsBeforeUpdate = values.type === "subproject" ? await this.loadCards() : [];
     await this.updateCardFrontmatter(file, {
       type: values.type,
       primary_project: values.project.trim() || void 0,
@@ -5105,16 +5148,16 @@ var CardRepository = class {
       priority: parsePriority(values.priority),
       workstream_type: values.workstreamType.trim()
     }, false);
-    const title = values.title.trim() || file.basename;
     const content = await this.plugin.app.vault.read(file);
     let nextContent = this.updateLivingDocBody(content, title, values);
     if (statusChanged) nextContent = this.prependTimelineLog(nextContent, "Status", `${this.statusLabel(card.status)} -> ${this.statusLabel(values.status)}`);
+    nextContent = this.applyCompletionDueDateUpdate(nextContent, card, values.status);
     await this.plugin.app.vault.modify(file, nextContent);
     if (statusChanged) await this.logCardCompletionSideEffects(card, values.status, title);
-    if (title && sanitizeFileName(title) !== file.basename) {
-      const targetPath = this.getAvailablePath((_b = (_a = file.parent) == null ? void 0 : _a.path) != null ? _b : this.plugin.cardsFolder, sanitizeFileName(title), file.extension);
+    if ((0, import_obsidian6.normalizePath)(file.path) !== (0, import_obsidian6.normalizePath)(targetPath)) {
       await this.plugin.app.fileManager.renameFile(file, targetPath);
     }
+    await this.syncHierarchyAfterCardUpdate(card, values, cardsBeforeUpdate, originalPath, file.path, originalBaseName, file.basename);
     new import_obsidian6.Notice(`KanbanRPM card updated: ${title}`);
     await this.plugin.refreshViews();
   }
@@ -5158,7 +5201,8 @@ var CardRepository = class {
     }, false);
     if (movedCard && movedCard.status !== targetStatus) {
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, "Status", `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      let next = this.prependTimelineLog(content, "Status", `${this.statusLabel(movedCard.status)} -> ${this.statusLabel(targetStatus)}`);
+      next = this.applyCompletionDueDateUpdate(next, movedCard, targetStatus);
       await this.plugin.app.vault.modify(file, next);
       await this.logCardCompletionSideEffects(movedCard, targetStatus, file.basename, cards);
     }
@@ -5170,12 +5214,26 @@ var CardRepository = class {
     await this.updateCardFrontmatter(file, { status }, false);
     if (card.status !== status) {
       const content = await this.plugin.app.vault.read(file);
-      const next = this.prependTimelineLog(content, "Status", `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      let next = this.prependTimelineLog(content, "Status", `${this.statusLabel(card.status)} -> ${this.statusLabel(status)}`);
+      next = this.applyCompletionDueDateUpdate(next, card, status);
       await this.plugin.app.vault.modify(file, next);
       await this.logCardCompletionSideEffects(card, status, file.basename);
     }
     await this.plugin.refreshViews();
     new import_obsidian6.Notice(`KanbanRPM card moved to ${status}: ${card.title}`);
+  }
+  async setCardPriority(card, priority) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
+    if (!(file instanceof import_obsidian6.TFile)) return;
+    const normalized = Math.min(5, Math.max(1, Math.round(priority)));
+    await this.updateCardFrontmatter(file, { priority: normalized }, false);
+    if (card.priority !== normalized) {
+      const content = await this.plugin.app.vault.read(file);
+      const next = this.prependTimelineLog(content, "Priority", `P${card.priority} -> P${normalized}`);
+      await this.plugin.app.vault.modify(file, next);
+    }
+    await this.plugin.refreshViews();
+    new import_obsidian6.Notice(`KanbanRPM priority updated to P${normalized}: ${card.title}`);
   }
   async updateProjectState(card, projectState) {
     const file = this.plugin.app.vault.getAbstractFileByPath(card.path);
@@ -6242,6 +6300,98 @@ ${loose.map((card) => this.renderBriefCardLine(card, true)).join("\n")}`);
     }
     return path;
   }
+  getAvailablePathForExistingFile(currentPath, folder, baseName, extension) {
+    let index = 1;
+    let path = (0, import_obsidian6.normalizePath)(`${folder}/${baseName}.${extension}`);
+    const normalizedCurrent = (0, import_obsidian6.normalizePath)(currentPath);
+    while (true) {
+      const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+      if (!existing || (0, import_obsidian6.normalizePath)(existing.path) === normalizedCurrent) return path;
+      index += 1;
+      path = (0, import_obsidian6.normalizePath)(`${folder}/${baseName} ${index}.${extension}`);
+    }
+  }
+  async syncHierarchyAfterCardUpdate(card, values, cardsBeforeUpdate, oldPath, newPath, oldBaseName, newBaseName) {
+    if (this.pathParts(oldPath).includes("archive") || this.pathParts(newPath).includes("archive")) return;
+    if (values.type !== "project" && values.type !== "subproject") return;
+    const oldFolder = card.type === "project" ? (0, import_obsidian6.normalizePath)(`${this.plugin.cardsFolder}/${sanitizeFileName(oldBaseName)}`) : (0, import_obsidian6.normalizePath)(`${this.folderPathFromFilePath(oldPath)}/${sanitizeFileName(oldBaseName)}`);
+    const newFolder = values.type === "project" ? (0, import_obsidian6.normalizePath)(`${this.plugin.cardsFolder}/${sanitizeFileName(newBaseName)}`) : (0, import_obsidian6.normalizePath)(`${this.folderPathFromFilePath(newPath)}/${sanitizeFileName(newBaseName)}`);
+    await this.moveHierarchyFolderIfNeeded(oldFolder, newFolder);
+    if (values.type === "subproject") {
+      await this.updateSubprojectChildrenHierarchy(card, values, cardsBeforeUpdate, oldPath, oldFolder, newFolder, newBaseName);
+    }
+  }
+  async moveHierarchyFolderIfNeeded(oldFolder, newFolder) {
+    if (oldFolder === newFolder) {
+      await this.ensureFolder(newFolder);
+      return;
+    }
+    const folder = this.plugin.app.vault.getAbstractFileByPath(oldFolder);
+    if (!(folder instanceof import_obsidian7.TFolder)) {
+      await this.ensureFolder(newFolder);
+      return;
+    }
+    const existing = this.plugin.app.vault.getAbstractFileByPath(newFolder);
+    if (existing) {
+      new import_obsidian6.Notice(`KanbanRPM skipped folder move because target already exists: ${newFolder}`);
+      return;
+    }
+    await this.ensureFolder(this.folderPathFromFilePath(newFolder));
+    await this.plugin.app.fileManager.renameFile(folder, newFolder);
+  }
+  async updateSubprojectChildrenHierarchy(card, values, cardsBeforeUpdate, oldPath, oldFolder, newFolder, newBaseName) {
+    var _a;
+    const newProject = values.project.trim();
+    if (!newProject) return;
+    const oldProjectCandidates = this.linkMatchCandidates([card.primaryProject, card.project, ...card.projects]);
+    const oldSubprojectCandidates = this.linkMatchCandidates([
+      `[[${this.fileBaseNameFromPath(oldPath)}]]`,
+      `[[${card.title}]]`,
+      oldPath,
+      card.title
+    ]);
+    const newSubproject = `[[${newBaseName}]]`;
+    const oldFolderPrefix = `${(0, import_obsidian6.normalizePath)(oldFolder)}/`;
+    const newFolderPrefix = `${(0, import_obsidian6.normalizePath)(newFolder)}/`;
+    const children = cardsBeforeUpdate.filter((item) => {
+      if (item.type !== "big_action") return false;
+      if ((0, import_obsidian6.normalizePath)(item.path).startsWith(oldFolderPrefix)) return true;
+      return [item.primarySubproject, item.subproject, ...item.subprojects].some((link) => this.linkMatchesAny(link, oldSubprojectCandidates));
+    });
+    for (const child of children) {
+      const normalizedPath = (0, import_obsidian6.normalizePath)(child.path);
+      const expectedPath = normalizedPath.startsWith(oldFolderPrefix) ? (0, import_obsidian6.normalizePath)(`${newFolderPrefix}${normalizedPath.slice(oldFolderPrefix.length)}`) : normalizedPath;
+      const target = (_a = this.plugin.app.vault.getAbstractFileByPath(expectedPath)) != null ? _a : this.plugin.app.vault.getAbstractFileByPath(normalizedPath);
+      if (!(target instanceof import_obsidian6.TFile)) continue;
+      await this.updateCardFrontmatter(target, {
+        primary_project: newProject,
+        primary_subproject: newSubproject,
+        projects: this.replaceHierarchyLink(child.projects, oldProjectCandidates, newProject),
+        subprojects: this.replaceHierarchyLink(child.subprojects, oldSubprojectCandidates, newSubproject)
+      }, false);
+    }
+  }
+  replaceHierarchyLink(links, oldCandidates, replacement) {
+    return this.uniqueLinks([replacement, ...links.filter((link) => !this.linkMatchesAny(link, oldCandidates))]);
+  }
+  linkMatchesAny(link, candidates) {
+    if (!link) return false;
+    return Array.from(this.linkMatchCandidates([link])).some((candidate) => candidates.has(candidate));
+  }
+  linkMatchCandidates(links) {
+    const candidates = /* @__PURE__ */ new Set();
+    for (const link of links.map((item) => item.trim()).filter(Boolean)) {
+      const target = getWikiLinkTarget(link) || link;
+      const normalizedTarget = (0, import_obsidian6.normalizePath)(target).replace(/\.md$/i, "");
+      const base = normalizedTarget.split("/").pop() || normalizedTarget;
+      candidates.add(link);
+      candidates.add(target);
+      candidates.add(normalizedTarget);
+      candidates.add(base);
+      candidates.add(sanitizeFileName(base));
+    }
+    return candidates;
+  }
   getEffectiveFrontmatter(content) {
     const parsed = this.collectLeadingFrontmatter(content);
     return parsed.frontmatters.reduce((merged, frontmatter) => ({ ...merged, ...frontmatter }), {});
@@ -6628,6 +6778,25 @@ ${textareaToList(values.blocks).map((item) => `- ${item}`).join("\n")}
     next = replaceSection(next, "PM Metadata", this.renderNonEmptyMetadata(values).trimEnd());
     return next;
   }
+  applyCompletionDueDateUpdate(content, card, targetStatus) {
+    if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return content;
+    const doneDate = todayIso();
+    const currentDueDate = this.parseTimelineDate(getSection(content, "Timeline"), "Due date");
+    if (currentDueDate === doneDate) return content;
+    let next = this.upsertTimelineDate(content, "Due date", doneDate);
+    next = this.prependTimelineLog(next, "Due date", `${currentDueDate || "(none)"} -> ${doneDate}`, doneDate);
+    return next;
+  }
+  upsertTimelineDate(content, label, value) {
+    const timeline = getSection(content, "Timeline");
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`^\\s*[-*]\\s+${escaped}:\\s*\\d{4}-\\d{2}-\\d{2}\\s*$`, "im");
+    if (pattern.test(timeline)) {
+      return replaceSection(content, "Timeline", timeline.replace(pattern, `- ${label}: ${value}`));
+    }
+    const body = [timeline.trimEnd(), `- ${label}: ${value}`].filter(Boolean).join("\n");
+    return replaceSection(content, "Timeline", body);
+  }
   removeLegacyTitleHeading(content, title) {
     const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return content.replace(new RegExp(`^#\\s+${escaped}\\s*\\r?\\n{1,2}`, "m"), "");
@@ -6896,6 +7065,18 @@ ${next.slice(moduleSection.end)}`;
       });
     });
     return entries;
+  }
+  parseResearchLogModules(content, kind) {
+    const sectionTitle = kind === "experiment" ? "Experiment Log" : "Analysis Log";
+    const section = findHeadingSection(content, sectionTitle);
+    if (!section) return [];
+    const body = content.slice(section.bodyStart, section.end);
+    const modules = [];
+    for (const line of body.split(/\r?\n/)) {
+      const heading = line.match(/^#{4,6}\s+(.+)$/);
+      if (heading == null ? void 0 : heading[1]) modules.push(heading[1].trim());
+    }
+    return this.uniqueLinks(modules).sort((a, b) => a.localeCompare(b));
   }
   normalizeCardType(value) {
     if (value === "subproject" || value === "big_action" || value === "project") return value;
@@ -7484,6 +7665,9 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   async loadResearchLogs() {
     return this.repository.loadResearchLogs();
   }
+  async loadResearchLogModules(kind) {
+    return this.repository.loadResearchLogModules(kind);
+  }
   async createCard(values) {
     return this.repository.createCard(values);
   }
@@ -7507,6 +7691,9 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
   async setCardStatus(card, status) {
     await this.repository.setCardStatus(card, status);
     this.maybePromptForResearchLog(card, status);
+  }
+  async setCardPriority(card, priority) {
+    await this.repository.setCardPriority(card, priority);
   }
   async updateProjectState(card, projectState) {
     await this.repository.updateProjectState(card, projectState);
@@ -7619,6 +7806,9 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
     if (this.isCompletionStatus(card.status) || !this.isCompletionStatus(targetStatus)) return;
     const kind = this.researchLogKindForCategory(card.workstreamType);
     if (!kind) return;
+    void this.openResearchLogPrompt(card, kind);
+  }
+  async openResearchLogPrompt(card, kind) {
     const today = this.todayIso();
     const initial = {
       module: "",
@@ -7628,7 +7818,8 @@ var KanbanRPMPlugin = class extends import_obsidian9.Plugin {
       result: card.nextAction || "",
       link: `[[${card.file.basename}]]`
     };
-    new ResearchLogModal(this.app, kind, initial, async (values) => {
+    const moduleOptions = await this.loadResearchLogModules(kind);
+    new ResearchLogModal(this.app, kind, initial, moduleOptions, async (values) => {
       await this.addResearchLogRow(card, values);
     }).open();
   }

@@ -1,17 +1,17 @@
-# KanbanRPM v0.3.7
+# KanbanRPM v0.3.8
 
-KanbanRPM v0.3.7 adds communication source notes and small Timeline/terminology refinements.
+KanbanRPM v0.3.8 focuses on hierarchy-safe editing, Timeline refinements, Routine fixes, and a sample workspace for new users.
 
 ## Highlights
 
-- Added `New communication source note` for `Meeting (Internal)`, `Meeting (External)`, `Call`, `Chat`, and `Email`.
-- Communication source notes are stored under `KanbanRPM Workspace/communications/YYYY/<Type>/`.
-- Added yearly `Communication Log (YYYY).md` files with type-grouped Markdown tables.
-- Added participant suggestions sorted by prior usage frequency.
-- Removed the experimental `Capture communication` command and More-menu action.
-- Standardized user-facing `Next action` wording to `Current focus`.
-- Timeline card markers now show each card's `Current focus`.
-- Timeline view now preserves both horizontal and vertical scroll positions.
+- Added a general-purpose sample workspace under `examples/sample-workspace/`.
+- Project creation now creates the matching Project folder.
+- Editing a Subproject or Big Action hierarchy now moves the card file to the matching Project/Subproject folder.
+- Moving a Subproject to another Project also moves its child folder and updates child Big Action hierarchy metadata.
+- Timeline priority badges are clickable and can update card priority directly.
+- Research Log prompts now let you choose an existing experiment/analysis module heading or type a new one.
+- Routine sidebar now hides the current occurrence after it is marked done.
+- Edit/New document modals now keep priority and planning dates visible outside Advanced metadata.
 
 ## Install
 

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v0.3.8
+
+KanbanRPM v0.3.8 improves hierarchy-safe editing, Timeline quick edits, Routine visibility, and first-run examples.
+
+- Added a general sample workspace under `examples/sample-workspace/`.
+- Project creation now creates the matching Project folder.
+- Editing Subproject/Big Action hierarchy now moves files to the matching Project/Subproject folder.
+- Moving a Subproject to another Project also moves its child folder and updates child Big Action hierarchy metadata.
+- Timeline priority badges can now be clicked to change card priority.
+- Research Log prompts can reuse existing experiment/analysis module headings from a dropdown.
+- Routine sidebar hides the current occurrence after it is completed.
+- Edit/New document modals keep priority and planning dates outside Advanced metadata.
+
 ## v0.3.7
 
 KanbanRPM v0.3.7 adds communication source notes and small terminology/UI refinements.

@@ -1068,12 +1068,22 @@
 .kanban-rpm-table .kanban-rpm-priority,
 .kanban-rpm-timeline-marker-meta .kanban-rpm-priority {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: auto;
   min-width: 28px;
   min-height: 18px;
   padding: 2px 7px;
   border-radius: 999px;
   font-size: 10px;
+}
+
+button.kanban-rpm-priority {
+  border: 0;
+  box-shadow: none;
+  cursor: pointer;
+  height: auto;
+  line-height: 1.1;
 }
 
 .kanban-rpm-table-action-link {
@@ -2228,6 +2238,12 @@ button.kanban-rpm-status-closed,
   padding: 10px;
   border-bottom: 1px solid var(--rpm-border);
   background: var(--rpm-panel);
+  cursor: pointer;
+  user-select: none;
+}
+
+.kanban-rpm-timeline-day-header:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 8%, var(--rpm-panel));
 }
 
 .kanban-rpm-timeline-day-name {
@@ -3099,7 +3115,16 @@ button.kanban-rpm-status-closed,
   background: var(--text-error);
 }
 
+button.kanban-rpm-priority-1 {
+  background: var(--text-error);
+}
+
 .kanban-rpm-priority-2 {
+  background: var(--text-warning);
+  color: var(--background-primary);
+}
+
+button.kanban-rpm-priority-2 {
   background: var(--text-warning);
   color: var(--background-primary);
 }
@@ -3108,8 +3133,18 @@ button.kanban-rpm-status-closed,
   background: var(--interactive-accent);
 }
 
+button.kanban-rpm-priority-3 {
+  background: var(--interactive-accent);
+}
+
 .kanban-rpm-priority-4,
 .kanban-rpm-priority-5 {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+button.kanban-rpm-priority-4,
+button.kanban-rpm-priority-5 {
   background: var(--background-modifier-border);
   color: var(--text-normal);
 }
@@ -3361,6 +3396,31 @@ button.kanban-rpm-status-closed,
 .kanban-rpm-modal-grid .setting-item {
   border-top: 0;
   padding: 0;
+}
+
+.kanban-rpm-hierarchy-stack {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.kanban-rpm-hierarchy-stack .setting-item {
+  border: 0;
+  display: grid;
+  grid-template-columns: 98px minmax(0, 1fr);
+  gap: 8px;
+  padding: 0;
+}
+
+.kanban-rpm-hierarchy-stack .setting-item-info,
+.kanban-rpm-hierarchy-stack .setting-item-control,
+.kanban-rpm-hierarchy-stack select {
+  min-width: 0;
+  width: 100%;
+}
+
+.kanban-rpm-hierarchy-stack .setting-item-control {
+  justify-content: stretch;
 }
 
 @media (max-width: 900px) {
